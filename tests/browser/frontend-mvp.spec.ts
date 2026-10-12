@@ -1619,6 +1619,12 @@ test.describe("Artifact Server frontend MVP", () => {
       expect(shell.headers()["x-content-type-options"]).toBe("nosniff");
       expect(shell.headers()["cache-control"]).toBe("no-cache, must-revalidate");
 
+      const frame = await fixture.page.request.get(`${fixture.server.baseUrl}/review-frame`);
+      const frameCsp = frame.headers()["content-security-policy"];
+      expect(frameCsp).toMatch(/script-src [^;]*https:\/\/cdnjs\.cloudflare\.com/u);
+      expect(frameCsp).toMatch(/style-src [^;]*https:\/\/fonts\.googleapis\.com/u);
+      expect(frameCsp).not.toMatch(/connect-src [^;]*cdnjs/u);
+
       const apiFallback = await fixture.page.request.get(
         `${fixture.server.baseUrl}/api/v1/route-that-does-not-exist`,
       );

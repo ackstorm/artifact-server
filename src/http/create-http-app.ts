@@ -4036,19 +4036,31 @@ function isContentBootstrapRequest(requestUrl: URL): boolean {
  * `srcdoc` sandbox. Relative resources resolve through an exact-version content
  * host, so the inherited policy permits network access only to configured
  * content hosts. The frame still cannot reach the trusted application origin.
+ *
+ * Scripts may also load from the public CDNs and stylesheets from Google Fonts
+ * that claude.ai Artifacts allow, so pages written for that platform render
+ * here unchanged.
  */
+const reviewFrameScriptCdns = [
+  "https://cdnjs.cloudflare.com",
+  "https://cdn.jsdelivr.net/npm/",
+  "https://unpkg.com",
+  "https://cdn.tailwindcss.com",
+  "https://code.jquery.com",
+].join(" ");
+const reviewFrameStyleCdns = "https://fonts.googleapis.com";
+
 function reviewFrameContentSecurityPolicy(contentDomain: string): string {
   const httpContent = `http://*.${contentDomain}:*`;
   const httpsContent = `https://*.${contentDomain}`;
   const contentSources = `${httpContent} ${httpsContent}`;
   return [
     "default-src 'none'",
-    `script-src 'self' 'unsafe-inline' ${contentSources}`,
-    `style-src 'self' 'unsafe-inline' ${contentSources}`,
+    `script-src 'self' 'unsafe-inline' ${contentSources} ${reviewFrameScriptCdns}`,
+    `style-src 'self' 'unsafe-inline' ${contentSources} ${reviewFrameStyleCdns}`,
     // Preserve the viewer's existing support for authored remote images,
-    // fonts, and media. The lease host is still the only remote script,
-    // stylesheet, and fetch source, so artifact code cannot send lease-scoped
-    // data to arbitrary origins.
+    // fonts, and media. The lease host is still the only fetch source, so
+    // artifact code cannot send lease-scoped data to arbitrary origins.
     "img-src 'self' * data: blob:",
     "font-src * data:",
     "media-src * data: blob:",
