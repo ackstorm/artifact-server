@@ -39,6 +39,9 @@ concurrency:
 jobs:
   verify:
     name: Verify release reference
+    # Publishes the @plannotator/* npm adapters, which only the upstream repository may do;
+    # ackstorm/artifact-server releases through ci.yml's fork-image job.
+    if: github.repository == 'plannotator/artifact-server'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:

@@ -1,0 +1,115 @@
+name: Ackstorm Release
+
+# A vX.Y.Z tag publishes ghcr.io/ackstorm/artifact-server:vX.Y.Z and its GitHub
+# release. The gate runs ci.yml's release tier, which installs without the pnpm
+# cache, so nothing a pull request can write reaches the published image.
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ackstorm-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    name: Canonical release gate
+    if: github.repository == 'ackstorm/artifact-server'
+    uses: ./.github/workflows/ci.yml
+    with:
+      tier: release
+
+  image:
+    name: Publish server image and release
+    needs: gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: write
+      packages: write
+    env:
+      ARTIFACTSERVER_IMAGE: ghcr.io/ackstorm/artifact-server:${{ github.ref_name }}
+    steps:
+      - name: Checkout verified source
+        uses: actions/checkout@v7.0.1 # zizmor: ignore[unpinned-uses] Fork policy pins actions to version tags.
+        with:
+          persist-credentials: false
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6.1.0 # zizmor: ignore[unpinned-uses] Fork policy pins actions to version tags.
+        with:
+          version: 10.34.3
+      - name: Install Node.js
+        uses: actions/setup-node@v7.0.0 # zizmor: ignore[unpinned-uses] Fork policy pins actions to version tags.
+        with:
+          node-version: 24.15.0
+          package-manager-cache: false
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Require the tag to match the release version
+        run: node scripts/check-release-version.mjs
+      - name: Prepare BuildKit
+        uses: docker/setup-buildx-action@v3 # zizmor: ignore[unpinned-uses] Fork policy pins actions to version tags.
+      - name: Sign in to Ackstorm GHCR
+        env:
+          ARTIFACTSERVER_GITHUB_ACTOR: ${{ github.actor }}
+          ARTIFACTSERVER_GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker login ghcr.io --username "$ARTIFACTSERVER_GITHUB_ACTOR" \
+            --password-stdin <<< "$ARTIFACTSERVER_GITHUB_TOKEN"
+      - name: Require an unused version tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          if docker buildx imagetools inspect "$ARTIFACTSERVER_IMAGE" >/dev/null 2>&1; then
+            printf 'Refusing to overwrite published image %s.\n' "$ARTIFACTSERVER_IMAGE" >&2
+            exit 1
+          fi
+      - name: Build and publish verified fork image
+        env:
+          ARTIFACT_SERVER_IMAGE_PUSH: "true"
+          ARTIFACT_SERVER_IMAGE_TAGS: ${{ env.ARTIFACTSERVER_IMAGE }}
+          ARTIFACT_SERVER_IMAGE_SOURCE: https://github.com/ackstorm/artifact-server
+        run: pnpm package:oci release/fork-image
+      - name: Verify published image and record delivery metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected=$(jq --exit-status --raw-output '.imageIndexDigest' \
+            release/fork-image/*.oci.tar.manifest.json)
+          actual="sha256:$(docker buildx imagetools inspect --raw \
+            "$ARTIFACTSERVER_IMAGE" | sha256sum | cut -d ' ' -f 1)"
+          if [[ "$actual" != "$expected" ]]; then
+            printf 'Published image resolved to %s, expected %s.\n' "$actual" "$expected" >&2
+            exit 1
+          fi
+          {
+            printf 'Image: `%s`\n\n' "$ARTIFACTSERVER_IMAGE"
+            printf 'Source commit: `%s`\n\n' "$GITHUB_SHA"
+            printf 'Verified image index: `%s`\n' "$actual"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload verified fork image
+        uses: actions/upload-artifact@v7.0.1 # zizmor: ignore[unpinned-uses] Fork policy pins actions to version tags.
+        with:
+          name: fork-image-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            release/fork-image/*.oci.tar
+            release/fork-image/*.oci.tar.manifest.json
+          if-no-files-found: error
+          retention-days: 7
+      - name: Create the GitHub release
+        env:
+          ARTIFACTSERVER_TAG: ${{ github.ref_name }}
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh release create "$ARTIFACTSERVER_TAG"
+          --repo "$GITHUB_REPOSITORY"
+          --verify-tag
+          --generate-notes
+          --title "Artifact Server $ARTIFACTSERVER_TAG"
+          --notes "Image: \`$ARTIFACTSERVER_IMAGE\`"
