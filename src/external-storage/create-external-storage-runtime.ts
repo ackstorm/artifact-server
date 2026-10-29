@@ -93,6 +93,7 @@ export interface ExternalStorageRuntimeConfig {
   readonly postgresMaxConnections?: number;
   readonly runtimeLifecycle?: RuntimeLifecycle;
   readonly serviceVersion?: string;
+  readonly sessionLifetimeMilliseconds?: number;
   readonly stagingCleanupPolicy?: StagingCleanupPolicy;
 }
 
@@ -177,6 +178,7 @@ export async function createExternalStorageRuntime(
       localBootstrapCredential: config.localBootstrapCredential ?? null,
       protectBootstrapAdministrator: false,
       repository,
+      sessionLifetimeMilliseconds: config.sessionLifetimeMilliseconds,
       staging,
       stagingCleanupPolicy,
     };
