@@ -370,7 +370,10 @@ describe.sequential("external-storage Postgres and S3 runtime", () => {
               'comment_create', 'comment_reply', 'comment_update', 'comment_resolve',
               'comment_reopen', 'comment_delete'
             ))`);
-          yield* sql.unsafe("DELETE FROM artifact_server_postgres_migrations WHERE migration_id = 12");
+          // Roll back to schema 11: the migrator applies only migrations after
+          // the newest recorded one, so later rows must go with review mode.
+          yield* sql.unsafe("ALTER TABLE staged_uploads DROP COLUMN grant_digest");
+          yield* sql.unsafe("DELETE FROM artifact_server_postgres_migrations WHERE migration_id >= 12");
         }));
       }));
     } finally {await database.close();}
