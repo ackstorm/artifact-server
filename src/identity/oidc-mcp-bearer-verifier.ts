@@ -86,10 +86,11 @@ export class OidcMcpBearerVerifier implements ExternalMcpBearerVerifier {
     this.#audience = config.audience;
     const providerFetch = config.fetch ?? globalThis.fetch;
     this.#fetch = (input, init) => providerFetch(input, init);
-    this.#issuer = requireOidcIssuer(config.issuer, "The OIDC issuer");
-    // Browser login records the same provider name, so one person keeps one
-    // membership whether they arrive through the interface or through MCP.
-    this.#provider = `oidc:${this.#issuer}`;
+    // Tokens carry the issuer exactly as published, trailing slash included;
+    // the provider name stays normalized so browser login records the same one
+    // and one person keeps one membership through the interface and MCP.
+    this.#issuer = config.issuer.trim();
+    this.#provider = `oidc:${requireOidcIssuer(config.issuer, "The OIDC issuer")}`;
     this.#userInfoEndpoint = config.userInfoEndpoint ?? null;
     this.#jwks = createRemoteJWKSet(new URL(config.jwksUri), {
       cacheMaxAge: jwksCacheMilliseconds,

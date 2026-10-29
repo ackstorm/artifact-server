@@ -4,7 +4,7 @@ fullnameOverride: ""
 
 image:
   repository: ghcr.io/plannotator/artifact-server
-  tag: "0.1.2"
+  tag: "0.2.0"
   digest: ""
   allowMutableTag: false
   pullPolicy: IfNotPresent
@@ -20,6 +20,7 @@ configuration:
   postgresPoolSize: 10
   requestLogSampleRate: 0.01
   readinessWithdrawalMilliseconds: 1000
+  sessionLifetimeHours: 12
   shutdownDeadlineMilliseconds: 10000
   s3:
     bucket: ""

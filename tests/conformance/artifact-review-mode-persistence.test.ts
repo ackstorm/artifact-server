@@ -38,6 +38,7 @@ describe("artifact review mode persistence", () => {
       createdAt,
       expiresAt: "2026-10-12T00:00:00.000Z",
       files: manifest.entries.map((entry) => ({entry, storageToken: "slot"})),
+      grantDigest: null,
       id: "upl_review",
       manifest,
       principalId: "publisher",
@@ -94,7 +95,7 @@ describe("artifact review mode persistence", () => {
     const {command, result} = await publish("interact");
     await repository.createStagedUpload({
       createdAt, expiresAt: "2026-10-12T00:00:00.000Z", files: manifest.entries.map((entry) => ({entry, storageToken: "second_slot"})),
-      id: "upl_second", manifest, principalId: "publisher", projectId,
+      grantDigest: null, id: "upl_second", manifest, principalId: "publisher", projectId,
     });
     await repository.markStagedFileUploaded(projectId, "upl_second", "publisher", "second_slot", createdAt);
     const second = await repository.commitVersion({

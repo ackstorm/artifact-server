@@ -122,6 +122,7 @@ import type {
   SetProjectArchive,
   SourceBindingRepository,
   SourceBindingWrite,
+  StagedUploadGrantRecord,
   StagedUploadRepository,
 } from "../core/ports.js";
 import {
@@ -333,6 +334,11 @@ const stagedUploadFileRowSchema = z.object({
   size: z.number().int().nonnegative(),
   storageToken: z.string(),
   uploadedAt: z.string().nullable(),
+});
+const stagedUploadGrantRowSchema = z.object({
+  grantDigest: z.string().nullable(),
+  principalId: z.string(),
+  projectId: z.string(),
 });
 const expiredStagedUploadRowSchema = z.object({
   id: z.string(),
@@ -2425,8 +2431,9 @@ export class SqliteArtifactRepository implements
           .prepare(
             `INSERT INTO staged_uploads (
               id, project_id, principal_id, status, manifest_digest, entry_path,
-              routing_mode, created_at, expires_at, committed_version_id
-            ) VALUES (?, ?, ?, 'open', ?, ?, ?, ?, ?, NULL)`,
+              routing_mode, created_at, expires_at, committed_version_id,
+              grant_digest
+            ) VALUES (?, ?, ?, 'open', ?, ?, ?, ?, ?, NULL, ?)`,
           )
           .run(
             command.id,
@@ -2437,6 +2444,7 @@ export class SqliteArtifactRepository implements
             command.manifest.routingMode,
             command.createdAt,
             command.expiresAt,
+            command.grantDigest,
           );
 
         const insertFile = this.#database.prepare(
@@ -2473,6 +2481,19 @@ export class SqliteArtifactRepository implements
     return Promise.resolve().then(() =>
       this.#readStagedUploadOrNull(projectId, uploadId, principalId),
     );
+  }
+
+  findStagedUploadGrant(uploadId: string): Promise<StagedUploadGrantRecord | null> {
+    return Promise.resolve().then(() => {
+      const row = this.#database
+        .prepare(
+          `SELECT grant_digest AS grantDigest, principal_id AS principalId,
+            project_id AS projectId
+          FROM staged_uploads WHERE id = ?`,
+        )
+        .get(uploadId);
+      return stagedUploadGrantRowSchema.nullable().parse(row ?? null);
+    });
   }
 
   listExpiredStagedUploads(
@@ -4891,6 +4912,7 @@ export class SqliteArtifactRepository implements
         created_at TEXT NOT NULL,
         expires_at TEXT NOT NULL,
         committed_version_id TEXT REFERENCES versions(id),
+        grant_digest TEXT,
         CHECK (
           (status = 'open' AND committed_version_id IS NULL)
           OR (status = 'committed' AND committed_version_id IS NOT NULL)
@@ -4985,6 +5007,7 @@ export class SqliteArtifactRepository implements
     this.#widenRegisteredAgentsIfNeeded();
     this.#addSourceBindingColumnsIfMissing();
     this.#addGitHistoryMirrorTablesIfMissing();
+    this.#addStagedUploadGrantIfMissing();
     this.#database.exec(`
       CREATE INDEX IF NOT EXISTS projects_active_created
         ON projects (archived_at, created_at, id);
@@ -5031,6 +5054,13 @@ export class SqliteArtifactRepository implements
       `);
       for (const trigger of triggers) this.#database.exec(trigger.sql);
     });
+  }
+
+  /** Give staged uploads a nullable grant digest; older uploads keep none. */
+  #addStagedUploadGrantIfMissing(): void {
+    if (!this.#tableColumns("staged_uploads").includes("grant_digest")) {
+      this.#database.exec("ALTER TABLE staged_uploads ADD COLUMN grant_digest TEXT");
+    }
   }
 
   #addArtifactSearchNameIfMissing(): void {

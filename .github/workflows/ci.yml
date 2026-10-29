@@ -50,12 +50,12 @@ jobs:
         with:
           version: 10.34.3
       - name: Install Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24.15.0
           cache: pnpm
       - name: Install Ruby
-        uses: ruby/setup-ruby@bec3f19a76460dbe12f60def7d1a77585f07516c # v1.322.0
+        uses: ruby/setup-ruby@824c0e29fdfc7d689c191c27acc969d2d04b7dd8 # v1.331.0
         with:
           ruby-version: "3.3"
       - name: Install dependencies
@@ -79,7 +79,7 @@ jobs:
       - name: Verify GCP Pulumi project
         run: pnpm test:gcp-pulumi
       - name: Upload compiled application
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: pr-compiled-${{ github.run_id }}-${{ github.run_attempt }}
           path: dist/
@@ -102,14 +102,14 @@ jobs:
         with:
           version: 10.34.3
       - name: Install Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24.15.0
           cache: pnpm
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Download compiled application
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: pr-compiled-${{ github.run_id }}-${{ github.run_attempt }}
           path: dist
@@ -136,7 +136,7 @@ jobs:
         with:
           version: 10.34.3
       - name: Install Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24.15.0
           cache: pnpm
@@ -145,7 +145,7 @@ jobs:
       - name: Install Chromium
         run: pnpm exec playwright install --with-deps chromium
       - name: Download compiled application
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: pr-compiled-${{ github.run_id }}-${{ github.run_attempt }}
           path: dist
@@ -155,7 +155,7 @@ jobs:
         run: pnpm test:web:prebuilt
       - name: Upload browser diagnostics
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: pr-browser-${{ github.run_id }}-${{ github.run_attempt }}
           path: test-results/browser/
@@ -178,14 +178,14 @@ jobs:
         with:
           version: 10.34.3
       - name: Install Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24.15.0
           cache: pnpm
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Download compiled application
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: pr-compiled-${{ github.run_id }}-${{ github.run_attempt }}
           path: dist
@@ -209,12 +209,12 @@ jobs:
         with:
           version: 10.34.3
       - name: Install Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24.15.0
           cache: pnpm
       - name: Install Ruby
-        uses: ruby/setup-ruby@bec3f19a76460dbe12f60def7d1a77585f07516c # v1.322.0
+        uses: ruby/setup-ruby@824c0e29fdfc7d689c191c27acc969d2d04b7dd8 # v1.331.0
         with:
           ruby-version: "3.3"
       - name: Install dependencies
@@ -249,18 +249,18 @@ jobs:
           version: 10.34.3
       - name: Install Node.js without a release cache
         if: inputs.tier == 'release'
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24.15.0
           package-manager-cache: false
       - name: Install Node.js with the pnpm cache
         if: inputs.tier != 'release'
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24.15.0
           cache: pnpm
       - name: Install Ruby
-        uses: ruby/setup-ruby@bec3f19a76460dbe12f60def7d1a77585f07516c # v1.322.0
+        uses: ruby/setup-ruby@824c0e29fdfc7d689c191c27acc969d2d04b7dd8 # v1.331.0
         with:
           ruby-version: "3.3"
       - name: Install dependencies
@@ -342,7 +342,7 @@ jobs:
         run: pnpm test:oidc
 
       - name: Upload full-gate evidence
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: full-gate-evidence-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
@@ -353,86 +353,3 @@ jobs:
             release/*.tgz
           if-no-files-found: error
           retention-days: 14
-
-  fork-image:
-    name: Publish Ackstorm server image
-    if: >-
-      github.repository == 'ackstorm/artifact-server' &&
-      github.ref == 'refs/heads/main' &&
-      (github.event_name == 'push' ||
-       (github.event_name == 'workflow_dispatch' && inputs.tier == 'full'))
-    needs: [full, portable]
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
-    permissions:
-      contents: read
-      packages: write
-    env:
-      ARTIFACTSERVER_IMAGE: ghcr.io/ackstorm/artifact-server:v0.1.2-ackstorm.${{ github.run_number }}
-    steps:
-      - name: Checkout verified source
-        uses: actions/checkout@v7.0.1 # zizmor: ignore[unpinned-uses] Fork policy pins actions to version tags.
-        with:
-          persist-credentials: false
-      - name: Install pnpm
-        uses: pnpm/action-setup@v6.1.0 # zizmor: ignore[unpinned-uses] Fork policy pins actions to version tags.
-        with:
-          version: 10.34.3
-      - name: Install Node.js
-        uses: actions/setup-node@v7.0.0 # zizmor: ignore[unpinned-uses] Fork policy pins actions to version tags.
-        with:
-          node-version: 24.15.0
-          package-manager-cache: false
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-      - name: Prepare BuildKit
-        uses: docker/setup-buildx-action@v3 # zizmor: ignore[unpinned-uses] Fork policy pins actions to version tags.
-      - name: Sign in to Ackstorm GHCR
-        env:
-          ARTIFACTSERVER_GITHUB_ACTOR: ${{ github.actor }}
-          ARTIFACTSERVER_GITHUB_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          docker login ghcr.io --username "$ARTIFACTSERVER_GITHUB_ACTOR" \
-            --password-stdin <<< "$ARTIFACTSERVER_GITHUB_TOKEN"
-      - name: Require an unused version tag
-        shell: bash
-        run: |
-          set -euo pipefail
-          if docker buildx imagetools inspect "$ARTIFACTSERVER_IMAGE" >/dev/null 2>&1; then
-            printf 'Refusing to overwrite published image %s.\n' "$ARTIFACTSERVER_IMAGE" >&2
-            exit 1
-          fi
-      - name: Build and publish verified fork image
-        env:
-          ARTIFACT_SERVER_IMAGE_PUSH: "true"
-          ARTIFACT_SERVER_IMAGE_TAGS: ${{ env.ARTIFACTSERVER_IMAGE }}
-          ARTIFACT_SERVER_IMAGE_SOURCE: https://github.com/ackstorm/artifact-server
-        run: pnpm package:oci release/fork-image
-      - name: Verify published image and record delivery metadata
-        shell: bash
-        run: |
-          set -euo pipefail
-          expected=$(jq --exit-status --raw-output '.imageIndexDigest' \
-            release/fork-image/*.oci.tar.manifest.json)
-          actual="sha256:$(docker buildx imagetools inspect --raw \
-            "$ARTIFACTSERVER_IMAGE" | sha256sum | cut -d ' ' -f 1)"
-          if [[ "$actual" != "$expected" ]]; then
-            printf 'Published image resolved to %s, expected %s.\n' "$actual" "$expected" >&2
-            exit 1
-          fi
-          {
-            printf 'Image: `%s`\n\n' "$ARTIFACTSERVER_IMAGE"
-            printf 'Source commit: `%s`\n\n' "$GITHUB_SHA"
-            printf 'Verified image index: `%s`\n' "$actual"
-          } >> "$GITHUB_STEP_SUMMARY"
-      - name: Upload verified fork image
-        uses: actions/upload-artifact@v7.0.1 # zizmor: ignore[unpinned-uses] Fork policy pins actions to version tags.
-        with:
-          name: fork-image-${{ github.run_id }}-${{ github.run_attempt }}
-          path: |
-            release/fork-image/*.oci.tar
-            release/fork-image/*.oci.tar.manifest.json
-          if-no-files-found: error
-          retention-days: 7

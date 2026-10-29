@@ -1,6 +1,6 @@
 {
   "name": "@plannotator/artifact-server-opencode",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "OpenCode plugin bridge for Artifact Server: receives annotation bundles as follow-up prompts and closes them through the comment API.",
   "type": "module",
   "keywords": [
@@ -21,7 +21,7 @@
   },
   "dependencies": {
     "@plannotator/agent-bridge": "^0.1.1",
-    "zod": "4.4.3"
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "typescript": "7.0.2"
