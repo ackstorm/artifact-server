@@ -24,7 +24,7 @@
     "@plannotator/agent-bridge": "^0.1.1"
   },
   "peerDependencies": {
-    "typebox": "1.4.2"
+    "typebox": "^1.3.7"
   },
   "devDependencies": {
     "typebox": "1.4.2",
