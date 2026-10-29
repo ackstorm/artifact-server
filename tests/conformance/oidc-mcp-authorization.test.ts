@@ -313,6 +313,37 @@ describe("generic OIDC MCP authorization", () => {
     }))).status).toBe(200);
   });
 
+  test("an issuer published with a trailing slash verifies its tokens under the same provider", async () => {
+    expect.hasAssertions();
+    const slashed = `${issuer}/`;
+    const hosted = await createOidcHostedAuthentication({
+      applicationOrigin: "https://staging.artifactserver.test",
+      clientId: "artifact-server",
+      clientSecret: null,
+      fetch: async (input, init) => {
+        const response = await fetch(input, init);
+        const url = input instanceof Request ? input.url : input.toString();
+        if (!url.endsWith("/.well-known/openid-configuration")) {
+          return response;
+        }
+        return documentResponse({...discoveryDocument(issuer), issuer: slashed});
+      },
+      issuer: slashed,
+      scopes: "openid email profile",
+    });
+    expect(hosted.mcpOAuthResource.authorizationServerMetadata)
+      .toMatchObject({issuer: slashed});
+    const verified = await Effect.runPromise(
+      hosted.externalMcpOAuthVerifier.verify(
+        Redacted.make(await issueToken({issuer: slashed})),
+      ),
+    );
+    // The same person keeps the binding browser login records for this issuer.
+    expect(verified.provider).toBe(`oidc:${issuer}`);
+    await expect(verifiedSubject(hosted.externalMcpOAuthVerifier, await
+      issueToken({}))).rejects.toThrow("invalid, expired, or for another resource");
+  });
+
   test("the MCP resource follows the application origin and nothing else opens it", async () => {
     expect.hasAssertions();
     const hosted = await createOidcHostedAuthentication({

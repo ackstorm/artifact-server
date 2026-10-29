@@ -114,6 +114,44 @@ describe("OIDC id_token validation", () => {
     expect(rowCount(installation, "installation_members")).toBe(1);
   });
 
+  test("an issuer published with a trailing slash completes login under the same binding", async () => {
+    expect((await completeStubLogin(server.baseUrl)).status).toBe(303);
+
+    // Authentik publishes its per-provider issuer with a trailing slash and
+    // signs `iss` with exactly that value.
+    provider.defects.discoveryIssuer = `${provider.issuer}/`;
+    provider.claims.issuer = `${provider.issuer}/`;
+    await server.stop();
+    server = await startTestServer(installation, {
+      applicationOrigin,
+      bootstrapAdministratorEmail: administratorEmail,
+      browserAccess: privateTeamBrowserAccess(browserLoginKinds.oidc),
+      clock,
+      interactiveIdentityProvider: new OidcIdentityProvider({
+        clientId: provider.clientId,
+        clientSecret: null,
+        issuer: `${provider.issuer}/`,
+        redirectUri: `${applicationOrigin}/auth/callback`,
+        scopes,
+      }),
+      port: Number(new URL(applicationOrigin).port),
+    });
+
+    const login = await completeStubLogin(server.baseUrl);
+    expect(login.status).toBe(303);
+    const session = await fetch(`${server.baseUrl}/api/v1/session`, {
+      headers: {Cookie: applicationCookieHeader(login.headers.getSetCookie())},
+    });
+    expect(session.status).toBe(200);
+
+    // The comparison stays exact: this issuer refuses an `iss` without the slash.
+    provider.claims.issuer = provider.issuer;
+    await expectProviderRefusalFor(server.baseUrl);
+
+    expect(rowCount(installation, "installation_members")).toBe(1);
+    expect(rowCount(installation, "external_identities")).toBe(1);
+  });
+
   test("AUTH-020-F: every token, state, and attempt defect is refused without a session, a member, or a leaked credential", async () => {
     provider.defects.signWithForeignKey = true;
     const tampered = await startStubOidcLogin(server.baseUrl);

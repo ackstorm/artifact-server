@@ -273,7 +273,9 @@ const loadDiscovery = Effect.fn("OidcIdentityProvider.loadDiscovery")(
     }
     const discovery: OidcDiscovery = {
       authorizationEndpoint,
-      issuer,
+      // OIDC Core 3.1.3.7 compares `iss` exactly with the published issuer, so
+      // a trailing slash the provider publishes must survive normalization.
+      issuer: document.data.issuer.trim(),
       jwksUri,
       tokenEndpoint,
     };

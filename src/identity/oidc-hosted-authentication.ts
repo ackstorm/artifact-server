@@ -38,7 +38,7 @@ export async function createOidcHostedAuthentication(
   );
   let verifierConfig: OidcMcpBearerVerifierConfig = {
     audience: resource,
-    issuer,
+    issuer: authorizationServer.issuer,
     jwksUri: authorizationServer.jwksUri,
     userInfoEndpoint: authorizationServer.userInfoEndpoint,
   };
