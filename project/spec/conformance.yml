@@ -1405,11 +1405,11 @@ requirements:
 
   - id: AUTH-008
     kind: security
-    behavior: Every admitted human member can manage artifacts in the installation's projects; service principals act only within explicit capabilities.
+    behavior: Every admitted human member can manage artifacts in the installation's projects, except deletion (AUTH-030); service principals act only within explicit capabilities.
     owner: authorization
     source: {file: artifact-server-product-spec.html, anchor: sharing}
     acceptance:
-      behavior: {id: AUTH-008-B, description: "Confirm that admitted human members can read, publish, restore, change visibility, tag, and delete project artifacts."}
+      behavior: {id: AUTH-008-B, description: "Confirm that admitted human members can read, publish, restore, change visibility, and tag project artifacts."}
       failure: {id: AUTH-008-F, description: "Reject service principals that lack the explicit capability required for the requested read or mutation."}
     deployments: *all
     status: behavior_verified
@@ -1760,6 +1760,19 @@ requirements:
         result: pass
         run: project/evidence/local-foundation.json
         recorded_at: "2026-10-09T19:11:51.885780+00:00"
+
+  - id: AUTH-030
+    kind: security
+    behavior: Only the principal that published an artifact's first version, or a human installation administrator in a browser session, may delete the artifact; artifact:manage:any does not extend deletion to other principals' artifacts.
+    owner: authorization
+    source: {file: artifact-server-product-spec.html, anchor: sharing}
+    acceptance:
+      behavior: {id: AUTH-030-B, description: "The creator deletes their artifact through HTTP and through an agent key bound to them, and an administrator deletes another member's artifact; an exact retry replays the deletion."}
+      failure: {id: AUTH-030-F, description: "Another member, a service principal holding artifact:manage:any, and an agent key acting for an administrator cannot delete an artifact they did not create, and the refused attempt leaves it live with no action record."}
+    deployments: *all
+    status: specified
+    depends_on: [AUTH-008, ART-006]
+    evidence: []
 
   - id: SEC-001
     kind: security

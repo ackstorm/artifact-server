@@ -617,7 +617,22 @@ function makeArtifactManagementService(
         project.id,
         command.artifactId,
       );
-      yield* authorization.requireArtifactManagement(command.principal);
+      // A deleted artifact lists no versions. Its repository call can only
+      // replay the original deletion, whose input digest binds the principal.
+      if (artifact.deletedAt === null) {
+        const versions = yield* dependencies.repository.listArtifactVersions(
+          project.id,
+          artifact.id,
+        );
+        const creator = versions.find(({number}) => number === 1);
+        if (creator === undefined) {
+          return yield* new ArtifactNotFound({message: "The artifact does not exist."});
+        }
+        yield* authorization.requireArtifactDeletion(
+          command.principal,
+          creator.publisherPrincipalId,
+        );
+      }
       const idempotencyKey = yield* parseIdempotencyKey(command.idempotencyKey);
       const createdAt = DateTime.formatIso(yield* dependencies.clock.now);
       return yield* dependencies.repository.deleteArtifact({
