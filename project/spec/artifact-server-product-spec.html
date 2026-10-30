@@ -650,7 +650,7 @@
 
     .visibility {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 1rem;
     }
 
@@ -1974,7 +1974,7 @@
         <section class="section" id="sharing" aria-labelledby="sharing-title">
           <div class="section-heading">
             <span class="section-label">Sharing</span>
-            <h2 id="sharing-title">One person or team, with two access settings</h2>
+            <h2 id="sharing-title">One person or team, with three sharing levels</h2>
             <p>
               One Artifact Server installation contains one closed group of people. This is a
               single-organization model without an organization list or organization switcher: the
@@ -1984,32 +1984,54 @@
               provider the team already runs. The product has no public self-sign-up and does not host
               several organizations inside one installation.
             </p>
+            <p>
+              Every artifact has an owner, the person or service principal that published its first
+              version, and one of three sharing levels. The owner shares an artifact by raising its
+              level and handing out the link. Lists show each person only the artifacts they own, so
+              nobody discovers another person's artifact by browsing.
+            </p>
           </div>
 
           <div class="visibility">
             <article class="visibility-card">
-              <span class="visibility-icon" aria-hidden="true">S</span>
+              <span class="visibility-icon" aria-hidden="true">Me</span>
               <div class="visibility-copy">
-                <h3>1. Account required</h3>
+                <h3>1. Private</h3>
                 <p>
-                  This is the default. Only people admitted to this installation can open the item.
-                  Every admitted person can read every account-required artifact in its projects. A
-                  person outside that group cannot open it. A workspace reference may grant a
-                  short-lived read-only session for one exact artifact version without granting
-                  access to the project artifact list.
+                  This is the default for every new artifact. Only the owner can open it. Anyone
+                  else who tries the link is told the artifact does not exist, so a private
+                  artifact's existence does not leak. An installation administrator can lower or
+                  delete any artifact but cannot read a member's private one; administrators read
+                  and manage artifacts that a service principal owns.
+                </p>
+              </div>
+            </article>
+            <article class="visibility-card">
+              <span class="visibility-icon" aria-hidden="true">Org</span>
+              <div class="visibility-copy">
+                <h3>2. Organization</h3>
+                <p>
+                  Stored as <code>account_required</code>. Anyone admitted to this installation who
+                  has the link can open the item; it stays out of their lists. A person outside that
+                  group cannot open it. An optional organization name labels this level in the
+                  Review application. A workspace reference may grant a short-lived read-only
+                  session for one exact artifact version without granting access to the project
+                  artifact list.
                 </p>
               </div>
             </article>
             <article class="visibility-card public-card">
-              <span class="visibility-icon" aria-hidden="true">P</span>
+              <span class="visibility-icon" aria-hidden="true">Pub</span>
               <div class="visibility-copy">
-                <h3>2. Public link</h3>
+                <h3>3. Public</h3>
                 <p>
+                  Stored as <code>public_link</code>.
                   No account is required to open the item. Anyone who can connect to this Artifact
                   Server and has the unpredictable link can open it. Public links are unlisted and
                   send <code>X-Robots-Tag: noindex, nofollow</code> by default, but that is not an
                   access-control guarantee. The public link opens only the current version. Version
-                  lists, comparisons, and earlier saved versions still require an account.
+                  lists, comparisons, and earlier saved versions still require an account. Only the
+                  owner sees the item in lists.
                 </p>
               </div>
             </article>
@@ -2030,8 +2052,8 @@
             <p>
               The administrator-only <strong>Public links</strong> screen uses bounded cursor pages
               and shows each artifact's project, current version and save time, and public URL.
-              One row or a selection of at most 100 rows can be made account-required through the
-              ordinary visibility operation, with the observed current version, one idempotency key
+              One row or a selection of at most 100 rows can be lowered to Organization with
+              <strong>Stop public access</strong>, through the ordinary visibility operation, with the observed current version, one idempotency key
               and one action record per item. Selection copy distinguishes the visible page, loaded
               pages, and the complete inventory. Stale or failed items are reported separately and
               can be retried after refreshing their current version. Successful items stop new
@@ -2058,17 +2080,19 @@
             <details>
               <summary>Who may change an artifact</summary>
               <div class="detail-body">
-                <p>The two access settings control reading. They do not grant permission to publish or administer.</p>
+                <p>The sharing level controls who can read with the link. It does not grant permission to publish or administer: those follow ownership. An API key bound to a member acts as that member, so what it publishes belongs to the member.</p>
                 <div class="table-wrap">
                   <table>
-                    <thead><tr><th>Actor</th><th>Read account-required</th><th>Publish</th><th>Change access</th><th>Delete</th></tr></thead>
+                    <thead><tr><th>Actor</th><th>Read</th><th>Publish, tag, restore</th><th>Change level</th><th>Delete</th></tr></thead>
                     <tbody>
-                      <tr><td>Admitted person</td><td>Yes</td><td>Yes</td><td>Yes</td><td>Only artifacts whose first version they published</td></tr>
-                      <tr><td>Installation administrator</td><td>Yes</td><td>Yes</td><td>Yes</td><td>Yes, from a browser session</td></tr>
-                      <tr><td>Service principal or API key</td><td>Only within its grant</td><td>Only within its grant</td><td>Only when explicitly granted</td><td>Only artifacts whose first version its own principal published</td></tr>
+                      <tr><td>Owner</td><td>Yes, at every level</td><td>Yes</td><td>Raise or lower</td><td>Yes</td></tr>
+                      <tr><td>Another admitted person</td><td>Organization and Public, by link</td><td>No</td><td>No</td><td>No</td></tr>
+                      <tr><td>Installation administrator</td><td>Organization and Public by link, and service-owned artifacts; never a member's Private artifact</td><td>Own and service-owned artifacts</td><td>Lower any artifact; raise own and service-owned artifacts</td><td>Yes, from a browser session</td></tr>
+                      <tr><td>Service principal or API key that does not own the artifact</td><td>Organization and Public by link, within its read grant</td><td>No</td><td>No</td><td>No</td></tr>
                     </tbody>
                   </table>
                 </div>
+                <p>Lowering a level does not end grants already issued: a content session keeps serving its version until it expires, at most 15 minutes later, and public responses are sent <code>no-cache, must-revalidate</code> so caches stop serving them on their next check.</p>
               </div>
             </details>
             <details>
@@ -3802,7 +3826,7 @@ artifact_delete</code></pre>
                 <li>Saved versions that never change, plus the ability to restore an earlier one.</li>
                 <li>File and text comparisons between any two saved versions.</li>
                 <li>Optional private Git handoff, off by default and selected by explicit installation configuration.</li>
-                <li>Exactly two access settings: account required and public link.</li>
+                <li>Exactly three sharing levels: private to the owner, organization (account required), and public link.</li>
                 <li>Browser access, MCP, the Artifact Server command-line program, and normal web requests from software.</li>
                 <li>An optional connection from one Artifact Server installation to one Plannotator organization, including signed operation requests and temporary browser sessions.</li>
                 <li>An explicit Plannotator review response that may add a credential-free review bridge without changing the stored artifact.</li>
@@ -3965,7 +3989,7 @@ artifact_delete</code></pre>
             <article class="decision-item"><p>An artifact may have up to 20 normalized tags for exact filtering. Tags belong to the artifact, persist across version changes and tombstones, and are replaced through one authorized, idempotent, audited operation. The first release has no tag hierarchy or per-version tags.</p></article>
             <article class="decision-item"><p>Comparisons use canonical manifests and changed text. Binary comparison shows metadata and links. Git is not required.</p></article>
             <article class="decision-item"><p>Git handoff is an optional private copy that is off by default and never selected automatically. Configuring Cloudflare Artifacts makes it available but copies nothing until an administrator estimates and enables selected projects or explicitly selects all projects. Each artifact has its own repository. The normal object store remains authoritative, and Git failure or a copy budget never blocks or loses a saved version.</p></article>
-            <article class="decision-item"><p>Account required and public link are the only two read settings. A public link opens only the current version; history and comparisons still require an account. Every admitted human member may manage project artifacts; services require explicit capabilities.</p></article>
+            <article class="decision-item"><p>Private, Organization (account required) and Public link are the only three sharing levels, and new artifacts are Private. A public link opens only the current version; history and comparisons still require an account. Members manage the artifacts they own; services require explicit capabilities and act on artifacts they own.</p></article>
             <article class="decision-item"><p>One installation represents one person, team, or company and contains projects. Every artifact belongs to one project. A new installation creates a default project. There is no organization switcher or separate Artifact Store object.</p></article>
             <article class="decision-item"><p>Projects use installation membership and have no separate member list or access-control list in the first release. Project identity is enforced by storage, authorization, HTTP, MCP, browser sessions, audit, backup, and restore.</p></article>
             <article class="decision-item"><p>One Artifact Server installation may connect to one Plannotator organization. Each Plannotator project pairs with one Artifact Server project. Workspaces reference project artifacts and versions; they do not own artifact storage.</p></article>

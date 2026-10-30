@@ -1405,11 +1405,11 @@ requirements:
 
   - id: AUTH-008
     kind: security
-    behavior: Every admitted human member can manage artifacts in the installation's projects, except deletion (AUTH-030); service principals act only within explicit capabilities.
+    behavior: Admitted human members act on the artifacts they own in the installation's projects, and delete only under AUTH-030; service principals act only within explicit capabilities, on artifacts they own.
     owner: authorization
     source: {file: artifact-server-product-spec.html, anchor: sharing}
     acceptance:
-      behavior: {id: AUTH-008-B, description: "Confirm that admitted human members can read, publish, restore, change visibility, and tag project artifacts."}
+      behavior: {id: AUTH-008-B, description: "Confirm that admitted human members can read, publish, restore, change visibility, and tag the project artifacts they own."}
       failure: {id: AUTH-008-F, description: "Reject service principals that lack the explicit capability required for the requested read or mutation."}
     deployments: *all
     status: behavior_verified
@@ -1785,6 +1785,84 @@ requirements:
     deployments: *all
     status: specified
     depends_on: [AUTH-019]
+    evidence: []
+
+  - id: AUTH-032
+    kind: security
+    behavior: Every artifact records the principal that published version 1 as its owner, and that owner never changes; new artifacts from every publishing surface start Private, and an artifact published through a member-bound API key belongs to that member.
+    owner: authorization
+    source: {file: artifact-sharing-levels-spec.md, anchor: conformance}
+    acceptance:
+      behavior: {id: AUTH-032-B, description: "New artifacts from HTTP, MCP and CLI are Private and record the version 1 publisher as owner; a member-bound key's artifact belongs to its member."}
+      failure: {id: AUTH-032-F, description: "No surface creates an artifact without an owner, and later publishers never change the owner."}
+    deployments: *all
+    status: specified
+    depends_on: [AUTH-030]
+    evidence: []
+
+  - id: AUTH-033
+    kind: security
+    behavior: A principal reads an artifact only as its owner, as a human administrator of a service-owned artifact, with read authority when the level is Organization or Public, or anonymously through the public link when the level is Public; every other read on every surface returns 404 ARTIFACT_NOT_FOUND.
+    owner: authorization
+    source: {file: artifact-sharing-levels-spec.md, anchor: conformance}
+    acceptance:
+      behavior: {id: AUTH-033-B, description: "The owner reads a Private artifact on every read surface. Any member, member-bound key or read-capable service key reads an Organization artifact by id."}
+      failure: {id: AUTH-033-F, description: "Another member, a member-bound key of another member, a service key and an administrator each receive 404 on every read surface of a Private artifact, including content bootstrap, comments, comparisons and the Git clone token. An anonymous request receives 404 or a sign-in requirement for an Organization artifact."}
+    deployments: *all
+    status: specified
+    depends_on: [AUTH-032]
+    evidence: []
+
+  - id: AUTH-034
+    kind: security
+    behavior: Artifact lists and search return only the artifacts the reader owns, plus service-owned artifacts for a human administrator; an Organization or Public artifact owned by someone else is opened by link and never listed.
+    owner: authorization
+    source: {file: artifact-sharing-levels-spec.md, anchor: conformance}
+    acceptance:
+      behavior: {id: AUTH-034-B, description: "Lists return the reader's own artifacts; an administrator's lists also contain service-owned ones."}
+      failure: {id: AUTH-034-F, description: "Another member's Organization and Public artifacts never appear in lists or search results."}
+    deployments: *all
+    status: specified
+    depends_on: [AUTH-032]
+    evidence: []
+
+  - id: AUTH-035
+    kind: security
+    behavior: Only the owner, or a human administrator for a service-owned artifact, publishes, captures, relinks, restores, tags, changes review mode or raises the level; any human administrator may lower a level, and artifact:publish:any and artifact:manage:any reach only artifacts their service principal owns.
+    owner: authorization
+    source: {file: artifact-sharing-levels-spec.md, anchor: conformance}
+    acceptance:
+      behavior: {id: AUTH-035-B, description: "The owner publishes, tags, restores, changes review mode and raises the level. An administrator lowers any level and manages service-owned artifacts."}
+      failure: {id: AUTH-035-F, description: "Another member, and a non-owning key with manage:any or publish:any, receive 403 on Organization or Public artifacts and 404 on Private ones. An administrator cannot raise a member's level or publish to it."}
+    deployments: *all
+    status: specified
+    depends_on: [AUTH-033]
+    evidence: []
+
+  - id: AUTH-036
+    kind: security
+    behavior: The schema migration fills each existing artifact's owner from its version 1 publisher on SQLite, Postgres and D1, admits the private level, and changes no existing level or idempotency replay.
+    owner: database-adapters
+    source: {file: artifact-sharing-levels-spec.md, anchor: conformance}
+    acceptance:
+      behavior: {id: AUTH-036-B, description: "The migration fills the owner from version 1 on SQLite, Postgres and D1 and keeps every level and idempotency replay unchanged."}
+      failure: {id: AUTH-036-F, description: "A migrated artifact whose version 1 publisher is another member is unlisted for the reader but readable by link at Organization."}
+    deployments: *all
+    status: specified
+    depends_on: [AUTH-032]
+    evidence: []
+
+  - id: AUTH-037
+    kind: behavior
+    behavior: The Share modal's General access selector offers Private, Organization and Public, saves the chosen level immediately, confirms in place before Public, and offers each reader only the levels it may set.
+    owner: web-application
+    source: {file: artifact-sharing-levels-spec.md, anchor: conformance}
+    acceptance:
+      behavior: {id: AUTH-037-B, description: "In the Share modal the owner moves between the three levels, confirming in place before Public, and the note and links follow."}
+      failure: {id: AUTH-037-F, description: "A non-owner sees the selector disabled; a failed save returns to the saved level with the message."}
+    deployments: *all
+    status: specified
+    depends_on: [AUTH-035]
     evidence: []
 
   - id: SEC-001
@@ -2331,12 +2409,12 @@ requirements:
 
   - id: CMT-006
     kind: security
-    behavior: Reading comments requires artifact read authority, and comments never appear on the content origin or through a public link.
+    behavior: Reading comments requires read authority on the artifact, and comments never appear on the content origin or through a public link.
     owner: artifact-comments
     source: {file: artifact-comments-spec.md, anchor: conformance-requirements-to-add}
     acceptance:
-      behavior: {id: CMT-006-B, description: "Read threads and replies as an admitted member of the owning installation through the application origin only."}
-      failure: {id: CMT-006-F, description: "A public-link viewer and an anonymous request are denied, and no content-domain route returns comment data."}
+      behavior: {id: CMT-006-B, description: "Read threads and replies as an admitted member of the owning installation with read authority on the artifact, through the application origin only."}
+      failure: {id: CMT-006-F, description: "A public-link viewer, an anonymous request, and a member without read authority on the artifact are denied, and no content-domain route returns comment data."}
     deployments: *all
     status: behavior_verified
     depends_on: [CMT-001, AUTH-008]
@@ -2349,12 +2427,12 @@ requirements:
 
   - id: CMT-007
     kind: security
-    behavior: Creating threads, replies, resolves, and reopens requires a direct human member or a service principal holding the comment-write capability.
+    behavior: Creating threads, replies, resolves, and reopens requires a direct human member or a service principal holding the comment-write capability, with read authority on the artifact.
     owner: artifact-comments
     source: {file: artifact-comments-spec.md, anchor: conformance-requirements-to-add}
     acceptance:
-      behavior: {id: CMT-007-B, description: "Write comments as an admitted human member and as a service key that holds the comment-write capability."}
-      failure: {id: CMT-007-F, description: "A key that holds only artifact read authority is denied every comment mutation."}
+      behavior: {id: CMT-007-B, description: "Write comments as an admitted human member and as a service key that holds the comment-write capability, each with read authority on the artifact."}
+      failure: {id: CMT-007-F, description: "A key that holds only artifact read authority, and a member without read authority on the artifact, are denied every comment mutation."}
     deployments: *all
     status: behavior_verified
     depends_on: [CMT-001, AUTH-008]
@@ -2730,11 +2808,11 @@ requirements:
 
   - id: ADM-005
     kind: security
-    behavior: Canonical public-link settings let an installation administrator page across projects, inspect active public destinations, and make a bounded selection account-required with explicit partial-success retry and cache-recall copy; public-link creation remains on the artifact Share surface.
+    behavior: Canonical public-link settings let an installation administrator page across projects, inspect active public destinations, and lower a bounded selection to Organization (account-required) through its Stop public access action, with explicit partial-success retry and cache-recall copy; public-link creation remains on the artifact Share surface.
     owner: web-application
     source: {file: single-application-administration-spec.md, anchor: public-links}
     acceptance:
-      behavior: {id: ADM-005-B, description: "Page through active public links from multiple projects, open their public and Review destinations, make one and a bounded selection private, and retry a stale failed item without rolling back successful items."}
+      behavior: {id: ADM-005-B, description: "Page through active public links from multiple projects, open their public and Review destinations, lower one and a bounded selection to Organization, and retry a stale failed item without rolling back successful items."}
       failure: {id: ADM-005-F, description: "A non-administrator, oversized or duplicate selection, stale version, or cross-installation item is refused per item; the interface does not create links here or promise recall of downloaded or externally cached copies."}
     deployments: *all
     status: behavior_verified
@@ -3019,6 +3097,19 @@ requirements:
         result: pass
         run: project/evidence/local-foundation.json
         recorded_at: "2026-08-27T01:14:27.292Z"
+
+  - id: DSP-014
+    kind: behavior
+    behavior: Sending threads of a Private artifact to an agent is refused with 409 ARTIFACT_PRIVATE, because agents connect with service keys that cannot read it; Organization and Public artifacts dispatch as before.
+    owner: agent-dispatch
+    source: {file: artifact-sharing-levels-spec.md, anchor: conformance}
+    acceptance:
+      behavior: {id: DSP-014-B, description: "Dispatching threads of an Organization artifact works as before."}
+      failure: {id: DSP-014-F, description: "Dispatching threads of a Private artifact returns 409 ARTIFACT_PRIVATE and creates no dispatch."}
+    deployments: *all
+    status: specified
+    depends_on: [AUTH-033, DSP-003]
+    evidence: []
 
   - id: BRP-001
     kind: behavior
@@ -4358,12 +4449,12 @@ requirements:
 
   - id: SCP-008
     kind: constraint
-    behavior: Standalone access uses one installation membership group and does not add a separate member list or ACL for each project or artifact.
+    behavior: Standalone access uses one installation membership group; per-artifact access is the owner plus the sharing level, with no per-project or per-person member list or ACL.
     owner: authorization
     source: {file: artifact-server-product-spec.html, anchor: scope}
     acceptance:
-      behavior: {id: SCP-008-B, description: "Confirm that admitted human members can read and manage artifacts in every project while service mutations require explicit capabilities."}
-      failure: {id: SCP-008-F, description: "A project or artifact cannot create an undocumented reader ACL or inherit Plannotator workspace membership."}
+      behavior: {id: SCP-008-B, description: "Confirm that admitted human members manage the artifacts they own in every project and read others' Organization and Public artifacts by link, while service mutations require explicit capabilities."}
+      failure: {id: SCP-008-F, description: "A project or artifact cannot create a per-project or per-person reader list or inherit Plannotator workspace membership."}
     deployments: *all
     status: specified
     depends_on: [PRJ-003, AUTH-001, AUTH-006, PLN-004]

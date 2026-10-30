@@ -176,14 +176,14 @@ Backups: the two tables live in the same database as artifacts; every existing b
 
 ## 5. Access
 
-Reuses `AuthorizationService` (`src/application/authorization.ts`) with three additions. No per-artifact ACL, no per-project member list (`SCP-008` still holds).
+Reuses `AuthorizationService` (`src/application/authorization.ts`) with three additions. Every comment read and write first requires read authority on the artifact under its sharing level ([Artifact sharing levels](./artifact-sharing-levels-spec.md)), so a Private artifact's comments are reachable only by its owner. There is no per-person ACL and no per-project member list (`SCP-008`).
 
 | Operation | Rule | New code |
 | --- | --- | --- |
 | List and read threads and replies | Same as reading artifact history: `requireArtifactRead` (direct human member, or key with `artifact:read` / `artifact:manage:any`). Public-link viewers never see comments; comments are never served from the content origin. | none |
-| Create thread, reply, resolve, reopen | Any direct human member, or a service principal with the new capability `comment:write`. | `principalCapabilities.writeComments = "comment:write"`, `requireCommentWrite` |
+| Create thread, reply, resolve, reopen | Read authority on the artifact, plus a direct human member or a service principal with the new capability `comment:write`. | `principalCapabilities.writeComments = "comment:write"`, `requireCommentWrite` |
 | Edit body or anchor (thread or reply) | Only the author: `principal.id === author.principalId`. Administrators cannot edit other people's comments. | `requireCommentAuthor(principal, author)` |
-| Delete (thread or reply) | The author, or a human administrator, or a service principal with `artifact:manage:any`. | `requireCommentAuthorOrAdministration(principal, author)` |
+| Delete (thread or reply) | Read authority on the artifact, plus the author, a human administrator, or a service principal with `artifact:manage:any` that controls the artifact. | `requireCommentAuthorOrAdministration(principal, author)` |
 | Every operation | Installation must match; project must resolve; archived projects reject writes (`ProjectArchived`) and allow reads. Cross-project ids fail as not-found without disclosure. | existing |
 
 Owner's rule (August 17, 2026): you can edit only what you wrote; an administrator can delete anyone's comment but cannot rewrite it. Nobody except the author can change the words attributed to that author. This is stricter than Workspaces (edit-gated, no author gate) on purpose: Artifact Server has per-person accounts, an audit ledger, and agents posting under service principals, so an agent or coworker must not be able to alter a person's note. Deleting a thread by an administrator also deletes its replies (section 3, invariant 4) and records `comment_delete` with the administrator as principal.
