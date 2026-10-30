@@ -118,7 +118,7 @@ describe("comment write capability", () => {
     });
   });
 
-  test("CMT-007-F: a key holding only artifact read authority is denied every comment mutation", async () => {
+  test("CMT-007-F: a key holding only artifact read authority, and a member without read authority on the artifact, are denied every comment mutation", async () => {
     expect.hasAssertions();
     const readOnlyToken = await issueKey(
       ["artifact:read"],
@@ -209,6 +209,80 @@ describe("comment write capability", () => {
     const unchanged = await credentialFetch(readOnlyToken, threadPath);
     expect(unchanged.status).toBe(200);
     expect(threadSchema.parse(await unchanged.json()).thread.state).toBe("open");
+
+    const hidden = (await publishNew(server, installation, {
+      accessSetting: "private",
+      content: "<!doctype html><title>Hidden</title>",
+      idempotencyKey: "comment-write-hidden-publish",
+      name: "Hidden report",
+    })).body;
+    const hiddenArtifact = `/api/v1/artifacts/${hidden.artifact.id}`;
+    const hiddenSeed = await credentialFetch(
+      installation.apiToken,
+      `${hiddenArtifact}/versions/${hidden.version.id}/comments`,
+      {
+        body: JSON.stringify({body: "Only the owner reads this."}),
+        headers: {"Idempotency-Key": "comment-write-hidden-seed-thread"},
+        method: "POST",
+      },
+    );
+    const hiddenThread = createdThreadSchema.parse(await hiddenSeed.json()).thread;
+    const hiddenSeedReply = await credentialFetch(
+      installation.apiToken,
+      `${hiddenArtifact}/comments/${hiddenThread.id}/replies`,
+      {
+        body: JSON.stringify({body: "The owner answers."}),
+        headers: {"Idempotency-Key": "comment-write-hidden-seed-reply"},
+        method: "POST",
+      },
+    );
+    const hiddenReply = createdReplySchema.parse(await hiddenSeedReply.json()).reply;
+    const hiddenThreadPath = `${hiddenArtifact}/comments/${hiddenThread.id}`;
+    const hiddenDenials = await Promise.all([
+      credentialFetch(
+        memberCredential,
+        `${hiddenArtifact}/versions/${hidden.version.id}/comments`,
+        {
+          body: JSON.stringify({body: "The member cannot read this artifact."}),
+          headers: {"Idempotency-Key": "comment-write-hidden-create-01"},
+          method: "POST",
+        },
+      ),
+      credentialFetch(memberCredential, `${hiddenThreadPath}/replies`, {
+        body: JSON.stringify({body: "The member cannot answer."}),
+        headers: {"Idempotency-Key": "comment-write-hidden-reply-01"},
+        method: "POST",
+      }),
+      credentialFetch(memberCredential, hiddenThreadPath, {
+        body: JSON.stringify({state: "resolved"}),
+        method: "PATCH",
+      }),
+      credentialFetch(memberCredential, `${hiddenThreadPath}/replies/${hiddenReply.id}`, {
+        body: JSON.stringify({body: "Rewritten reply."}),
+        method: "PATCH",
+      }),
+      credentialFetch(
+        memberCredential,
+        `${hiddenThreadPath}/replies/${hiddenReply.id}`,
+        {method: "DELETE"},
+      ),
+      credentialFetch(memberCredential, hiddenThreadPath, {method: "DELETE"}),
+      credentialFetch(
+        memberCredential,
+        `/api/v1/projects/${hidden.artifact.projectId}/artifacts/${hidden.artifact.id}/comments/clear`,
+        {body: JSON.stringify({state: "all"}), method: "POST"},
+      ),
+    ]);
+    const hiddenFailures = await Promise.all(hiddenDenials.map(async (denial) => ({
+      code: failureSchema.parse(await denial.json()).error.code,
+      status: denial.status,
+    })));
+    expect(hiddenFailures).toEqual(
+      hiddenFailures.map(() => ({code: "ARTIFACT_NOT_FOUND", status: 404})),
+    );
+    const ownerView = await credentialFetch(installation.apiToken, hiddenThreadPath);
+    expect(ownerView.status).toBe(200);
+    expect(threadSchema.parse(await ownerView.json()).thread.state).toBe("open");
   });
 
   async function exerciseCommentWriter(

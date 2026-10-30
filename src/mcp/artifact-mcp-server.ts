@@ -1340,7 +1340,7 @@ export function createArtifactMcpServer(
         },
         replayed: state.replayed,
         version: state.version,
-        warning: input.accessSetting === accessSettings.accountRequired
+        warning: input.accessSetting !== accessSettings.publicLink
           ? "New public requests are blocked. Copies already downloaded or cached outside Artifact Server cannot be recalled."
           : null,
       };

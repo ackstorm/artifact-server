@@ -2110,7 +2110,7 @@ export function createHttpApp(
           dependencies.contentDomain,
           state,
         ),
-        warning: body.accessSetting === accessSettings.accountRequired
+        warning: body.accessSetting !== accessSettings.publicLink
           ? "New public requests are blocked. Copies already downloaded or cached outside Artifact Server cannot be recalled."
           : null,
       });

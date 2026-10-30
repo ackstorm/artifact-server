@@ -1,8 +1,3 @@
-import {
-  CLIENT_CAPABILITIES_META_KEY,
-  CLIENT_INFO_META_KEY,
-  PROTOCOL_VERSION_META_KEY,
-} from "@modelcontextprotocol/server";
 import {Redacted} from "effect";
 import {afterEach, beforeEach, describe, expect, test} from "vitest";
 import {z} from "zod";
@@ -13,7 +8,15 @@ import {
 } from "../../src/core/browser-access.js";
 import {createOidcIdentityProvider} from
   "../../src/identity/oidc-identity-provider.js";
-import {ApiClient, issueApiKey} from "../support/agent-dispatch.js";
+import {
+  admitMember,
+  ApiClient,
+  callMcp,
+  issueApiKey,
+  type McpReply,
+  mcpFailed,
+  mcpToolErrorCode,
+} from "../support/agent-dispatch.js";
 import {
   availableHealthProbe,
   configuredGitHistory,
@@ -31,13 +34,12 @@ import {
 } from "../support/runtime-harness.js";
 import {
   type RunningStubOidcProvider,
-  startStubOidcLogin,
+  signInWithStubOidc,
   startStubOidcProvider,
 } from "../support/stub-oidc-provider.js";
 
 const administratorEmail = "administrator@example.test";
 const clientSecret = "stub-oidc-client-secret-with-entropy";
-const protocolVersion = "2026-07-28";
 const projectId = "prj_default";
 const memberKeyCapabilities = [
   "artifact:create",
@@ -54,21 +56,6 @@ const failureSchema = z.object({
   error: z.object({code: z.string(), message: z.string()}),
 });
 const jsonSchema = z.json();
-const mcpReplySchema = z.object({
-  error: jsonSchema.optional(),
-  result: z.object({
-    isError: z.boolean().optional(),
-    structuredContent: jsonSchema.optional(),
-  }).loose().optional(),
-}).loose();
-
-type McpReply = z.infer<typeof mcpReplySchema>;
-
-interface McpParameters {
-  readonly arguments?: Readonly<Record<string, string>>;
-  readonly name?: string;
-  readonly uri?: string;
-}
 
 interface CloneTokenRequest {
   readonly ttlSeconds: number;
@@ -137,8 +124,8 @@ describe("artifact read authority by sharing level", () => {
   test("AUTH-033-B AUTH-033-F: only the owner reads a Private artifact on every surface, and raising the level opens it by link", async () => {
     const administrator = await signIn(administratorEmail, "administrator");
     const administratorId = await sessionPrincipalId(administrator);
-    const adaId = await admitMember(administrator, "Ada", "ada@example.test");
-    const bobId = await admitMember(administrator, "Bob", "bob@example.test");
+    const adaId = await admitMember(server, administrator, "Ada", "ada@example.test");
+    const bobId = await admitMember(server, administrator, "Bob", "bob@example.test");
     const adaSession = await signIn("ada@example.test", "ada");
     const bobSession = await signIn("bob@example.test", "bob");
     const [adaKey, bobKey, administratorKey, serviceKey] = await Promise.all([
@@ -218,7 +205,7 @@ describe("artifact read authority by sharing level", () => {
       Promise.all(refusedTokens.map((token) => callEveryTool(token, missing))),
     ]);
     expect(refusedTools.flat().map(mcpFailed)).toEqual(refusedTools.flat().map(() => true));
-    const refusedToolCodes = refusedTools.flatMap((bodies) => bodies.slice(0, -1).map(toolErrorCode));
+    const refusedToolCodes = refusedTools.flatMap((bodies) => bodies.slice(0, -1).map(mcpToolErrorCode));
     expect(refusedToolCodes).toEqual(refusedToolCodes.map(() => "ARTIFACT_NOT_FOUND"));
     expect(refusedTools).toEqual(probedTools);
 
@@ -305,7 +292,7 @@ describe("artifact read authority by sharing level", () => {
       callTool(token, "artifact_open", {artifactId}),
       callTool(token, "artifact_open", {artifactId, versionId: target.firstVersionId}),
       callTool(token, "artifact_history_clone_token", {artifactId, projectId}),
-      mcp(token, "resources/read", manifest, {uri: manifest}),
+      callMcp(server, token, "resources/read", manifest, {uri: manifest}),
     ]);
   }
 
@@ -314,41 +301,7 @@ describe("artifact read authority by sharing level", () => {
     name: string,
     parameters: Readonly<Record<string, string>>,
   ): Promise<McpReply> {
-    return mcp(token, "tools/call", name, {arguments: parameters, name});
-  }
-
-  async function mcp(
-    token: string,
-    method: string,
-    name: string,
-    parameters: McpParameters,
-  ): Promise<McpReply> {
-    const response = await fetch(`${server.baseUrl}/mcp`, {
-      body: JSON.stringify({
-        id: 1,
-        jsonrpc: "2.0",
-        method,
-        params: {
-          ...parameters,
-          _meta: {
-            [CLIENT_CAPABILITIES_META_KEY]: {},
-            [CLIENT_INFO_META_KEY]: {name: "artifact-server-test", version: "1"},
-            [PROTOCOL_VERSION_META_KEY]: protocolVersion,
-          },
-        },
-      }),
-      headers: {
-        Accept: "application/json, text/event-stream",
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-        "MCP-Protocol-Version": protocolVersion,
-        "Mcp-Method": method,
-        "Mcp-Name": name,
-      },
-      method: "POST",
-    });
-    expect(response.status).toBe(200);
-    return mcpReplySchema.parse(await response.json());
+    return callMcp(server, token, "tools/call", name, {arguments: parameters, name});
   }
 
   async function get(credential: Credential, pathname: string): Promise<Answer> {
@@ -427,29 +380,8 @@ describe("artifact read authority by sharing level", () => {
     return headers;
   }
 
-  async function signIn(email: string, subject: string): Promise<ApplicationCookies> {
-    oidc.claims.email = email;
-    oidc.claims.name = subject;
-    oidc.claims.subject = `auth-033-${subject}`;
-    const authorization = await startStubOidcLogin(server.baseUrl);
-    const completed = await fetch(authorization.callbackUrl, {
-      headers: {Cookie: authorization.handshakeCookie},
-      redirect: "manual",
-    });
-    expect(completed.status).toBe(303);
-    const pairs = completed.headers.getSetCookie()
-      .filter((value) =>
-        value.startsWith("artifact_session=") || value.startsWith("artifact_csrf=")
-      )
-      .map((value) => value.split(";", 1)[0] ?? "");
-    const csrfPair = pairs.find((pair) => pair.startsWith("artifact_csrf="));
-    if (pairs.length !== 2 || csrfPair === undefined) {
-      throw new Error("The login response did not issue both application cookies.");
-    }
-    return {
-      csrf: csrfPair.slice(csrfPair.indexOf("=") + 1),
-      header: pairs.join("; "),
-    };
+  function signIn(email: string, subject: string): Promise<ApplicationCookies> {
+    return signInWithStubOidc(server.baseUrl, oidc, email, `auth-033-${subject}`);
   }
 
   async function sessionPrincipalId(cookies: ApplicationCookies): Promise<string> {
@@ -460,35 +392,10 @@ describe("artifact read authority by sharing level", () => {
     return z.object({principal: z.object({id: z.string()})})
       .parse(await response.json()).principal.id;
   }
-
-  async function admitMember(
-    cookies: ApplicationCookies,
-    displayName: string,
-    email: string,
-  ): Promise<string> {
-    const headers = credentialHeaders({kind: "session", cookies}, true);
-    headers.set("Content-Type", "application/json");
-    const response = await fetch(`${server.baseUrl}/api/v1/members`, {
-      body: JSON.stringify({displayName, email}),
-      headers,
-      method: "POST",
-    });
-    expect(response.status).toBe(201);
-    return z.object({member: z.object({id: z.string()})})
-      .parse(await response.json()).member.id;
-  }
 });
 
 async function answer(response: Response): Promise<Answer> {
   const text = await response.text();
   const isJson = response.headers.get("content-type")?.includes("json") === true;
   return {body: isJson ? jsonSchema.parse(JSON.parse(text)) : text, status: response.status};
-}
-
-function mcpFailed(reply: McpReply): boolean {
-  return reply.error !== undefined || reply.result?.isError === true;
-}
-
-function toolErrorCode(reply: McpReply): string | undefined {
-  return failureSchema.safeParse(reply.result?.structuredContent).data?.error.code;
 }

@@ -1,3 +1,8 @@
+import {
+  CLIENT_CAPABILITIES_META_KEY,
+  CLIENT_INFO_META_KEY,
+  PROTOCOL_VERSION_META_KEY,
+} from "@modelcontextprotocol/server";
 import {z} from "zod";
 
 import type {Clock} from "../../src/core/ports.js";
@@ -388,6 +393,96 @@ export async function issueApiKey(
     );
   }
   return issuedKeySchema.parse(await response.json()).token;
+}
+
+/** Admit one member as the signed-in administrator and return its member id. */
+export async function admitMember(
+  server: RunningTestServer,
+  cookies: ApplicationCookies,
+  displayName: string,
+  email: string,
+): Promise<string> {
+  const response = await fetch(`${server.baseUrl}/api/v1/members`, {
+    body: JSON.stringify({displayName, email}),
+    headers: new Headers({
+      "Content-Type": "application/json",
+      Cookie: cookies.header,
+      Origin: server.baseUrl,
+      "Sec-Fetch-Mode": "cors",
+      "Sec-Fetch-Site": "same-origin",
+      "X-CSRF-Token": cookies.csrf,
+    }),
+    method: "POST",
+  });
+  if (response.status !== 201) {
+    throw new Error(
+      `Admitting a member answered ${response.status}: ${await response.text()}`,
+    );
+  }
+  return z.object({member: z.object({id: z.string()})})
+    .parse(await response.json()).member.id;
+}
+
+const mcpProtocolVersion = "2026-07-28";
+const mcpJsonSchema = z.json();
+export const mcpReplySchema = z.object({
+  error: mcpJsonSchema.optional(),
+  result: z.object({
+    isError: z.boolean().optional(),
+    structuredContent: mcpJsonSchema.optional(),
+  }).loose().optional(),
+}).loose();
+export type McpReply = z.infer<typeof mcpReplySchema>;
+
+/** Send one MCP request over streamable HTTP with a bearer credential. */
+export async function callMcp(
+  server: RunningTestServer,
+  token: string,
+  method: string,
+  name: string,
+  parameters: {
+    readonly arguments?: Readonly<Record<string, z.infer<typeof mcpJsonSchema>>>;
+    readonly name?: string;
+    readonly uri?: string;
+  },
+): Promise<McpReply> {
+  const response = await fetch(`${server.baseUrl}/mcp`, {
+    body: JSON.stringify({
+      id: 1,
+      jsonrpc: "2.0",
+      method,
+      params: {
+        ...parameters,
+        _meta: {
+          [CLIENT_CAPABILITIES_META_KEY]: {},
+          [CLIENT_INFO_META_KEY]: {name: "artifact-server-test", version: "1"},
+          [PROTOCOL_VERSION_META_KEY]: mcpProtocolVersion,
+        },
+      },
+    }),
+    headers: {
+      Accept: "application/json, text/event-stream",
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      "MCP-Protocol-Version": mcpProtocolVersion,
+      "Mcp-Method": method,
+      "Mcp-Name": name,
+    },
+    method: "POST",
+  });
+  if (response.status !== 200) {
+    throw new Error(`The MCP request answered ${response.status}.`);
+  }
+  return mcpReplySchema.parse(await response.json());
+}
+
+export function mcpFailed(reply: McpReply): boolean {
+  return reply.error !== undefined || reply.result?.isError === true;
+}
+
+export function mcpToolErrorCode(reply: McpReply): string | undefined {
+  return z.object({error: z.object({code: z.string()}).loose()}).loose()
+    .safeParse(reply.result?.structuredContent).data?.error.code;
 }
 
 /** Read one page of comment threads the way the web application reads it. */

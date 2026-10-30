@@ -291,9 +291,11 @@ function makePublishArtifactService(
         new ArtifactNotFound({message: "The artifact does not exist."}),
       );
     }
+    yield* authorization.requireArtifactVisible(command.principal, current.artifact);
     yield* authorization.requireVersionPublication(
       command.principal,
     );
+    yield* authorization.requireArtifactControl(command.principal, current.artifact);
     const idempotencyKey = yield* parseIdempotencyKey(command.idempotencyKey);
     const inputDigest = artifactVersionInputDigest({
       artifactId: command.artifactId,

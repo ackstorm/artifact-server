@@ -225,8 +225,8 @@ function makeAuthorizationService(
     yield* denied();
   });
 
-  // Administrators moderate without reading: they may lower any artifact's
-  // level, including a member's Private one they cannot open.
+  // Any human administrator may lower the level of an artifact it can read;
+  // callers check visibility first.
   const requireArtifactLevelLowering = Effect.fn(
     "AuthorizationService.requireArtifactLevelLowering",
   )(function*(principal: Principal, artifact: ArtifactRecord) {

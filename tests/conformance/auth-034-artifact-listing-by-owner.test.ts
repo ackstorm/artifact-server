@@ -6,7 +6,7 @@ import {
 import {afterEach, beforeEach, describe, expect, test} from "vitest";
 import {z} from "zod";
 
-import {issueApiKey, signInAdministrator} from "../support/agent-dispatch.js";
+import {admitMember, issueApiKey, signInAdministrator} from "../support/agent-dispatch.js";
 import {publishNew} from "../support/publishing.js";
 import {
   createTestInstallation,
@@ -104,8 +104,8 @@ describe("artifact listing by owner", () => {
     const administratorId = z.object({principal: z.object({id: z.string()})})
       .parse(await session.json()).principal.id;
     const [adaId, bobId] = [
-      await admitMember(cookies, "Ada", "ada@example.test"),
-      await admitMember(cookies, "Bob", "bob@example.test"),
+      await admitMember(server, cookies, "Ada", "ada@example.test"),
+      await admitMember(server, cookies, "Bob", "bob@example.test"),
     ];
     return {
       adaKey: await issueApiKey(server, cookies, keyCapabilities, "Ada's agent", adaId),
@@ -120,28 +120,6 @@ describe("artifact listing by owner", () => {
       cookies,
       serviceKey: await issueApiKey(server, cookies, keyCapabilities, "Release bot"),
     };
-  }
-
-  async function admitMember(
-    cookies: {readonly csrf: string; readonly header: string},
-    displayName: string,
-    email: string,
-  ): Promise<string> {
-    const response = await fetch(`${server.baseUrl}/api/v1/members`, {
-      body: JSON.stringify({displayName, email}),
-      headers: {
-        "Content-Type": "application/json",
-        Cookie: cookies.header,
-        Origin: server.baseUrl,
-        "Sec-Fetch-Mode": "cors",
-        "Sec-Fetch-Site": "same-origin",
-        "X-CSRF-Token": cookies.csrf,
-      },
-      method: "POST",
-    });
-    expect(response.status).toBe(201);
-    return z.object({member: z.object({id: z.string()})})
-      .parse(await response.json()).member.id;
   }
 
   async function publish(

@@ -53,17 +53,11 @@ describe("managed API-key rotation", () => {
       displayName: "Ada",
       email: "ada@example.test",
     });
-    const published = await publishNew(server, installation, {
-      accessSetting: "account_required",
-      content: "rotation attribution",
-      idempotencyKey: "auth-009-publish",
-      name: "Rotation attribution",
-    });
-
     const human = await issueKey(server, cookies, {
       memberId,
       name: "Ada's key",
     });
+    const humanArtifact = await publishOwn(server, installation, human.token, "human");
     const rotatedHuman = await rotateKey(server, cookies, human.apiKey.id);
     expect(rotatedHuman.apiKey).toMatchObject({
       authorizedByPrincipalId: human.apiKey.authorizedByPrincipalId,
@@ -73,12 +67,13 @@ describe("managed API-key rotation", () => {
       rotatedFromId: human.apiKey.id,
     });
     expect(await artifactListStatus(server, human.token)).toBe(401);
-    expect(await changeTags(server, rotatedHuman.token, published.body, {
+    expect(await changeTags(server, rotatedHuman.token, humanArtifact.body, {
       idempotencyKey: "auth-009-human-tags",
       tags: ["human-rotation"],
     })).toBe(200);
 
     const service = await issueKey(server, cookies, {name: "Release bot"});
+    const serviceArtifact = await publishOwn(server, installation, service.token, "service");
     const rotatedService = await rotateKey(server, cookies, service.apiKey.id);
     expect(rotatedService.apiKey).toMatchObject({
       authorizedByPrincipalId: service.apiKey.authorizedByPrincipalId,
@@ -88,19 +83,20 @@ describe("managed API-key rotation", () => {
       rotatedFromId: service.apiKey.id,
     });
     expect(await artifactListStatus(server, service.token)).toBe(401);
-    expect(await changeTags(server, rotatedService.token, published.body, {
+    expect(await changeTags(server, rotatedService.token, serviceArtifact.body, {
       idempotencyKey: "auth-009-service-tags",
       tags: ["service-rotation"],
     })).toBe(200);
 
-    const actions = await readActions(server, installation, published.body);
-    expect(actions).toEqual(expect.arrayContaining([
+    expect(await readActions(server, installation, humanArtifact.body)).toEqual(expect.arrayContaining([
       expect.objectContaining({
         action: "change_tags",
         authorizedByPrincipalId: administratorId,
         idempotencyKey: "auth-009-human-tags",
         principalId: memberId,
       }),
+    ]));
+    expect(await readActions(server, installation, serviceArtifact.body)).toEqual(expect.arrayContaining([
       expect.objectContaining({
         action: "change_tags",
         authorizedByPrincipalId: administratorId,
@@ -179,7 +175,7 @@ async function issueKey(
 ): Promise<z.infer<typeof issuedKeySchema>> {
   const response = await fetch(`${server.baseUrl}/api/v1/api-keys`, {
     body: JSON.stringify({
-      capabilities: ["artifact:manage:any"],
+      capabilities: ["artifact:create", "artifact:manage:any"],
       expiresAt: "2099-01-01T00:00:00.000Z",
       ...input,
     }),
@@ -188,6 +184,20 @@ async function issueKey(
   });
   expect(response.status).toBe(201);
   return issuedKeySchema.parse(await response.json());
+}
+
+function publishOwn(
+  server: RunningTestServer,
+  installation: TestInstallation,
+  token: string,
+  label: string,
+): ReturnType<typeof publishNew> {
+  return publishNew(server, {...installation, apiToken: token}, {
+    accessSetting: "account_required",
+    content: `rotation attribution by the ${label} key`,
+    idempotencyKey: `auth-009-${label}-publish`,
+    name: `Rotation attribution (${label})`,
+  });
 }
 
 async function rotateKey(

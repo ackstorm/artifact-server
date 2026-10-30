@@ -58,7 +58,7 @@ describe("artifact deletion ownership", () => {
       name: "Ada's report",
     });
     const bobArtifact = await publishNew(server, {...installation, apiToken: bob}, {
-      accessSetting: "account_required",
+      accessSetting: "private",
       content: "<!doctype html><title>Bob's notes</title>",
       idempotencyKey: "auth-030-bob-publish",
       name: "Bob's notes",
@@ -79,6 +79,30 @@ describe("artifact deletion ownership", () => {
     expect(refused.map(({status}) => status)).toEqual([403, 403, 403]);
     expect(await deletedAt(ada, adaArtifactId)).toBeNull();
     expect(await actionKinds(ada, adaArtifactId)).not.toContain("delete");
+
+    const adaPrivate = await publishNew(server, {...installation, apiToken: ada}, {
+      accessSetting: "private",
+      content: "<!doctype html><title>Ada's draft</title>",
+      idempotencyKey: "auth-030-ada-private-publish",
+      name: "Ada's draft",
+    });
+    const refusedDeletes = (artifactId: string, label: string) =>
+      Promise.all([bob, service, administratorAgent].map(async (token, index) => {
+        const response = await deleteArtifact(
+          artifactId,
+          adaPrivate.body.version.id,
+          `auth-030-${label}-refusal-${index}`,
+          {Authorization: `Bearer ${token}`},
+        );
+        return {body: await response.json(), status: response.status};
+      }));
+    const refusedPrivate = await refusedDeletes(adaPrivate.body.artifact.id, "private");
+    expect(refusedPrivate).toEqual(refusedPrivate.map(() => ({
+      body: {error: {code: "ARTIFACT_NOT_FOUND", message: "The artifact does not exist."}},
+      status: 404,
+    })));
+    expect(refusedPrivate).toEqual(await refusedDeletes("art_auth030_missing", "missing"));
+    expect(await deletedAt(ada, adaPrivate.body.artifact.id)).toBeNull();
 
     const deleted = await deleteArtifact(
       adaArtifactId,

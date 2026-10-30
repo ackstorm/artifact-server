@@ -99,8 +99,10 @@ Human administrators moderate without reading:
   comments.
 - On a Private artifact this leaves only the owner.
 - Deleting a thread or reply requires read authority on the artifact, plus one
-  of: the author, a human administrator, or a service principal with
+  of: the author, a human administrator, or a principal with
   `artifact:manage:any` that controls the artifact.
+- Clearing an artifact's threads in bulk is for principals that control the
+  artifact, or a human administrator.
 
 ### Dispatch
 
@@ -241,6 +243,9 @@ These existing requirements are reworded:
 | SCP-008 | Reworded: one installation membership group; per-artifact access is the owner plus the sharing level, with no per-project or per-person list. |
 | AUTH-008 | Reworded: members act on artifacts they own; service principals act within their capabilities on artifacts they own. |
 | CMT-006, CMT-007 | Add "with read authority on the artifact". |
+| CMT-008 | A principal that can manage any artifact deletes others' comments only on artifacts it controls. |
+| PRS-005 | Bulk clearing is for the artifact's controller or a human administrator. |
+| AUTH-030 | An administrator deletes a Private artifact it cannot read; non-readers receive not found. |
 | ADM-005 | The bulk action lowers to Organization. |
 
 AUTH-003 to AUTH-006 and GIT-005 keep their wording; their tests run against the

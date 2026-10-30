@@ -1767,8 +1767,8 @@ requirements:
     owner: authorization
     source: {file: artifact-server-product-spec.html, anchor: sharing}
     acceptance:
-      behavior: {id: AUTH-030-B, description: "The creator deletes their artifact through HTTP and through an agent key bound to them, and an administrator deletes another member's artifact; an exact retry replays the deletion."}
-      failure: {id: AUTH-030-F, description: "Another member, a service principal holding artifact:manage:any, and an agent key acting for an administrator cannot delete an artifact they did not create, and the refused attempt leaves it live with no action record."}
+      behavior: {id: AUTH-030-B, description: "The creator deletes their artifact through HTTP and through an agent key bound to them, and an administrator deletes another member's artifact, including a Private one it cannot read; an exact retry replays the deletion."}
+      failure: {id: AUTH-030-F, description: "Another member, a service principal holding artifact:manage:any, and an agent key acting for an administrator cannot delete an artifact they did not create, a principal that cannot read a Private artifact receives the same not-found response as for a missing one, and the refused attempt leaves it live with no action record."}
     deployments: *all
     status: specified
     depends_on: [AUTH-008, ART-006]
@@ -2445,12 +2445,12 @@ requirements:
 
   - id: CMT-008
     kind: security
-    behavior: Only the author can edit a thread or reply; the author, a human administrator, or a principal that can manage any artifact can delete one.
+    behavior: Only the author can edit a thread or reply; the author, a human administrator, or a principal that can manage any artifact and controls it can delete one.
     owner: artifact-comments
     source: {file: artifact-comments-spec.md, anchor: conformance-requirements-to-add}
     acceptance:
       behavior: {id: CMT-008-B, description: "Edit and delete one's own thread and reply, then delete another member's comment as a human administrator."}
-      failure: {id: CMT-008-F, description: "Another member's edit and delete are denied, and an administrator's edit of someone else's comment is denied while the administrator's delete succeeds and is recorded."}
+      failure: {id: CMT-008-F, description: "Another member's edit and delete are denied, a manage-any principal that does not control the artifact cannot delete others' comments, and an administrator's edit of someone else's comment is denied while the administrator's delete succeeds and is recorded."}
     deployments: *all
     status: behavior_verified
     depends_on: [CMT-001, AUTH-008]
@@ -3186,7 +3186,7 @@ requirements:
 
   - id: PRS-005
     kind: behavior
-    behavior: Bulk comment clearing stays scoped to one artifact, records deletions, skips actively dispatched work, and reports deleted and skipped counts.
+    behavior: Bulk comment clearing is for the artifact's controller or a human administrator, stays scoped to one artifact, records deletions, skips actively dispatched work, and reports deleted and skipped counts.
     owner: agent-presence
     source: {file: agent-presence-and-bridge-spec.md, anchor: conformance-sketch-ids-reserved-all-specified}
     acceptance:
