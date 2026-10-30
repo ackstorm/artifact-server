@@ -1,5 +1,17 @@
 import {createHash} from "node:crypto";
 
+import {Effect, Redacted} from "effect";
+
+import {
+  defaultGitHistoryFileCopyBytes,
+  defaultGitHistoryVersionCopyBytes,
+  type GitHistoryLimits,
+} from "../../src/git-history/git-history-capability.js";
+import type {GitHistoryProviderHealthProbe} from
+  "../../src/git-history/git-history-provider-health.js";
+import type {NodeGitHistoryConfiguration} from
+  "../../src/git-history/node-git-history-configuration.js";
+
 import type {
   GitCloneCredential,
   GitHistoryCommitRequest,
@@ -100,4 +112,37 @@ export class RecordingGitHistoryProvider implements GitHistoryProvider {
     this.repositories.delete(coordinates.artifactId);
     this.commits.delete(coordinates.artifactId);
   }
+}
+
+export const availableHealthProbe: GitHistoryProviderHealthProbe = {
+  check: () => Effect.succeed({state: "available"}),
+};
+
+export function configuredGitHistory(
+  limits: Partial<Pick<
+    GitHistoryLimits,
+    "fileCopyBytes" | "storageBudgetBytes" | "versionCopyBytes"
+  >> = {},
+): Extract<NodeGitHistoryConfiguration, {readonly _tag: "CloudflareArtifactsRest"}> {
+  return {
+    _tag: "CloudflareArtifactsRest",
+    apiToken: Redacted.make("project-setting-test-token"),
+    capability: {
+      limits: {
+        fileCopyBytes: limits.fileCopyBytes ?? defaultGitHistoryFileCopyBytes,
+        logicalCopiedBytes: 0,
+        logicalReservedBytes: 0,
+        storageBudgetBytes: limits.storageBudgetBytes ?? null,
+        versionCopyBytes: limits.versionCopyBytes ?? defaultGitHistoryVersionCopyBytes,
+      },
+      provider: "cloudflare-artifacts",
+      providerState: "checking",
+    },
+    identity: {
+      accountId: "project-setting-account",
+      namespace: "project-setting-namespace",
+      provider: "cloudflare-artifacts",
+    },
+    issues: [],
+  };
 }

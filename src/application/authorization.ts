@@ -67,7 +67,7 @@ export interface AuthorizationOperations {
   readonly requireContentSession: (
     principal: Principal,
     artifact: ArtifactRecord,
-  ) => Effect.Effect<void, AuthorizationDenied>;
+  ) => Effect.Effect<void, ArtifactNotFound | AuthorizationDenied>;
   readonly requirePublicationPreparation: (
     principal: Principal,
   ) => Effect.Effect<void, AuthorizationDenied>;
@@ -175,8 +175,9 @@ function makeAuthorizationService(
 
   const requireContentSession = Effect.fn(
     "AuthorizationService.requireContentSession",
-  )(function*(principal: Principal, _artifact: ArtifactRecord) {
+  )(function*(principal: Principal, artifact: ArtifactRecord) {
     yield* requireInstallation(principal);
+    yield* requireArtifactVisible(principal, artifact);
     if (
       isDirectHumanPrincipal(principal) ||
       hasCapability(principal, principalCapabilities.issueContentSession)

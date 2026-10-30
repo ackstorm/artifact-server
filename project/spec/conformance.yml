@@ -1807,7 +1807,7 @@ requirements:
     source: {file: artifact-sharing-levels-spec.md, anchor: conformance}
     acceptance:
       behavior: {id: AUTH-033-B, description: "The owner reads a Private artifact on every read surface. Any member, member-bound key or read-capable service key reads an Organization artifact by id."}
-      failure: {id: AUTH-033-F, description: "Another member, a member-bound key of another member, a service key and an administrator each receive 404 on every read surface of a Private artifact, including content bootstrap, comments, comparisons and the Git clone token. An anonymous request receives 404 or a sign-in requirement for an Organization artifact."}
+      failure: {id: AUTH-033-F, description: "Another member, a member-bound key of another member, a service key and an administrator each receive 404 on every read surface of a Private artifact, including content bootstrap, comments, comparisons and the Git clone token. An anonymous request receives the same sign-in requirement for a Private artifact as for an Organization one."}
     deployments: *all
     status: specified
     depends_on: [AUTH-032]

@@ -363,11 +363,13 @@ export async function issueApiKey(
   cookies: ApplicationCookies,
   capabilities: readonly string[],
   name: string,
+  memberId?: string,
 ): Promise<string> {
   const response = await fetch(`${server.baseUrl}/api/v1/api-keys`, {
     body: JSON.stringify({
       capabilities: [...capabilities],
       expiresAt: "2099-01-01T00:00:00.000Z",
+      memberId,
       name,
     }),
     headers: new Headers({

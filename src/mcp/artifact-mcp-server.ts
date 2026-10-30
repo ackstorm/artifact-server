@@ -113,7 +113,7 @@ const accessSettingSchema = z.enum([
   accessSettings.accountRequired,
   accessSettings.publicLink,
 ]);
-/** Every level an artifact can hold; inputs accept only `accessSettingSchema`. */
+/** Every level an artifact can hold. */
 const artifactAccessLevelSchema = z.enum([
   accessSettings.private,
   accessSettings.accountRequired,
@@ -1262,7 +1262,7 @@ export function createArtifactMcpServer(
         projectId: optionalProjectIdSchema,
         target: z.discriminatedUnion("kind", [
           z.object({
-            accessSetting: accessSettingSchema.default(
+            accessSetting: artifactAccessLevelSchema.default(
               accessSettings.accountRequired,
             ),
             kind: z.literal("new_artifact"),
@@ -1307,9 +1307,9 @@ export function createArtifactMcpServer(
     {
       title: "Change artifact visibility",
       description:
-        "Change an artifact between account-required and public-link access without changing its saved files. Public copies already downloaded outside Artifact Server cannot be recalled.",
+        "Change an artifact between private, account-required and public-link access without changing its saved files. Public copies already downloaded outside Artifact Server cannot be recalled.",
       inputSchema: z.object({
-        accessSetting: accessSettingSchema,
+        accessSetting: artifactAccessLevelSchema,
         artifactId: artifactIdSchema,
         expectedCurrentVersionId: expectedVersionSchema,
         idempotencyKey: idempotencyKeySchema,

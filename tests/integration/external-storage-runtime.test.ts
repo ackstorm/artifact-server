@@ -432,7 +432,7 @@ describe.sequential("external-storage Postgres and S3 runtime", () => {
       .actions.map(({action}) => action).toSorted()).toEqual(["change_review_mode", "change_review_mode", "publish"]);
   });
 
-  test("AUTH-036-B: a populated Postgres schema records each owner from version 1 and keeps levels and replays", async () => {
+  test("AUTH-036-B AUTH-036-F: a populated Postgres schema records each owner from version 1, keeps levels and replays, and leaves another member's Organization artifact readable by link", async () => {
     const databaseName = `artifactserver_owner_migration_${randomUUID().replaceAll("-", "")}`;
     await createPostgresDatabase(environment, databaseName);
     const ownerEnvironment = {
@@ -604,6 +604,52 @@ describe.sequential("external-storage Postgres and S3 runtime", () => {
       expect(await listFor("mem_c")).toEqual(["art_private"]);
     } finally {
       await opened.database.close();
+    }
+
+    const previousClaims = {...oidcProvider.claims};
+    const reader = await startInProcessExternalStorageServer(ownerEnvironment, identity);
+    try {
+      oidcProvider.claims.email = oidcAdministratorEmail;
+      oidcProvider.claims.subject = "postgres-owner-migration-administrator";
+      const administrator = applicationCookies(
+        (await oidcBrowserLogin(reader.baseUrl)).headers.getSetCookie(),
+      );
+      const admitted = await fetch(`${reader.baseUrl}/api/v1/members`, {
+        body: JSON.stringify({displayName: "Reader", email: "reader@example.com"}),
+        headers: browserMutationHeaders("https://artifacts.example.com", administrator),
+        method: "POST",
+      });
+      expect(admitted.status).toBe(201);
+      oidcProvider.claims.email = "reader@example.com";
+      oidcProvider.claims.subject = "postgres-owner-migration-reader";
+      const member = applicationCookies(
+        (await oidcBrowserLogin(reader.baseUrl)).headers.getSetCookie(),
+      );
+      const listedIds = async (cookies: ApplicationCookies) => {
+        const response = await fetch(
+          `${reader.baseUrl}/api/v1/artifacts?projectId=${defaultProjectId}`,
+          {headers: {Cookie: cookies.header}},
+        );
+        expect(response.status).toBe(200);
+        return z.object({artifacts: z.array(z.object({artifact: z.object({id: z.string()})}))})
+          .parse(await response.json()).artifacts.map(({artifact}) => artifact.id);
+      };
+      const [administratorList, memberList, byLink] = await Promise.all([
+        listedIds(administrator),
+        listedIds(member),
+        fetch(`${reader.baseUrl}/api/v1/artifacts/art_member?projectId=${defaultProjectId}`, {
+          headers: {Cookie: member.header},
+        }),
+      ]);
+      expect(administratorList).toEqual(["art_service"]);
+      expect(memberList).toEqual([]);
+      expect(byLink.status).toBe(200);
+      expect(await byLink.json()).toMatchObject({
+        artifact: {accessSetting: "account_required", id: "art_member"},
+      });
+    } finally {
+      Object.assign(oidcProvider.claims, previousClaims);
+      await reader.stop();
     }
   });
 

@@ -273,7 +273,7 @@ describe("authorization policy", () => {
   async function expectAllowed(
     operation: (
       authorization: AuthorizationService["Service"],
-    ) => Effect.Effect<void, AuthorizationDenied>,
+    ) => Effect.Effect<void, ArtifactNotFound | AuthorizationDenied>,
   ): Promise<void> {
     const result = await runtime.runPromise(
       Effect.result(AuthorizationService.use(operation)),
@@ -284,7 +284,7 @@ describe("authorization policy", () => {
   async function expectDenied(
     operation: (
       authorization: AuthorizationService["Service"],
-    ) => Effect.Effect<void, AuthorizationDenied>,
+    ) => Effect.Effect<void, ArtifactNotFound | AuthorizationDenied>,
   ): Promise<void> {
     const result = await runtime.runPromise(
       Effect.result(AuthorizationService.use(operation)),

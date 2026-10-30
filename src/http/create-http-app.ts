@@ -159,6 +159,7 @@ import type {
 
 const maximumJsonRequestBytes = 1_500_000;
 const accessSettingSchema = z.enum([
+  accessSettings.private,
   accessSettings.accountRequired,
   accessSettings.publicLink,
 ]);

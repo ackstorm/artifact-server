@@ -239,9 +239,9 @@ describe("version file route for the review viewer", () => {
       published,
       "index.html",
     );
-    expect(readIncapable.status).toBe(403);
+    expect(readIncapable.status).toBe(404);
     expect(failureSchema.parse(await readIncapable.json()).error.code)
-      .toBe("AUTHORIZATION_DENIED");
+      .toBe("ARTIFACT_NOT_FOUND");
 
     const unknownPath = await fileFetch(
       readerToken,

@@ -363,6 +363,7 @@ function makeArtifactManagementService(
         command.projectId,
       );
       const artifact = yield* requireArtifact(project.id, command.artifactId);
+      yield* authorization.requireArtifactVisible(command.principal, artifact);
       yield* authorization.requireArtifactRead(command.principal);
       const current = yield* requireVersion(
         project.id,
@@ -393,6 +394,7 @@ function makeArtifactManagementService(
       if (artifact === null) {
         return yield* new ArtifactNotFound({message: "The artifact does not exist."});
       }
+      yield* authorization.requireArtifactVisible(command.principal, artifact);
       yield* authorization.requireArtifactRead(command.principal);
       if (version === null) {
         return yield* new VersionNotFound({
@@ -429,6 +431,7 @@ function makeArtifactManagementService(
       if (artifact === null) {
         return yield* new ArtifactNotFound({message: "The artifact does not exist."});
       }
+      yield* authorization.requireArtifactVisible(command.principal, artifact);
       yield* authorization.requireArtifactRead(command.principal);
       return versions;
     },
@@ -479,6 +482,7 @@ function makeArtifactManagementService(
       project.id,
       command.artifactId,
     );
+    yield* authorization.requireArtifactVisible(command.principal, artifact);
     yield* authorization.requireArtifactManagement(command.principal);
     return yield* dependencies.repository.listArtifactActions({
       artifactId: artifact.id,

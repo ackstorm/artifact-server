@@ -585,6 +585,7 @@ function makeArtifactCommentService(
       );
       yield* authorization.requireCommentRead(command.principal);
       const artifact = yield* requireArtifact(project.id, command.artifactId);
+      yield* authorization.requireArtifactVisible(command.principal, artifact);
       return yield* dependencies.repository.listThreads({
         artifactId: artifact.id,
         cursor: command.cursor,
@@ -608,6 +609,7 @@ function makeArtifactCommentService(
       );
       yield* authorization.requireCommentRead(command.principal);
       const artifact = yield* requireArtifact(project.id, command.artifactId);
+      yield* authorization.requireArtifactVisible(command.principal, artifact);
       const thread = yield* requireThread(
         project.id,
         artifact.id,
@@ -634,7 +636,12 @@ function makeArtifactCommentService(
           message: "The comment thread does not exist.",
         });
       }
-      yield* requireArtifact(project.id, thread.artifactId);
+      const artifact = yield* requireArtifact(project.id, thread.artifactId);
+      yield* authorization.requireArtifactVisible(command.principal, artifact).pipe(
+        Effect.mapError(() => new CommentNotFound({
+          message: "The comment thread does not exist.",
+        })),
+      );
       return thread;
     },
   );

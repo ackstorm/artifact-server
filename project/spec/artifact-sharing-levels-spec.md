@@ -49,8 +49,10 @@ A principal reads an artifact when any of these holds:
    version through the public link, as AUTH-004 already requires.
 
 A principal that cannot read an artifact receives `404 ARTIFACT_NOT_FOUND`, never
-`403`, on every surface, so a private artifact's existence does not leak. The rule
-applies to:
+`403`, on every surface, so a private artifact's existence does not leak. An
+anonymous request for a Private artifact gets the same sign-in requirement as for
+an Organization one, so a signed-out owner is asked to sign in. The rule applies
+to:
 
 - artifact get, versions, a single version, files, download archive and media
 - comparisons
@@ -58,8 +60,11 @@ applies to:
 - comments: list and get
 - content bootstrap, `artifact_open`, preview leases, and the live origin of linked artifacts
 - the Git clone token
-- dispatch list and get, and agent presence
 - the MCP equivalents of each, and WebMCP through the same API
+
+Dispatch records and agent presence carry thread ids and agent names, never
+artifact data, so they keep today's project-level read rule. A dispatched
+thread is read through the comment surfaces above.
 
 ### List
 
@@ -222,7 +227,7 @@ These requirements are new:
 | ID | Acceptance (B = behavior, F = failure) |
 | --- | --- |
 | AUTH-032 | **B:** New artifacts from HTTP, MCP and CLI are Private and record the version 1 publisher as owner; a member-bound key's artifact belongs to its member. **F:** No surface creates an artifact without an owner, and later publishers never change the owner. |
-| AUTH-033 | **B:** The owner reads a Private artifact on every surface in §3. Any member, member-bound key or read-capable service key reads an Organization artifact by id. **F:** Another member, a member-bound key of another member, a service key and an administrator each receive 404 on every read surface of a Private artifact, including content bootstrap, comments, comparisons and the Git clone token. An anonymous request receives 404 or a sign-in requirement for an Organization artifact. |
+| AUTH-033 | **B:** The owner reads a Private artifact on every surface in §3. Any member, member-bound key or read-capable service key reads an Organization artifact by id. **F:** Another member, a member-bound key of another member, a service key and an administrator each receive 404 on every read surface of a Private artifact, including content bootstrap, comments, comparisons and the Git clone token. An anonymous request receives the same sign-in requirement for a Private artifact as for an Organization one. |
 | AUTH-034 | **B:** Lists return the reader's own artifacts; an administrator's lists also contain service-owned ones. **F:** Another member's Organization and Public artifacts never appear in lists or search results. |
 | AUTH-035 | **B:** The owner publishes, tags, restores, changes review mode and raises the level. An administrator lowers any level and manages service-owned artifacts. **F:** Another member, and a non-owning key with `manage:any` or `publish:any`, receive 403 on Organization or Public artifacts and 404 on Private ones. An administrator cannot raise a member's level or publish to it. |
 | AUTH-036 | **B:** The migration fills the owner from version 1 on SQLite, Postgres and D1 and keeps every level and idempotency replay unchanged. **F:** A migrated artifact whose version 1 publisher is another member is unlisted for the reader but readable by link at Organization. |
