@@ -33,6 +33,10 @@ export interface AuthorizationOperations {
   readonly requireArtifactCreation: (
     principal: Principal,
   ) => Effect.Effect<void, AuthorizationDenied>;
+  readonly requireArtifactDeletion: (
+    principal: Principal,
+    creatorPrincipalId: string,
+  ) => Effect.Effect<void, AuthorizationDenied>;
   readonly requireArtifactManagement: (
     principal: Principal,
   ) => Effect.Effect<void, AuthorizationDenied>;
@@ -220,6 +224,20 @@ function makeAuthorizationService(
     yield* denied();
   });
 
+  // Only the principal that published version 1 or a human administrator may
+  // delete; artifact:manage:any does not extend to other principals' artifacts.
+  const requireArtifactDeletion = Effect.fn(
+    "AuthorizationService.requireArtifactDeletion",
+  )(function*(principal: Principal, creatorPrincipalId: string) {
+    yield* requireInstallation(principal);
+    if (
+      principal.id === creatorPrincipalId || isHumanAdministrator(principal)
+    ) {
+      return;
+    }
+    yield* denied();
+  });
+
   const requirePublicationPreparation = Effect.fn(
     "AuthorizationService.requirePublicationPreparation",
   )(function*(principal: Principal) {
@@ -285,6 +303,7 @@ function makeAuthorizationService(
     requireInstallationAdministration,
     requireArtifactListing,
     requireArtifactCreation,
+    requireArtifactDeletion,
     requireArtifactManagement,
     requireArtifactRead,
     requireCommentRead,

@@ -998,6 +998,16 @@ function ArtifactReview({
     )
     || session.principal.capabilities.includes("artifact:manage:any")
   );
+  const creatorPrincipalId = versions
+    .find(({version}) => version.number === 1)?.version.publisherPrincipalId;
+  const canDeleteArtifact = selectedProject?.archivedAt === null && (
+    session.principal.id === creatorPrincipalId
+    || (
+      session.principal.kind === "human"
+      && session.principal.authorizedByPrincipalId === null
+      && session.principal.membershipRole === "administrator"
+    )
+  );
   const canDeleteAnyComment = (
     session.principal.kind === "human"
     && session.principal.authorizedByPrincipalId === null
@@ -2029,6 +2039,7 @@ function ArtifactReview({
               <InlineState description="Select an artifact to inspect its immutable record." title="Nothing selected" />
             ) : inspectorTab === "details" ? (
               <DetailsInspector
+                canDelete={canDeleteArtifact}
                 canManage={canManageArtifacts}
                 details={details}
                 linkedArtifacts={session.capabilities.linkedArtifacts}
@@ -2144,6 +2155,7 @@ function ReviewDownloadControl({
 }
 
 function DetailsInspector({
+  canDelete,
   canManage,
   details,
   linkedArtifacts,
@@ -2153,6 +2165,7 @@ function DetailsInspector({
   onTombstone,
   version,
 }: {
+  readonly canDelete: boolean;
   readonly canManage: boolean;
   readonly details: ArtifactDetails;
   readonly linkedArtifacts: boolean;
@@ -2210,7 +2223,7 @@ function DetailsInspector({
           </div>
         </InspectorSection>
       )}
-      {canManage ? (
+      {canDelete ? (
         <InspectorSection count={0} title="Danger zone">
           <TombstoneArtifactControl artifact={details.artifact} onConfirm={onTombstone} />
         </InspectorSection>

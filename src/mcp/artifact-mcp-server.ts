@@ -106,7 +106,7 @@ import {
   type ToolResultNudgeFacts,
 } from "./tool-result-nudges.js";
 
-const serverVersion = "0.2.0";
+const serverVersion = "0.2.1";
 const maximumListedArtifacts = 100;
 const maximumTextDiffBytes = 256 * 1_024;
 const accessSettingSchema = z.enum([
@@ -1440,7 +1440,7 @@ export function createArtifactMcpServer(
     {
       title: "Delete an artifact",
       description:
-        "Delete one artifact from active listings after an optimistic current-version check. This is destructive; retained immutable version records are reported.",
+        "Delete one artifact from active listings after an optimistic current-version check. Only the principal that published its first version or a human administrator may delete it. This is destructive; retained immutable version records are reported.",
       inputSchema: z.object({
         artifactId: artifactIdSchema,
         expectedCurrentVersionId: expectedVersionSchema,
