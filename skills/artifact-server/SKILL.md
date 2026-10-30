@@ -36,7 +36,8 @@ steps separate and state which installation is affected before changing it.
   or refresh tokens. The one exception is the `as_upg_` upload grant that
   `artifact_create_upload` returns: use it only in the `Authorization` header of
   that upload's file PUTs, and never print it, repeat it in chat, or store it.
-- Keep public sharing off unless the user explicitly requests it.
+- New artifacts are private. Raise sharing to the organization or public only
+  when the user explicitly requests it.
 - Verify success from structured CLI, MCP, HTTP, or deployment health results.
   Never infer success from a command that merely started.
 
