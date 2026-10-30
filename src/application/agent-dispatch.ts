@@ -13,6 +13,8 @@ import {
 import {
   AgentDispatchNotFound,
   AgentNotFound,
+  type ArtifactNotFound,
+  ArtifactPrivate,
   type ArtifactRepositoryFailure,
   AuthorizationDenied,
   type DispatchStateConflict,
@@ -31,9 +33,12 @@ import {
   type AgentDispatchPage,
   type AgentDispatchRecord,
   type AgentDispatchState,
+  accessSettings,
   agentActivityStates,
   agentBeaconStates,
+  type ArtifactRecord,
   type CommentAuthor,
+  type CommentThreadRecord,
   normalizeAgentCapabilities,
   type PageCursor,
   type RegisteredAgentKind,
@@ -93,11 +98,19 @@ export interface AgentDispatchPersistence {
     installationId: string,
     agentId: string,
   ) => Effect.Effect<RegisteredAgentRecord | null, AgentDispatchRepositoryFailure>;
+  readonly findArtifact: (
+    projectId: string,
+    artifactId: string,
+  ) => Effect.Effect<ArtifactRecord | null, AgentDispatchRepositoryFailure>;
   readonly findDispatch: (
     installationId: string,
     dispatchId: string,
     now: string,
   ) => Effect.Effect<AgentDispatchRecord | null, AgentDispatchRepositoryFailure>;
+  readonly findThreadById: (
+    projectId: string,
+    threadId: string,
+  ) => Effect.Effect<CommentThreadRecord | null, AgentDispatchRepositoryFailure>;
   readonly listAgents: (
     installationId: string,
     now: string,
@@ -236,6 +249,8 @@ export interface ListDispatchesCommand {
 export type AgentDispatchFailure =
   | AgentDispatchNotFound
   | AgentNotFound
+  | ArtifactNotFound
+  | ArtifactPrivate
   | ArtifactRepositoryFailure
   | AuthorizationDenied
   | DispatchStateConflict
@@ -550,6 +565,36 @@ function makeAgentDispatchService(
     },
   );
 
+  // A thread the repository cannot find is left to its InvalidDispatch check.
+  const requireSendable = Effect.fn("AgentDispatchService.requireSendable")(
+    function*(principal: Principal, projectId: string, threadIds: readonly string[]) {
+      const artifactIds = new Set<string>();
+      for (const threadId of threadIds) {
+        const thread = yield* dependencies.repository.findThreadById(
+          projectId,
+          threadId,
+        );
+        if (thread !== null) artifactIds.add(thread.artifactId);
+      }
+      const artifacts: ArtifactRecord[] = [];
+      for (const artifactId of artifactIds) {
+        const artifact = yield* dependencies.repository.findArtifact(
+          projectId,
+          artifactId,
+        );
+        if (artifact === null) continue;
+        yield* authorization.requireArtifactVisible(principal, artifact);
+        artifacts.push(artifact);
+      }
+      if (artifacts.some((artifact) => artifact.accessSetting === accessSettings.private)) {
+        yield* new ArtifactPrivate({
+          message:
+            "This artifact is private. Share it with the organization before sending its threads to an agent.",
+        });
+      }
+    },
+  );
+
   const createDispatch = Effect.fn("AgentDispatchService.createDispatch")(
     function*(command: CreateDispatchCommand) {
       const project = yield* resolveProjectForWrite(
@@ -561,6 +606,7 @@ function makeAgentDispatchService(
       const note = yield* requireNote(command.note);
       const idempotencyKey = yield* parseIdempotencyKey(command.idempotencyKey);
       const agent = yield* requireAgent(command.agentId);
+      yield* requireSendable(command.principal, project.id, threadIds);
       return yield* dependencies.repository.createDispatch({
         agentDisplayName: agent.displayName,
         agentId: agent.id,

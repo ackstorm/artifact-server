@@ -5,6 +5,7 @@ export const errorCodes = {
   agentNotFound: "AGENT_NOT_FOUND",
   artifactNotFound: "ARTIFACT_NOT_FOUND",
   artifactMutationConflict: "ARTIFACT_MUTATION_CONFLICT",
+  artifactPrivate: "ARTIFACT_PRIVATE",
   authorizationDenied: "AUTHORIZATION_DENIED",
   authenticationRequired: "AUTHENTICATION_REQUIRED",
   commentNotFound: "COMMENT_NOT_FOUND",
@@ -60,6 +61,12 @@ export class ArtifactNotFound extends Schema.TaggedError<ArtifactNotFound>()(
 /** The artifact changed after a management client read its current state. */
 export class ArtifactMutationConflict extends Schema.TaggedError<ArtifactMutationConflict>()(
   "ArtifactMutationConflict",
+  messageField,
+) {}
+
+/** A Private artifact cannot be sent to an agent, which connects with a service key. */
+export class ArtifactPrivate extends Schema.TaggedError<ArtifactPrivate>()(
+  "ArtifactPrivate",
   messageField,
 ) {}
 
@@ -478,6 +485,7 @@ const artifactServerFailureSchema = Schema.Union([
   AgentNotFound,
   ArtifactNotFound,
   ArtifactMutationConflict,
+  ArtifactPrivate,
   AuthenticationRequired,
   CommentNotFound,
   CommentResolved,

@@ -643,9 +643,17 @@ export function createApplicationLayer(
         "findRegisteredAgent",
         () => dispatchStore.findAgent(installationId, agentId),
       ),
+      findArtifact: (projectId, artifactId) => dispatchEffect(
+        "findArtifact",
+        () => adapters.repository.findArtifact(projectId, artifactId),
+      ),
       findDispatch: (installationId, dispatchId, now) => dispatchEffect(
         "findAgentDispatch",
         () => dispatchStore.findDispatch(installationId, dispatchId, now),
+      ),
+      findThreadById: (projectId, threadId) => dispatchEffect(
+        "findCommentThread",
+        () => adapters.repository.findThreadById(projectId, threadId),
       ),
       listAgents: (installationId, now) => dispatchEffect(
         "listRegisteredAgents",
