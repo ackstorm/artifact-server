@@ -134,7 +134,7 @@ test.describe("Artifact Server frontend MVP", () => {
       const accessRow = fixture.page.locator(".as-inspector-row").filter({
         hasText: "access",
       });
-      await expect(accessRow.getByText("private", {exact: true})).toBeVisible();
+      await expect(accessRow.getByText("Organization", {exact: true})).toBeVisible();
       await expect(accessRow.getByText("Account required", {exact: true})).toHaveCount(0);
       const reviewFrame = fixture.page.frameLocator(".as-artifact-frame");
       const preview = reviewFrame.frameLocator("iframe");
@@ -1120,7 +1120,7 @@ test.describe("Artifact Server frontend MVP", () => {
       await expect(share.getByText(exactReviewLink.toString(), {exact: true})).toBeVisible();
       await expect(share.getByText(published.body.links.artifact, {exact: true})).toBeVisible();
       await expect(share.getByText(
-        "People with access to this Artifact Server can review this exact version.",
+        "Anyone signed in to this Artifact Server can open this link.",
         {exact: true},
       )).toBeVisible();
       await expect(share.getByText(published.body.links.version, {exact: true})).toBeVisible();
@@ -1182,15 +1182,11 @@ test.describe("Artifact Server frontend MVP", () => {
       }
       await share.getByRole("button", {name: "Back to Share"}).click();
 
-      await share.getByRole("button", {name: "Manage access"}).click();
-      await expect(share.getByRole("heading", {name: "Artifact access"})).toBeVisible();
-      await share.getByRole("radio", {name: /Public link/u}).check();
-      await share.getByRole("button", {name: "Save"}).click();
-      await expect(share.getByText(
-        /The latest raw artifact is public/u,
-      )).toBeVisible();
+      await share.getByRole("combobox", {name: "General access"}).selectOption("public_link");
+      await share.getByRole("button", {name: "Confirm"}).click();
+      await expect(share.getByRole("heading", {name: "Public link"})).toBeVisible();
       const accessRow = fixture.page.locator(".as-inspector-row").filter({hasText: "access"});
-      await expect(accessRow.getByText("public", {exact: true})).toBeVisible();
+      await expect(accessRow.getByText("Public", {exact: true})).toBeVisible();
       await share.getByRole("button", {name: "Close Share"}).click();
 
       await fixture.page.getByRole("button", {name: "Full screen"}).click();
@@ -1564,18 +1560,18 @@ test.describe("Artifact Server frontend MVP", () => {
       expect(await inventory.evaluate((element) => element.scrollWidth - element.clientWidth))
         .toBe(0);
       await expect(firstRow.getByRole("link", {name: "Open"})).toBeVisible();
-      await expect(firstRow.getByRole("button", {name: "Make private"})).toBeVisible();
+      await expect(firstRow.getByRole("button", {name: "Stop public access"})).toBeVisible();
 
       const otherRow = fixture.page.getByRole("row").filter({
         hasText: "Cross-project public link",
       });
-      await otherRow.getByRole("button", {name: "Make private"}).click();
-      await fixture.page.getByRole("button", {name: "Make private", exact: true}).last().click();
+      await otherRow.getByRole("button", {name: "Stop public access"}).click();
+      await fixture.page.getByRole("button", {name: "Stop public access", exact: true}).last().click();
       await expect(otherRow).toHaveCount(0);
 
       await fixture.page.getByRole("checkbox", {name: "Select First public link"}).click();
       await fixture.page.getByRole("checkbox", {name: "Select Stale public link"}).click();
-      await fixture.page.getByRole("button", {name: "Make 2 private"}).click();
+      await fixture.page.getByRole("button", {name: "Stop public access (2)"}).click();
       const staleUpdate = await publishVersion(fixture.server, fixture.installation, {
         artifactId: stale.body.artifact.id,
         content: "updated after the administrator selected the row",
@@ -1583,10 +1579,10 @@ test.describe("Artifact Server frontend MVP", () => {
         idempotencyKey: "frontend-public-links-stale-update",
         projectId: "prj_default",
       });
-      await fixture.page.getByRole("button", {name: "Make private", exact: true}).last().click();
+      await fixture.page.getByRole("button", {name: "Stop public access", exact: true}).last().click();
 
       await expect(fixture.page.getByText("1 link was not changed")).toBeVisible();
-      await expect(fixture.page.getByText(/1 public link is now private/u)).toBeVisible();
+      await expect(fixture.page.getByText(/1 link is no longer public/u)).toBeVisible();
       await expect(fixture.page.getByText("First public link")).toHaveCount(0);
       await expect(fixture.page.getByRole("link", {name: "Stale public link"})).toBeVisible();
       await fixture.page.getByRole("button", {name: "Retry failed"}).click();

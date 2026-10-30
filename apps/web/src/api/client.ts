@@ -136,6 +136,7 @@ const artifactSchema = z.object({
   deletedAt: z.string().nullable(),
   id: z.string(),
   name: z.string(),
+  ownerPrincipalId: z.string(),
   projectId: z.string(),
   reviewMode: reviewModeSchema.default("annotate"),
   tags: z.array(z.string()),

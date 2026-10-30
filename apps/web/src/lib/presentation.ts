@@ -1,4 +1,4 @@
-import { ApiError, type ArtifactAction, type SourceFreshness } from "@/api/client";
+import { type AccessSetting, ApiError, type ArtifactAction, type SourceFreshness } from "@/api/client";
 
 /** Formats a stored ISO timestamp for the current browser locale. */
 export function formatTimestamp(value: string): string {
@@ -66,8 +66,8 @@ export function errorMessage(error: Error): string {
 }
 
 /** Converts an access-setting value into the product's visible term. */
-export function accessSettingLabel(value: "account_required" | "public_link"): string {
-  return value === "account_required" ? "Account required" : "Public link";
+export function accessSettingLabel(value: AccessSetting): string {
+  return {account_required: "Organization", private: "Private", public_link: "Public"}[value];
 }
 
 /** Converts one action kind into compact action-history text. */

@@ -1653,8 +1653,7 @@ select:focus-visible {
   white-space: nowrap;
 }
 
-.as-share-overview,
-.as-share-access-editor {
+.as-share-overview {
   padding: 0.85rem 0.9rem;
 }
 
@@ -1669,15 +1668,16 @@ select:focus-visible {
 }
 
 .as-share-destination__icon svg,
-.as-share-access-summary > svg {
+.as-share-access__control > svg {
   height: 0.95rem;
   width: 0.95rem;
 }
 
 .as-share-link {
-  margin-top: 0;
+  margin-top: 0.75rem;
 }
 
+.as-share-access h3,
 .as-share-link h3,
 .as-share-agent h3 {
   color: color-mix(in oklab, var(--as-subtle) 80%, var(--as-text));
@@ -1708,24 +1708,56 @@ select:focus-visible {
   white-space: nowrap;
 }
 
-.as-share-access-summary {
+.as-share-access__control {
   align-items: center;
   color: var(--as-subtle);
   display: grid;
   gap: 0.55rem;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  margin-top: 0.5rem;
-  min-height: 2.6rem;
+  grid-template-columns: auto minmax(0, 1fr);
+  margin-top: 0.4rem;
 }
 
-.as-share-access-summary p {
+.as-share-access__control select {
+  font-size: 0.74rem;
+  justify-content: flex-start;
+  min-width: 0;
+  width: 100%;
+}
+
+.as-share-access__control select:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
+.as-share-access > p,
+.as-share-link > p {
+  color: var(--as-subtle);
+  font-size: 0.7rem;
+  line-height: 1.45;
+  margin: 0.4rem 0 0;
+}
+
+.as-share-access__confirm {
+  border: 1px solid color-mix(in oklab, var(--as-gold) 50%, var(--as-border));
+  margin-top: 0.5rem;
+  padding: 0.6rem 0.7rem;
+}
+
+.as-share-access__confirm p {
+  color: var(--as-text);
   font-size: 0.72rem;
   line-height: 1.45;
   margin: 0;
 }
 
-.as-share-access-summary .as-button,
-.as-share-access-editor__actions .as-button {
+.as-share-access__confirm div {
+  display: flex;
+  gap: 0.45rem;
+  justify-content: flex-end;
+  margin-top: 0.55rem;
+}
+
+.as-share-access__confirm .as-button {
   font-size: 0.72rem;
   min-height: 1.85rem;
 }
@@ -2012,108 +2044,6 @@ select:focus-visible {
   padding: 0.65rem 0.9rem;
 }
 
-.as-share-access-editor > p:first-child {
-  color: var(--as-subtle);
-  font-size: 0.74rem;
-  line-height: 1.45;
-  margin: 0 0 0.65rem;
-}
-
-.as-share-access-editor fieldset {
-  border: 0;
-  display: grid;
-  gap: 0.5rem;
-  margin: 0;
-  padding: 0;
-}
-
-.as-share-access-option {
-  align-items: flex-start;
-  border: 1px solid var(--as-border);
-  cursor: pointer;
-  display: grid;
-  gap: 0.65rem;
-  grid-template-columns: auto minmax(0, 1fr);
-  min-height: 3.6rem;
-  padding: 0.7rem;
-}
-
-.as-share-access-option[data-checked="true"] {
-  background: var(--as-iris-soft);
-  border-color: color-mix(in oklab, var(--as-iris) 62%, var(--as-border));
-}
-
-.as-share-access-option:has(input:focus-visible) {
-  outline: 1px solid var(--as-iris);
-  outline-offset: 2px;
-}
-
-.as-share-access-option input {
-  height: 1rem;
-  opacity: 0;
-  position: absolute;
-  width: 1rem;
-}
-
-.as-share-access-option__indicator {
-  border: 1px solid var(--as-subtle);
-  border-radius: 50%;
-  height: 0.9rem;
-  margin-top: 0.12rem;
-  pointer-events: none;
-  position: relative;
-  width: 0.9rem;
-}
-
-.as-share-access-option[data-checked="true"] .as-share-access-option__indicator::after {
-  background: var(--as-iris);
-  border-radius: 50%;
-  content: "";
-  inset: 0.2rem;
-  position: absolute;
-}
-
-.as-share-access-option strong,
-.as-share-access-option small {
-  display: block;
-}
-
-.as-share-access-option strong {
-  font-size: 0.8rem;
-  font-weight: 600;
-}
-
-.as-share-access-option small {
-  color: var(--as-subtle);
-  font-size: 0.7rem;
-  line-height: 1.4;
-  margin-top: 0.18rem;
-}
-
-.as-share-network-note,
-.as-share-access-warning {
-  font-size: 0.72rem;
-  line-height: 1.45;
-  margin: 0.65rem 0 0;
-  padding: 0.6rem 0.7rem;
-}
-
-.as-share-network-note {
-  background: color-mix(in oklab, var(--as-surface-raised) 52%, transparent);
-  color: var(--as-subtle);
-}
-
-.as-share-access-warning {
-  border: 1px solid color-mix(in oklab, var(--as-gold) 50%, var(--as-border));
-  color: var(--as-text);
-}
-
-.as-share-access-editor__actions {
-  display: flex;
-  gap: 0.45rem;
-  justify-content: flex-end;
-  margin-top: 0.8rem;
-}
 
 .as-preview-panel__body {
   background:
@@ -3901,15 +3831,6 @@ body:has(.as-settings) [data-slot="dialog-trigger"]:active:not(:disabled) {
 
   .as-share-link .as-button {
     justify-self: stretch;
-  }
-
-  .as-share-access-summary {
-    grid-template-columns: auto minmax(0, 1fr);
-  }
-
-  .as-share-access-summary .as-button {
-    grid-column: 2;
-    justify-self: start;
   }
 }
 

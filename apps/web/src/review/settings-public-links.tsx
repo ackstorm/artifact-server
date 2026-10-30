@@ -171,11 +171,11 @@ export function PublicLinksScreen() {
       setSelectedKeys(new Set(nextFailures.map(({item}) => selectionKey(item))));
       if (response.summary.succeeded > 0) {
         setNotice(
-          `${response.summary.succeeded} public ${response.summary.succeeded === 1 ? "link is" : "links are"} now private. ${response.warning}`,
+          `${response.summary.succeeded} ${response.summary.succeeded === 1 ? "link is" : "links are"} no longer public. ${response.warning}`,
         );
       }
     } catch (caught) {
-      setError(caught instanceof Error ? caught : new Error("Making public links private failed."));
+      setError(caught instanceof Error ? caught : new Error("Stopping public access failed."));
     } finally {
       setPending(false);
     }
@@ -203,7 +203,7 @@ export function PublicLinksScreen() {
           failure.item.project.id,
           failure.item.artifact.id,
         );
-        if (details.artifact.accessSetting === "account_required") {
+        if (details.artifact.accessSetting !== "public_link") {
           return {alreadyPrivate: failure.item} as const;
         }
         return {
@@ -229,7 +229,7 @@ export function PublicLinksScreen() {
       if (ready.length === 0) {
         setFailures(retained);
         if (alreadyPrivate.size > 0) {
-          setNotice("The remaining public links were already private when their current state was refreshed.");
+          setNotice("The remaining links were already not public when their current state was refreshed.");
         }
         return;
       }
@@ -265,7 +265,7 @@ export function PublicLinksScreen() {
             Reload
           </Button>
         )}
-        description="See every active artifact that currently allows public-link access, then make individual links or a bounded selection private."
+        description="See every active artifact that currently allows public-link access, then stop public access for individual links or a bounded selection."
         eyebrow="Administration"
         title="Public links"
       />
@@ -360,7 +360,7 @@ export function PublicLinksScreen() {
                   size="sm"
                   type="button"
                 >
-                  Make {selectedItems.length} private
+                  Stop public access ({selectedItems.length})
                 </Button>
               </div>
               <p className="basis-full text-xs leading-5 text-muted-foreground sm:order-3">
@@ -406,8 +406,8 @@ export function PublicLinksScreen() {
                       <tr className="as-public-links-table__empty-row">
                         <td className="text-center text-muted-foreground" colSpan={4}>
                           {currentPage?.nextCursor === null
-                            ? "Every public link on this page is now private. Return to a previous page to inspect the remaining loaded links."
-                            : "Every public link on this loaded page is now private. Continue to the next page to inspect older public links."}
+                            ? "Every link on this page is no longer public. Return to a previous page to inspect the remaining loaded links."
+                            : "Every link on this loaded page is no longer public. Continue to the next page to inspect older public links."}
                         </td>
                       </tr>
                     )
@@ -473,7 +473,7 @@ export function PublicLinksScreen() {
                               type="button"
                               variant="ghost"
                             >
-                              Make private
+                              Stop public access
                             </Button>
                           </div>
                         </td>
@@ -515,7 +515,7 @@ export function PublicLinksScreen() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              Make {confirmation.length} public {confirmation.length === 1 ? "link" : "links"} private?
+              Stop public access for {confirmation.length} {confirmation.length === 1 ? "link" : "links"}?
             </DialogTitle>
             <DialogDescription>
               New requests to successful items will require an admitted account. Copies already
@@ -541,7 +541,7 @@ export function PublicLinksScreen() {
               onClick={() => void confirmMutation()}
               type="button"
             >
-              {pending ? "Making private…" : "Make private"}
+              {pending ? "Stopping public access…" : "Stop public access"}
             </Button>
           </DialogFooter>
         </DialogContent>
