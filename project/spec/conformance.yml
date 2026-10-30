@@ -1796,9 +1796,14 @@ requirements:
       behavior: {id: AUTH-032-B, description: "New artifacts from HTTP, MCP and CLI are Private and record the version 1 publisher as owner; a member-bound key's artifact belongs to its member."}
       failure: {id: AUTH-032-F, description: "No surface creates an artifact without an owner, and later publishers never change the owner."}
     deployments: *all
-    status: specified
+    status: behavior_verified
     depends_on: [AUTH-030]
-    evidence: []
+    evidence:
+      - deployment: local
+        tests: [AUTH-032-B, AUTH-032-F]
+        result: pass
+        run: project/evidence/local-foundation.json
+        recorded_at: "2026-10-30T21:57:54.908Z"
 
   - id: AUTH-033
     kind: security
@@ -1809,9 +1814,14 @@ requirements:
       behavior: {id: AUTH-033-B, description: "The owner reads a Private artifact on every read surface. Any member, member-bound key or read-capable service key reads an Organization artifact by id."}
       failure: {id: AUTH-033-F, description: "Another member, a member-bound key of another member, a service key and an administrator each receive 404 on every read surface of a Private artifact, including content bootstrap, comments, comparisons and the Git clone token. An anonymous request receives the same sign-in requirement for a Private artifact as for an Organization one."}
     deployments: *all
-    status: specified
+    status: behavior_verified
     depends_on: [AUTH-032]
-    evidence: []
+    evidence:
+      - deployment: local
+        tests: [AUTH-033-B, AUTH-033-F]
+        result: pass
+        run: project/evidence/local-foundation.json
+        recorded_at: "2026-10-30T21:57:54.908Z"
 
   - id: AUTH-034
     kind: security
@@ -1822,9 +1832,14 @@ requirements:
       behavior: {id: AUTH-034-B, description: "Lists return the reader's own artifacts; an administrator's lists also contain service-owned ones."}
       failure: {id: AUTH-034-F, description: "Another member's Organization and Public artifacts never appear in lists or search results."}
     deployments: *all
-    status: specified
+    status: behavior_verified
     depends_on: [AUTH-032]
-    evidence: []
+    evidence:
+      - deployment: local
+        tests: [AUTH-034-B, AUTH-034-F]
+        result: pass
+        run: project/evidence/local-foundation.json
+        recorded_at: "2026-10-30T21:57:54.908Z"
 
   - id: AUTH-035
     kind: security
@@ -1835,9 +1850,14 @@ requirements:
       behavior: {id: AUTH-035-B, description: "The owner publishes, tags, restores, changes review mode and raises the level. An administrator lowers any level and manages service-owned artifacts."}
       failure: {id: AUTH-035-F, description: "Another member, and a non-owning key with manage:any or publish:any, receive 403 on Organization or Public artifacts and 404 on Private ones. An administrator cannot raise a member's level or publish to it."}
     deployments: *all
-    status: specified
+    status: behavior_verified
     depends_on: [AUTH-033]
-    evidence: []
+    evidence:
+      - deployment: local
+        tests: [AUTH-035-B, AUTH-035-F]
+        result: pass
+        run: project/evidence/local-foundation.json
+        recorded_at: "2026-10-30T21:57:54.908Z"
 
   - id: AUTH-036
     kind: security
@@ -1848,9 +1868,14 @@ requirements:
       behavior: {id: AUTH-036-B, description: "The migration fills the owner from version 1 on SQLite, Postgres and D1 and keeps every level and idempotency replay unchanged."}
       failure: {id: AUTH-036-F, description: "A migrated artifact whose version 1 publisher is another member is unlisted for the reader but readable by link at Organization."}
     deployments: *all
-    status: specified
+    status: behavior_verified
     depends_on: [AUTH-032]
-    evidence: []
+    evidence:
+      - deployment: single_server
+        tests: [AUTH-036-B, AUTH-036-F]
+        result: pass
+        run: project/evidence/external-storage-runtime.json
+        recorded_at: "2026-10-30T22:11:23.242Z"
 
   - id: AUTH-037
     kind: behavior
@@ -1861,9 +1886,14 @@ requirements:
       behavior: {id: AUTH-037-B, description: "In the Share modal the owner moves between the three levels, confirming in place before Public, and the note and links follow."}
       failure: {id: AUTH-037-F, description: "A non-owner sees the selector disabled; a failed save returns to the saved level with the message."}
     deployments: *all
-    status: specified
+    status: behavior_verified
     depends_on: [AUTH-035]
-    evidence: []
+    evidence:
+      - deployment: local
+        tests: [AUTH-037-B, AUTH-037-F]
+        result: pass
+        run: project/evidence/browser.json
+        recorded_at: "2026-10-30T22:00:13.840Z"
 
   - id: SEC-001
     kind: security
@@ -3107,9 +3137,14 @@ requirements:
       behavior: {id: DSP-014-B, description: "Dispatching threads of an Organization artifact works as before."}
       failure: {id: DSP-014-F, description: "Dispatching threads of a Private artifact returns 409 ARTIFACT_PRIVATE and creates no dispatch."}
     deployments: *all
-    status: specified
+    status: behavior_verified
     depends_on: [AUTH-033, DSP-003]
-    evidence: []
+    evidence:
+      - deployment: local
+        tests: [DSP-014-B, DSP-014-F]
+        result: pass
+        run: project/evidence/local-foundation.json
+        recorded_at: "2026-10-30T21:57:54.908Z"
 
   - id: BRP-001
     kind: behavior
