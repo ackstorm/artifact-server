@@ -90,6 +90,7 @@ export interface ExternalStorageRuntimeConfig {
   readonly localBootstrapCredential?: Redacted.Redacted;
   readonly mcpOAuthResource?: McpOAuthResourceConfiguration;
   readonly objectStorage: ObjectStorageProviderFactory;
+  readonly organizationName?: string | null;
   readonly postgresMaxConnections?: number;
   readonly runtimeLifecycle?: RuntimeLifecycle;
   readonly serviceVersion?: string;
@@ -240,6 +241,7 @@ export async function createExternalStorageRuntime(
       contentDomain: config.contentDomain,
       gitHistory: gitHistoryMonitor?.reader ??
         fixedGitHistoryCapabilityReader(gitHistory.capability),
+      organizationName: config.organizationName ?? null,
       readiness: () => externalStorageReadiness(database, connectedObjectStorage),
       trustedApplicationOrigin: config.applicationOrigin ?? null,
       webAssets: createNodeWebAssetStore(),

@@ -71,6 +71,7 @@ const deploymentCapabilitiesSchema = z.object({
 const sessionSchema = z.object({
   authenticationMethod: z.enum(["bearer", "session"]),
   capabilities: deploymentCapabilitiesSchema,
+  installation: z.object({organizationName: z.string().nullable()}),
   principal: principalSchema,
 });
 

@@ -225,6 +225,32 @@ describe("Artifact Server lifecycle CLI", () => {
         reason: "invalid_value",
       });
 
+      const withOrganizationName = (value: string | undefined) =>
+        Effect.runPromise(parseCompactRuntimeConfiguration({
+          dataDirectory,
+          environment: {
+            ...environment,
+            ARTIFACT_SERVER_ORGANIZATION_NAME: value,
+          },
+          hostname: "127.0.0.1",
+          port: "8787",
+        }));
+      expect((await withOrganizationName("  ACKstorm ")).organizationName)
+        .toBe("ACKstorm");
+      expect((await withOrganizationName(undefined)).organizationName)
+        .toBeNull();
+      expect((await withOrganizationName("   ")).organizationName).toBeNull();
+      expect((await withOrganizationName("x".repeat(64))).organizationName)
+        .toBe("x".repeat(64));
+      const invalidOrganizationName = {
+        field: "ARTIFACT_SERVER_ORGANIZATION_NAME",
+        reason: "invalid_value",
+      };
+      await expect(withOrganizationName("x".repeat(65)))
+        .rejects.toMatchObject(invalidOrganizationName);
+      await expect(withOrganizationName("ACK\u0007storm"))
+        .rejects.toMatchObject(invalidOrganizationName);
+
       const support = await runCli([
         "support",
         "manifest",

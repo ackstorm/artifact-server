@@ -98,6 +98,7 @@ export interface CompactRuntimeConfiguration {
   readonly installation: CompactInstallationMetadata;
   readonly linkedFiles: "off" | "on";
   readonly linkRoots: readonly string[];
+  readonly organizationName: string | null;
   readonly port: number;
   readonly readinessWithdrawalMilliseconds: number;
   readonly sessionLifetimeMilliseconds: number;
@@ -122,6 +123,7 @@ export interface ExternalStorageRuntimeConfiguration {
   readonly gitHistory: NodeGitHistoryConfiguration;
   readonly installationId: string;
   readonly objectStorage: ObjectStorageProviderFactory;
+  readonly organizationName: string | null;
   readonly port: number;
   readonly postgresMaxConnections: number;
   readonly readinessWithdrawalMilliseconds: number;
@@ -253,6 +255,7 @@ export const parseCompactRuntimeConfiguration = Effect.fn(
     installation,
     linkedFiles: yield* parseLinkedFilesMode(input.environment),
     linkRoots: yield* parseLinkRoots(input.environment),
+    organizationName: yield* parseOrganizationName(input.environment),
     port: yield* parsePort(input.port),
     readinessWithdrawalMilliseconds: yield* parseMilliseconds(
       input.environment,
@@ -331,6 +334,7 @@ export const parseExternalStorageRuntimeConfiguration = Effect.fn(
       installationIdSchema,
     ),
     objectStorage: configuredObjectStorage.factory,
+    organizationName: yield* parseOrganizationName(environment),
     port: yield* parsePort(input.port),
     postgresMaxConnections: yield* parsePostgresMaxConnections(environment),
     readinessWithdrawalMilliseconds: yield* parseMilliseconds(
@@ -696,6 +700,21 @@ function parseMilliseconds(
     );
   }
   return Effect.succeed(milliseconds);
+}
+
+function parseOrganizationName(
+  environment: NodeJS.ProcessEnv,
+): Effect.Effect<string | null, RuntimeConfigurationError> {
+  const field = "ARTIFACT_SERVER_ORGANIZATION_NAME";
+  const value = environment[field]?.trim() ?? "";
+  if (value === "") return Effect.succeed(null);
+  if (value.length > 64 || /\p{Cc}/u.test(value)) {
+    return invalidValue(
+      field,
+      `${field} must be at most 64 characters with no control characters.`,
+    );
+  }
+  return Effect.succeed(value);
 }
 
 function parseSessionLifetime(
