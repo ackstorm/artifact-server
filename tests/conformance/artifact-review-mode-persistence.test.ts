@@ -109,7 +109,7 @@ describe("artifact review mode persistence", () => {
     expect((await repository.changeAccessSetting({...management, accessSetting: "account_required", idempotencyKey: "access", inputDigest: "access"})).artifact.reviewMode).toBe("interact");
     const restored = await repository.restoreVersion({...management, idempotencyKey: "restore", inputDigest: "restore", versionId: result.version.id});
     expect(restored.artifact.reviewMode).toBe("interact");
-    const listed = await repository.listArtifacts({comments: "all", cursor: null, limit: 10, projectId, sort: "newest", tags: []});
+    const listed = await repository.listArtifacts({comments: "all", cursor: null, limit: 10, projectId, sort: "newest", tags: [], viewer: {includeServiceOwned: false, principalId: "publisher"}});
     expect(listed.items).toEqual([expect.objectContaining({reviewMode: "interact", currentVersionId: result.version.id})]);
   });
 

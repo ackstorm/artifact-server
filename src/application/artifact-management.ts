@@ -27,7 +27,7 @@ import {
   InvalidPagination,
   VersionNotFound,
 } from "../core/errors.js";
-import type { Principal } from "../core/identity.js";
+import { isHumanAdministrator, type Principal } from "../core/identity.js";
 import type {
   AccessSetting,
   ArtifactActionPage,
@@ -459,6 +459,10 @@ function makeArtifactManagementService(
         search,
         sort,
         tags,
+        viewer: {
+          includeServiceOwned: isHumanAdministrator(command.principal),
+          principalId: command.principal.id,
+        },
       });
     },
   );

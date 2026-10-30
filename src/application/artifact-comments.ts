@@ -110,6 +110,13 @@ export interface ReadCommentThreadCommand extends ReadArtifactCommentsCommand {
   readonly threadId: string;
 }
 
+/** Input for reading one thread known only by its id, as a dispatch names it. */
+export interface ReadCommentThreadByIdCommand {
+  readonly principal: Principal;
+  readonly projectId: string | null;
+  readonly threadId: string;
+}
+
 /** Input shared by every operation scoped to one existing reply. */
 export interface ReadCommentReplyCommand extends ReadCommentThreadCommand {
   readonly replyId: string;
@@ -191,6 +198,10 @@ export interface ArtifactCommentRepository {
     artifactId: string,
     threadId: string,
   ) => Effect.Effect<CommentThreadRecord | null, CommentRepositoryFailure>;
+  readonly findThreadById: (
+    projectId: string,
+    threadId: string,
+  ) => Effect.Effect<CommentThreadRecord | null, CommentRepositoryFailure>;
   readonly listReplies: (
     threadId: string,
   ) => Effect.Effect<readonly CommentReplyRecord[], CommentRepositoryFailure>;
@@ -253,6 +264,9 @@ interface ArtifactCommentOperations {
   readonly getThread: (
     command: ReadCommentThreadCommand,
   ) => Effect.Effect<CommentThreadDetails, ArtifactCommentFailure>;
+  readonly getThreadById: (
+    command: ReadCommentThreadByIdCommand,
+  ) => Effect.Effect<CommentThreadRecord, ArtifactCommentFailure>;
   readonly listThreads: (
     command: ListCommentThreadsCommand,
   ) => Effect.Effect<CommentThreadPage, ArtifactCommentFailure>;
@@ -604,6 +618,27 @@ function makeArtifactCommentService(
     },
   );
 
+  const getThreadById = Effect.fn("ArtifactCommentService.getThreadById")(
+    function*(command: ReadCommentThreadByIdCommand) {
+      const project = yield* resolveProjectForRead(
+        command.principal,
+        command.projectId,
+      );
+      yield* authorization.requireCommentRead(command.principal);
+      const thread = yield* dependencies.repository.findThreadById(
+        project.id,
+        command.threadId,
+      );
+      if (thread === null) {
+        return yield* new CommentNotFound({
+          message: "The comment thread does not exist.",
+        });
+      }
+      yield* requireArtifact(project.id, thread.artifactId);
+      return thread;
+    },
+  );
+
   const updateThread = Effect.fn("ArtifactCommentService.updateThread")(
     function*(command: UpdateCommentThreadCommand) {
       const project = yield* resolveProjectForWrite(
@@ -797,6 +832,7 @@ function makeArtifactCommentService(
     deleteReply,
     deleteThread,
     getThread,
+    getThreadById,
     listThreads,
     updateReply,
     updateThread,

@@ -397,6 +397,151 @@ describe("mailbox-tier dispatch inbox over MCP", () => {
     expect(await dispatchState(dispatch.id)).toBe("queued");
   });
 
+  test("a service-key agent claims a member's dispatch with every thread in the bundle", async () => {
+    expect.hasAssertions();
+    const cookies = await signInAdministrator(server, installation);
+    const memberResponse = await fetch(`${server.baseUrl}/api/v1/members`, {
+      body: JSON.stringify({displayName: "Ada", email: "ada@example.test"}),
+      headers: browserMutationHeaders(cookies),
+      method: "POST",
+    });
+    expect(memberResponse.status).toBe(201);
+    const adaId = z.object({member: z.object({id: z.string()})})
+      .parse(await memberResponse.json()).member.id;
+    const keyResponse = await fetch(`${server.baseUrl}/api/v1/api-keys`, {
+      body: JSON.stringify({
+        capabilities: [
+          principalCapabilities.createArtifact,
+          principalCapabilities.manageAnyArtifact,
+          principalCapabilities.readArtifacts,
+          principalCapabilities.writeComments,
+        ],
+        expiresAt: "2099-01-01T00:00:00.000Z",
+        memberId: adaId,
+        name: "Ada's agent",
+      }),
+      headers: browserMutationHeaders(cookies),
+      method: "POST",
+    });
+    expect(keyResponse.status).toBe(201);
+    const adaToken = z.object({token: z.string()}).parse(await keyResponse.json()).token;
+    const agentToken = await issueApiKey(
+      server,
+      cookies,
+      [
+        principalCapabilities.connectAgents,
+        principalCapabilities.readArtifacts,
+        principalCapabilities.writeComments,
+      ],
+      "Service mailbox agent",
+    );
+    const ada = new ApiClient(server, adaToken);
+    const adaArtifact = (await publishNew(server, {...installation, apiToken: adaToken}, {
+      accessSetting: "account_required",
+      content: "<!doctype html><title>Ada's report</title>",
+      idempotencyKey: "brp-mailbox-member-publish",
+      name: "Ada's report",
+    })).body;
+    const threadResponse = await ada.fetch(
+      `/api/v1/artifacts/${adaArtifact.artifact.id}` +
+        `/versions/${adaArtifact.version.id}/comments` +
+        `?projectId=${adaArtifact.artifact.projectId}`,
+      {
+        body: JSON.stringify({body: "Ada's annotation.", path: "index.html"}),
+        idempotencyKey: "brp-mailbox-member-thread",
+        method: "POST",
+      },
+    );
+    expect(threadResponse.status).toBe(201);
+    const threadId = threadCreationSchema.parse(await threadResponse.json()).thread.id;
+    const registered = await callInboxTool(agentToken, {
+      agentName: "Service mailbox",
+      operation: "list",
+    });
+    const sent = await ada.sendDispatch({
+      agentId: registered.agent.id,
+      idempotencyKey: "brp-mailbox-member-dispatch",
+      projectId: adaArtifact.artifact.projectId,
+      threadIds: [threadId],
+    });
+    expect(sent.status).toBe(201);
+
+    const claimed = (await callInboxTool(agentToken, {
+      agentName: "Service mailbox",
+      operation: "claim",
+    })).claimed;
+    expect(claimed?.threads).toEqual([{
+      artifactId: adaArtifact.artifact.id,
+      path: "index.html",
+      threadId,
+    }]);
+    expect(claimed?.message).toContain("Ada's report");
+    expect(claimed?.message).toContain("Ada's annotation.");
+  });
+
+  test("a dispatch naming a thread from another project is refused and creates no dispatch", async () => {
+    expect.hasAssertions();
+    const ownThread = await openThread(
+      "An annotation in the default project.",
+      "brp-mailbox-cross-project-own",
+      null,
+    );
+    const otherProjectId = await client.createProject(
+      "Other project",
+      "brp-mailbox-cross-project-create",
+    );
+    const otherArtifact = (await publishNew(server, installation, {
+      accessSetting: "account_required",
+      content: "<!doctype html><title>Other project</title>",
+      idempotencyKey: "brp-mailbox-cross-project-publish",
+      name: "Other project report",
+      projectId: otherProjectId,
+    })).body;
+    const foreignResponse = await client.fetch(
+      `/api/v1/artifacts/${otherArtifact.artifact.id}` +
+        `/versions/${otherArtifact.version.id}/comments` +
+        `?projectId=${otherProjectId}`,
+      {
+        body: JSON.stringify({body: "An annotation in another project.", path: "index.html"}),
+        idempotencyKey: "brp-mailbox-cross-project-foreign",
+        method: "POST",
+      },
+    );
+    expect(foreignResponse.status).toBe(201);
+    const foreignThread = threadCreationSchema.parse(await foreignResponse.json()).thread.id;
+    const agent = await callInboxTool(installation.apiToken, {
+      agentName: "Cross-project mailbox",
+      operation: "list",
+    });
+
+    const refused = await client.sendDispatch({
+      agentId: agent.agent.id,
+      idempotencyKey: "brp-mailbox-cross-project-dispatch",
+      projectId,
+      threadIds: [ownThread, foreignThread],
+    });
+    expect(refused.status).toBe(422);
+    expect(toolFailureSchema.parse(await refused.json()).error.code).toBe("INVALID_DISPATCH");
+    const after = await callInboxTool(installation.apiToken, {
+      agentName: "Cross-project mailbox",
+      operation: "list",
+    });
+    expect(after.inbox).toEqual([]);
+  });
+
+  function browserMutationHeaders(
+    cookies: {readonly csrf: string; readonly header: string},
+  ): Headers {
+    return new Headers({
+      "Content-Type": "application/json",
+      Cookie: cookies.header,
+      Origin: server.baseUrl,
+      "Sec-Fetch-Mode": "cors",
+      "Sec-Fetch-Site": "same-origin",
+      "X-CSRF-Token": cookies.csrf,
+    });
+  }
+
   async function openThread(
     body: string,
     idempotencyKey: string,

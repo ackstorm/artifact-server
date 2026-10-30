@@ -373,6 +373,7 @@ describe.sequential("external-storage Postgres and S3 runtime", () => {
           // Roll back to schema 11: the migrator applies only migrations after
           // the newest recorded one, so later rows must go with review mode.
           yield* sql.unsafe("ALTER TABLE staged_uploads DROP COLUMN grant_digest");
+          yield* sql.unsafe("ALTER TABLE artifacts DROP COLUMN owner_principal_id");
           yield* sql.unsafe("DELETE FROM artifact_server_postgres_migrations WHERE migration_id >= 12");
         }));
       }));
@@ -429,6 +430,181 @@ describe.sequential("external-storage Postgres and S3 runtime", () => {
     const actions = await authenticatedFetch(firstServer.baseUrl, identity.apiToken, `/api/v1/artifacts/${publication.artifact.id}/actions`);
     expect(z.object({actions: z.array(z.object({action: z.string()}))}).parse(await actions.json())
       .actions.map(({action}) => action).toSorted()).toEqual(["change_review_mode", "change_review_mode", "publish"]);
+  });
+
+  test("AUTH-036-B: a populated Postgres schema records each owner from version 1 and keeps levels and replays", async () => {
+    const databaseName = `artifactserver_owner_migration_${randomUUID().replaceAll("-", "")}`;
+    await createPostgresDatabase(environment, databaseName);
+    const ownerEnvironment = {
+      ...environment,
+      databaseUrl: databaseUrlFor(environment.databaseUrl, databaseName),
+    };
+    const identity = {
+      apiToken: managedTestKey("postgres-owner-migration"),
+      installationId: "postgres-owner-migration-installation",
+    };
+    const cliEnvironment = {
+      ARTIFACT_SERVER_DATABASE_URL: ownerEnvironment.databaseUrl,
+      ARTIFACT_SERVER_INSTALLATION_ID: identity.installationId,
+    };
+    expect((await runExternalCli(["migrate", "apply"], cliEnvironment)).exitCode).toBe(0);
+    const server = await startInProcessExternalStorageServer(ownerEnvironment, identity);
+    await server.stop();
+
+    const createdAt = new Date().toISOString();
+    const manifest = createManifest({
+      entryPath: "index.html",
+      files: [{mediaType: "text/html", path: "index.html", sha256: "d".repeat(64), size: 4}],
+      routingMode: "static",
+    });
+    const openRepository = async () => {
+      const database = await PostgresDatabase.open({
+        maxConnections: 2,
+        url: Redacted.make(ownerEnvironment.databaseUrl),
+      }, "validate");
+      return {
+        database,
+        repository: await PostgresArtifactRepository.open(database, identity.installationId),
+      };
+    };
+    const stage = async (repository: PostgresArtifactRepository, uploadId: string, principalId: string) => {
+      await repository.createStagedUpload({
+        createdAt,
+        expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+        files: manifest.entries.map((entry) => ({entry, storageToken: `${uploadId}_slot`})),
+        grantDigest: null,
+        id: uploadId,
+        manifest,
+        principalId,
+        projectId: defaultProjectId,
+      });
+      await repository.markStagedFileUploaded(
+        defaultProjectId, uploadId, principalId, `${uploadId}_slot`, createdAt,
+      );
+      return {kind: "staged_upload" as const, principalId, projectId: defaultProjectId, uploadId};
+    };
+    const newArtifact = async (
+      repository: PostgresArtifactRepository,
+      artifactId: string,
+      principalId: string,
+      accessSetting: "account_required" | "public_link",
+    ) => ({
+      accessSetting,
+      artifactId,
+      authorizedByPrincipalId: null,
+      contentToken: `content_${artifactId}`,
+      createdAt,
+      idempotencyKey: `publish_${artifactId}`,
+      inputDigest: `digest_${artifactId}`,
+      manifest,
+      name: artifactId,
+      principalId,
+      projectId: defaultProjectId,
+      source: await stage(repository, `upl_${artifactId}`, principalId),
+      tags: [],
+      versionId: `ver_${artifactId}_1`,
+    });
+
+    let opened = await openRepository();
+    const memberCommand = await newArtifact(opened.repository, "art_member", "mem_a", "account_required");
+    const serviceCommand = await newArtifact(opened.repository, "art_service", "service:key1", "public_link");
+    try {
+      await opened.repository.commitNewArtifact(memberCommand);
+      await opened.repository.commitNewArtifact(serviceCommand);
+      await opened.repository.commitVersion({
+        artifactId: "art_member",
+        authorizedByPrincipalId: null,
+        contentToken: "content_art_member_2",
+        createdAt,
+        expectedCurrentVersionId: "ver_art_member_1",
+        idempotencyKey: "publish_art_member_2",
+        inputDigest: "digest_art_member_2",
+        manifest,
+        principalId: "mem_other",
+        projectId: defaultProjectId,
+        source: await stage(opened.repository, "upl_art_member_2", "mem_other"),
+        versionId: "ver_art_member_2",
+      });
+      await opened.database.run(Effect.gen(function*() {
+        const sql = yield* SqlClient;
+        yield* sql.withTransaction(Effect.gen(function*() {
+          const statements = [
+            "ALTER TABLE artifacts DROP COLUMN owner_principal_id",
+            `ALTER TABLE artifacts
+              DROP CONSTRAINT artifacts_access_setting_check,
+              ADD CONSTRAINT artifacts_access_setting_check
+                CHECK (access_setting IN ('account_required', 'public_link'))`,
+            `ALTER TABLE idempotency_records
+              DROP CONSTRAINT idempotency_records_access_setting_check,
+              ADD CONSTRAINT idempotency_records_access_setting_check
+                CHECK (access_setting IS NULL OR access_setting IN ('account_required', 'public_link'))`,
+            "DELETE FROM artifact_server_postgres_migrations WHERE migration_id >= 14",
+          ];
+          for (const statement of statements) {
+            yield* sql.unsafe(statement);
+          }
+        }));
+      }));
+    } finally {
+      await opened.database.close();
+    }
+
+    expect((await runExternalCli(["migrate", "apply"], cliEnvironment)).exitCode).toBe(0);
+    opened = await openRepository();
+    try {
+      const {repository} = opened;
+      expect(await repository.findArtifact(defaultProjectId, "art_member")).toMatchObject({
+        accessSetting: "account_required",
+        currentVersionId: "ver_art_member_2",
+        ownerPrincipalId: "mem_a",
+      });
+      expect(await repository.findArtifact(defaultProjectId, "art_service")).toMatchObject({
+        accessSetting: "public_link",
+        ownerPrincipalId: "service:key1",
+      });
+      await expect(repository.commitNewArtifact(memberCommand)).resolves.toMatchObject({
+        artifact: {accessSetting: "account_required", ownerPrincipalId: "mem_a"},
+        replayed: true,
+        version: {id: "ver_art_member_1"},
+      });
+      await expect(repository.commitNewArtifact(serviceCommand)).resolves.toMatchObject({
+        artifact: {accessSetting: "public_link", ownerPrincipalId: "service:key1"},
+        replayed: true,
+        version: {id: "ver_art_service_1"},
+      });
+      const listFor = async (
+        principalId: string,
+        includeServiceOwned = false,
+        sort: "comments" | "newest" = "newest",
+      ) =>
+        (await repository.listArtifacts({
+          comments: "all",
+          cursor: null,
+          limit: 10,
+          projectId: defaultProjectId,
+          sort,
+          tags: [],
+          viewer: {includeServiceOwned, principalId},
+        })).items.map((artifact) => artifact.id);
+      expect(await listFor("mem_b")).toEqual([]);
+      expect(await listFor("mem_a")).toEqual(["art_member"]);
+      expect(await listFor("mem_admin", true)).toEqual(["art_service"]);
+      expect(await listFor("mem_b", false, "comments")).toEqual([]);
+      expect(await listFor("mem_a", false, "comments")).toEqual(["art_member"]);
+      expect(await listFor("mem_admin", true, "comments")).toEqual(["art_service"]);
+
+      const privateCommand = {
+        ...await newArtifact(repository, "art_private", "mem_c", "account_required"),
+        accessSetting: "private" as const,
+      };
+      await expect(repository.commitNewArtifact(privateCommand)).resolves.toMatchObject({
+        artifact: {accessSetting: "private", ownerPrincipalId: "mem_c"},
+        replayed: false,
+      });
+      expect(await listFor("mem_c")).toEqual(["art_private"]);
+    } finally {
+      await opened.database.close();
+    }
   });
 
   test("GIT-010 GIT-013 foundation: Postgres enables Git history and preserves provider identity", async () => {
@@ -622,6 +798,7 @@ describe.sequential("external-storage Postgres and S3 runtime", () => {
           "ALTER TABLE staged_uploads DROP COLUMN grant_digest",
           "ALTER TABLE artifacts DROP COLUMN search_name",
           "ALTER TABLE artifacts DROP COLUMN review_mode",
+          "ALTER TABLE artifacts DROP COLUMN owner_principal_id",
           "ALTER TABLE artifacts DROP COLUMN project_id CASCADE",
           "ALTER TABLE login_attempts DROP COLUMN nonce",
           "DROP TABLE comment_replies",

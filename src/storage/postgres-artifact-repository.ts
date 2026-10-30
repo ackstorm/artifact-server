@@ -111,7 +111,11 @@ import type {
   UpdateCommentReply,
   UpdateCommentThread,
 } from "../core/ports.js";
-import {principalKinds, type PrincipalKind} from "../core/identity.js";
+import {
+  principalKinds,
+  type PrincipalKind,
+  servicePrincipalIdPrefix,
+} from "../core/identity.js";
 import type {
   ProjectGitHistoryProgress,
   StoredProjectGitHistorySetting,
@@ -147,6 +151,7 @@ import {defaultGitHistoryMaximumCopiedFiles} from
   "../git-history/git-history-capability.js";
 
 const accessSettingSchema = z.enum([
+  accessSettings.private,
   accessSettings.accountRequired,
   accessSettings.publicLink,
 ]);
@@ -235,6 +240,7 @@ const artifactRowSchema = z.object({
   deletedAt: z.string().nullable(),
   id: z.string(),
   name: z.string(),
+  ownerPrincipalId: z.string(),
   projectId: z.string(),
 });
 const artifactListRowSchema = artifactRowSchema.extend({
@@ -265,6 +271,7 @@ const publishedRowSchema = z.object({
   currentVersionId: z.string(),
   entryPath: z.string(),
   manifestDigest: z.string(),
+  ownerPrincipalId: z.string(),
   projectId: z.string(),
   publisherPrincipalId: z.string(),
   routingMode: routingModeSchema,
@@ -1273,11 +1280,11 @@ export class PostgresArtifactRepository implements
         );
         yield* sql`INSERT INTO artifacts (
           installation_id, project_id, id, name, search_name, access_setting, review_mode,
-          current_version_id, created_at, deleted_at
+          current_version_id, created_at, deleted_at, owner_principal_id
         ) VALUES (
           ${installationId}, ${command.projectId}, ${command.artifactId}, ${command.name},
           ${normalizeArtifactSearchText(command.name)}, ${command.accessSetting}, ${command.reviewMode ?? reviewModes.annotate}, NULL,
-          ${command.createdAt}, NULL
+          ${command.createdAt}, NULL, ${command.principalId}
         )`;
         yield* this.#replaceTags(command.artifactId, command.tags);
         yield* this.#insertVersion(
@@ -1695,7 +1702,7 @@ export class PostgresArtifactRepository implements
       const tagFilterJson = command.tags.length === 0
         ? null
         : JSON.stringify(command.tags);
-      const queryParameters = command.sort === "comments"
+      const queryParameters: (boolean | number | string | null)[] = command.sort === "comments"
         ? [
             installationId,
             command.projectId,
@@ -1715,13 +1722,22 @@ export class PostgresArtifactRepository implements
             command.cursor?.id ?? null,
             command.limit + 1,
           ];
-      const limitPlaceholder = command.sort === "comments" ? "$8" : "$7";
+      const limitPlaceholder = `$${queryParameters.length}`;
+      const viewer = queryParameters.length;
+      const viewerSql = `(owner_principal_id = $${viewer + 1}
+        OR ($${viewer + 2}::boolean AND owner_principal_id LIKE $${viewer + 3}))`;
+      queryParameters.push(
+        command.viewer.principalId,
+        command.viewer.includeServiceOwned,
+        `${servicePrincipalIdPrefix}%`,
+      );
       const rows = yield* sql.unsafe<object>(
         `SELECT * FROM (
           SELECT id, project_id AS "projectId", name,
             review_mode AS "reviewMode", access_setting AS "accessSetting",
             current_version_id AS "currentVersionId",
             created_at AS "createdAt", deleted_at AS "deletedAt",
+            owner_principal_id AS "ownerPrincipalId",
             (
               SELECT COUNT(*)::int FROM comment_threads
               WHERE comment_threads.installation_id = artifacts.installation_id
@@ -1737,6 +1753,7 @@ export class PostgresArtifactRepository implements
           FROM artifacts
           WHERE installation_id = $1 AND project_id = $2
             AND deleted_at IS NULL
+            AND ${viewerSql}
             AND ($3::text IS NULL
               OR strpos(search_name, $3) > 0
               OR EXISTS (
@@ -1780,6 +1797,7 @@ export class PostgresArtifactRepository implements
           artifact.current_version_id AS "currentVersionId",
           artifact.created_at AS "artifactCreatedAt",
           artifact.deleted_at AS "artifactDeletedAt",
+          artifact.owner_principal_id AS "ownerPrincipalId",
           project.installation_id AS "installationId",
           project.name AS "projectName",
           project.created_at AS "projectCreatedAt",
@@ -1824,6 +1842,7 @@ export class PostgresArtifactRepository implements
         deletedAt: row.artifactDeletedAt,
         id: row.artifactId,
         name: row.artifactName,
+        ownerPrincipalId: row.ownerPrincipalId,
         projectId: row.projectId,
       })));
       return publicLinkPageFromRows(parsedRows, artifacts, command.limit);
@@ -2389,6 +2408,24 @@ export class PostgresArtifactRepository implements
     const row = await this.#database.run(
       this.#readThreadRowOrNull(projectId, artifactId, threadId),
     );
+    return row === null ? null : commentThreadFromRow(row);
+  }
+
+  async findThreadById(
+    projectId: string,
+    threadId: string,
+  ): Promise<CommentThreadRecord | null> {
+    const installationId = this.#installationId;
+    const row = await this.#database.run(Effect.gen(function*() {
+      const sql = yield* SqlClient;
+      const rows = yield* sql.unsafe<object>(
+        `${commentThreadColumns}
+         WHERE thread.installation_id = $1 AND thread.id = $2
+           AND thread.project_id = $3`,
+        [installationId, threadId, projectId],
+      );
+      return commentThreadRowSchema.nullable().parse(rows[0] ?? null);
+    }));
     return row === null ? null : commentThreadFromRow(row);
   }
 
@@ -3470,7 +3507,8 @@ export class PostgresArtifactRepository implements
         `SELECT id, project_id AS "projectId", name,
           review_mode AS "reviewMode", access_setting AS "accessSetting",
           current_version_id AS "currentVersionId",
-          created_at AS "createdAt", deleted_at AS "deletedAt"
+          created_at AS "createdAt", deleted_at AS "deletedAt",
+          owner_principal_id AS "ownerPrincipalId"
          FROM artifacts
          WHERE installation_id = $1 AND project_id = $2 AND id = $3
            ${includeDeleted ? "" : "AND deleted_at IS NULL"}
@@ -3626,6 +3664,7 @@ export class PostgresArtifactRepository implements
           a.review_mode AS "reviewMode", a.access_setting AS "accessSetting",
           a.current_version_id AS "currentVersionId",
           a.created_at AS "artifactCreatedAt", a.deleted_at AS "artifactDeletedAt",
+          a.owner_principal_id AS "ownerPrincipalId",
           v.id AS "versionId", v.number AS "versionNumber",
           v.manifest_digest AS "manifestDigest", v.entry_path AS "entryPath",
           v.routing_mode AS "routingMode", v.content_token AS "contentToken",
@@ -3649,6 +3688,7 @@ export class PostgresArtifactRepository implements
           deletedAt: parsed.artifactDeletedAt,
           id: parsed.artifactId,
           name: parsed.artifactName,
+          ownerPrincipalId: parsed.ownerPrincipalId,
           projectId: parsed.projectId,
           tags: yield* this.#readTags(parsed.artifactId),
         },

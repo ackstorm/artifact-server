@@ -112,6 +112,7 @@ export interface CommitNewArtifact {
   readonly inputDigest: string;
   readonly manifest: CanonicalManifest;
   readonly name: string;
+  /** The version 1 publisher, which the artifact records as its owner. */
   readonly principalId: string;
   readonly projectId: string;
   readonly authorizedByPrincipalId: string | null;
@@ -210,6 +211,11 @@ export interface ListArtifacts {
   readonly sort: "comments" | "newest";
   /** Exact normalized tag filters. An artifact matches when it has any selected tag. */
   readonly tags: readonly string[];
+  /** The reader: lists hold its own artifacts, plus service-owned ones when included. */
+  readonly viewer: {
+    readonly includeServiceOwned: boolean;
+    readonly principalId: string;
+  };
 }
 
 /** Values used to read one bounded page of artifact actions. */
@@ -362,6 +368,11 @@ export interface CommentRepository {
   findThread(
     projectId: string,
     artifactId: string,
+    threadId: string,
+  ): Promise<CommentThreadRecord | null>;
+  /** Find one thread when only its id is known, as in a dispatch bundle. */
+  findThreadById(
+    projectId: string,
     threadId: string,
   ): Promise<CommentThreadRecord | null>;
   listReplies(threadId: string): Promise<readonly CommentReplyRecord[]>;

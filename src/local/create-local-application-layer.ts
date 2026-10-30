@@ -590,6 +590,10 @@ export function createApplicationLayer(
         "findCommentThread",
         () => adapters.repository.findThread(projectId, artifactId, threadId),
       ),
+      findThreadById: (projectId, threadId) => commentEffect(
+        "findCommentThread",
+        () => adapters.repository.findThreadById(projectId, threadId),
+      ),
       listReplies: (threadId) => commentEffect(
         "listCommentReplies",
         () => adapters.repository.listReplies(threadId),

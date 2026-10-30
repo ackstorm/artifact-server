@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-const accessSettingSchema = z.enum(["account_required", "public_link"]);
+const accessSettingSchema = z.enum(["private", "account_required", "public_link"]);
 const reviewModeSchema = z.enum(["annotate", "interact"]);
 const membershipRoleSchema = z.enum(["administrator", "member"]);
 const principalKindSchema = z.enum(["human", "service"]);

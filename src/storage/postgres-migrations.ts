@@ -680,6 +680,36 @@ const addArtifactReviewMode = Effect.gen(function*() {
     ))`);
 });
 
+const addArtifactOwner = Effect.gen(function*() {
+  const sql = yield* SqlClient;
+  // Rows an earlier migration rewrote in this transaction queue a deferred
+  // current-version check on update, and Postgres refuses ALTER TABLE while
+  // that check is pending, so it runs immediately during the backfill.
+  const statements = [
+    "ALTER TABLE artifacts ADD COLUMN owner_principal_id TEXT",
+    "SET CONSTRAINTS artifacts_current_version_fk IMMEDIATE",
+    `UPDATE artifacts a SET owner_principal_id = v.publisher_principal_id
+      FROM versions v
+      WHERE v.installation_id = a.installation_id
+        AND v.artifact_id = a.id
+        AND v.number = 1`,
+    "SET CONSTRAINTS artifacts_current_version_fk DEFERRED",
+    "ALTER TABLE artifacts ALTER COLUMN owner_principal_id SET NOT NULL",
+    `ALTER TABLE artifacts
+      DROP CONSTRAINT artifacts_access_setting_check,
+      ADD CONSTRAINT artifacts_access_setting_check
+        CHECK (access_setting IN ('private', 'account_required', 'public_link'))`,
+    `ALTER TABLE idempotency_records
+      DROP CONSTRAINT idempotency_records_access_setting_check,
+      ADD CONSTRAINT idempotency_records_access_setting_check
+        CHECK (access_setting IS NULL OR access_setting IN ('private', 'account_required', 'public_link'))`,
+    "CREATE INDEX artifacts_owner ON artifacts (installation_id, project_id, owner_principal_id)",
+  ];
+  for (const statement of statements) {
+    yield* sql.unsafe(statement);
+  }
+});
+
 const migrationLoader = Migrator.fromRecord({
   "0001_initial_shared_schema": initialSchema,
   "0002_project_scoped_artifacts": addProjectScope,
@@ -694,10 +724,11 @@ const migrationLoader = Migrator.fromRecord({
   "0011_artifact_search_name": addArtifactSearchName,
   "0012_artifact_review_mode": addArtifactReviewMode,
   "0013_staged_upload_grant": addStagedUploadGrant,
+  "0014_artifact_owner": addArtifactOwner,
 });
 
 /** Schema revision required by this Artifact Server build. */
-export const requiredPostgresSchemaVersion = 13;
+export const requiredPostgresSchemaVersion = 14;
 
 /** Migration compatibility observed without changing Postgres. */
 export interface PostgresMigrationStatus {
@@ -791,6 +822,9 @@ export const readPostgresMigrationStatus = Effect.gen(function*() {
   }, {
     migration_id: 13,
     name: "staged_upload_grant",
+  }, {
+    migration_id: 14,
+    name: "artifact_owner",
   }] as const;
   const observedRequiredHistory = rows.filter(
     (row) => row.migration_id <= requiredPostgresSchemaVersion,

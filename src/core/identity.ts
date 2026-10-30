@@ -4,6 +4,9 @@ export const principalKinds = {
   service: "service",
 } as const;
 
+/** Every service principal id is this prefix followed by its API key id. */
+export const servicePrincipalIdPrefix = "service:";
+
 /** One provider-neutral principal kind. */
 export type PrincipalKind =
   (typeof principalKinds)[keyof typeof principalKinds];

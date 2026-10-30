@@ -40,6 +40,7 @@ import {
   type MembershipRole,
   type Principal,
   type PrincipalCapability,
+  servicePrincipalIdPrefix,
 } from "../core/identity.js";
 
 const allCapabilities = Object.values(principalCapabilities);
@@ -718,7 +719,7 @@ function makeInstallationAccessService(
       installationId: dependencies.installationId,
       name,
       prefix: token.slice(0, Math.min(token.length, 32)),
-      principalId: member?.id ?? `service:${id}`,
+      principalId: member?.id ?? `${servicePrincipalIdPrefix}${id}`,
       principalKind: member === null ? principalKinds.service : principalKinds.human,
       revokedAt: null,
       rotatedFromId: null,
