@@ -191,7 +191,7 @@ const createUploadSchema = z.object({
 const commitUploadSchema = z.object({
   target: z.discriminatedUnion("kind", [
     z.object({
-      accessSetting: accessSettingSchema.default(accessSettings.accountRequired),
+      accessSetting: accessSettingSchema.default(accessSettings.private),
       kind: z.literal("new_artifact"),
       name: z.string().min(1).max(200),
       reviewMode: z.enum(["annotate", "interact"]).default("annotate"),
@@ -2111,7 +2111,7 @@ export function createHttpApp(
           state,
         ),
         warning: body.accessSetting !== accessSettings.publicLink
-          ? "New public requests are blocked. Copies already downloaded or cached outside Artifact Server cannot be recalled."
+          ? "New requests that this level does not allow are blocked. Content sessions already issued keep serving their version for up to 15 minutes. Copies already downloaded or cached outside Artifact Server cannot be recalled."
           : null,
       });
     },

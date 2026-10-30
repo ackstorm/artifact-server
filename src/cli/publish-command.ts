@@ -25,6 +25,7 @@ interface PublishOptions {
   readonly entry?: string;
   readonly expectedVersion?: string;
   readonly name?: string;
+  readonly organization: boolean;
   readonly public: boolean;
   readonly project?: string;
   readonly profile?: string;
@@ -78,7 +79,15 @@ export function configurePublishCommand(
       new Option("--review-mode <mode>", "initial HTML review mode for a new artifact")
         .choices(["annotate", "interact"]),
     )
-    .addOption(new Option("--public", "allow the link to open without sign-in").default(false))
+    .addOption(
+      new Option("--public", "let anyone with the link open it without sign-in")
+        .default(false)
+        .conflicts("organization"),
+    )
+    .addOption(
+      new Option("--organization", "let anyone signed in to this server open it with the link")
+        .default(false),
+    )
     .addOption(
       new Option("--tag <tag>", "tag for a new artifact; repeat for more tags")
         .argParser(collectTag)
@@ -147,9 +156,12 @@ function publicationCommand(
         routingMode: options.routing,
       };
   if (options.artifact !== undefined && options.expectedVersion !== undefined) {
-    if (options.name !== undefined || options.public || options.tag.length > 0 || options.reviewMode !== undefined) {
+    if (
+      options.name !== undefined || options.public || options.organization
+      || options.tag.length > 0 || options.reviewMode !== undefined
+    ) {
       throw new Error(
-        "--name, --public, --tag, and --review-mode apply only when creating a new artifact.",
+        "--name, --public, --organization, --tag, and --review-mode apply only when creating a new artifact.",
       );
     }
     return withEntryPath({
@@ -162,14 +174,15 @@ function publicationCommand(
     }, options.entry);
   }
 
+  const accessSetting = newArtifactAccess(options);
   const initialTarget = options.name === undefined
     ? {
-      accessSetting: options.public ? "public_link" as const : "account_required" as const,
+      accessSetting,
       kind: "new_artifact" as const,
       tags: options.tag,
     }
     : {
-      accessSetting: options.public ? "public_link" as const : "account_required" as const,
+      accessSetting,
       kind: "new_artifact" as const,
       name: options.name,
       tags: options.tag,
@@ -181,6 +194,13 @@ function publicationCommand(
     ...common,
     target,
   }, options.entry);
+}
+
+function newArtifactAccess(
+  options: PublishOptions,
+): "private" | "account_required" | "public_link" {
+  if (options.public) return "public_link";
+  return options.organization ? "account_required" : "private";
 }
 
 async function executePublication(

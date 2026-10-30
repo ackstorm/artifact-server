@@ -54,7 +54,7 @@ const outsiderCapabilities = [
   "artifact:read",
 ];
 const blockedWarning =
-  "New public requests are blocked. Copies already downloaded or cached outside Artifact Server cannot be recalled.";
+  "New requests that this level does not allow are blocked. Content sessions already issued keep serving their version for up to 15 minutes. Copies already downloaded or cached outside Artifact Server cannot be recalled.";
 
 const jsonSchema = z.json();
 const artifactSchema = z.object({

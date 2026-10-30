@@ -5,9 +5,9 @@ import {
   hasCapability,
   isDirectHumanPrincipal,
   isHumanAdministrator,
+  isServicePrincipalId,
   principalCapabilities,
   principalKinds,
-  servicePrincipalIdPrefix,
   type Principal,
 } from "../core/identity.js";
 import { accessSettings, type ArtifactRecord } from "../core/model.js";
@@ -381,7 +381,7 @@ function controlsArtifact(
   artifact: ArtifactRecord,
 ): boolean {
   return principal.id === artifact.ownerPrincipalId ||
-    (artifact.ownerPrincipalId.startsWith(servicePrincipalIdPrefix) &&
+    (isServicePrincipalId(artifact.ownerPrincipalId) &&
       isHumanAdministrator(principal));
 }
 

@@ -150,6 +150,7 @@ describe("sqlite artifact owner", () => {
 
   test("a new artifact stores its owner and may be private", async () => {
     await publishNew("art_private", "mem_c", "private");
+    await publishNew("art_local", "local-api-token", "private");
 
     repository.close();
     repository = new SqliteArtifactRepository(databasePath);
@@ -159,7 +160,8 @@ describe("sqlite artifact owner", () => {
       ownerPrincipalId: "mem_c",
     });
     expect(await listFor("mem_c")).toEqual(["art_private"]);
-    expect(await listFor("mem_admin", true)).toEqual([]);
+    // The local API token is a service principal.
+    expect(await listFor("mem_admin", true)).toEqual(["art_local"]);
   });
 });
 

@@ -1317,7 +1317,7 @@ requirements:
 
   - id: AUTH-002
     kind: behavior
-    behavior: Account required is the default read setting and permits every admitted standalone installation member to read the artifact.
+    behavior: Account required (Organization) permits every admitted standalone installation member to read the artifact by link.
     owner: authorization
     source: {file: artifact-server-product-spec.html, anchor: sharing}
     acceptance:

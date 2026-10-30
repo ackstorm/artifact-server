@@ -108,6 +108,7 @@ import {
   VersionNotFound,
 } from "../core/errors.js";
 import {
+  localApiTokenPrincipalId,
   membershipRoles,
   principalCapabilities,
   principalKinds,
@@ -783,7 +784,7 @@ export function createApplicationLayer(
       principalCapabilities.writeComments,
     ],
     displayName: "Local",
-    id: "local-api-token",
+    id: localApiTokenPrincipalId,
     installationId: adapters.installationId,
     kind: principalKinds.service,
     membershipRole: membershipRoles.member,

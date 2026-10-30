@@ -602,6 +602,12 @@ describe.sequential("external-storage Postgres and S3 runtime", () => {
         replayed: false,
       });
       expect(await listFor("mem_c")).toEqual(["art_private"]);
+      // The local API token is a service principal.
+      await repository.commitNewArtifact({
+        ...await newArtifact(repository, "art_local", "local-api-token", "account_required"),
+        accessSetting: "private" as const,
+      });
+      expect((await listFor("mem_admin", true)).toSorted()).toEqual(["art_local", "art_service"]);
     } finally {
       await opened.database.close();
     }
@@ -641,7 +647,7 @@ describe.sequential("external-storage Postgres and S3 runtime", () => {
           headers: {Cookie: member.header},
         }),
       ]);
-      expect(administratorList).toEqual(["art_service"]);
+      expect(administratorList.toSorted()).toEqual(["art_local", "art_service"]);
       expect(memberList).toEqual([]);
       expect(byLink.status).toBe(200);
       expect(await byLink.json()).toMatchObject({

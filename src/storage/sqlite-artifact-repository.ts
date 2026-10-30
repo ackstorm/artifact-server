@@ -22,7 +22,11 @@ import {
   ProjectArchived,
   ProjectNotFound,
 } from "../core/errors.js";
-import {principalKinds, servicePrincipalIdPrefix} from "../core/identity.js";
+import {
+  localApiTokenPrincipalId,
+  principalKinds,
+  servicePrincipalIdPrefix,
+} from "../core/identity.js";
 import type {
   ProjectGitHistoryProgress,
   StoredProjectGitHistorySetting,
@@ -1966,7 +1970,7 @@ export class SqliteArtifactRepository implements
               AND deleted_at IS NULL
               AND (
                 owner_principal_id = ?
-                OR (? = 1 AND owner_principal_id LIKE ?)
+                OR (? = 1 AND (owner_principal_id LIKE ? OR owner_principal_id = ?))
               )
               AND (
                 ? IS NULL
@@ -1995,6 +1999,7 @@ export class SqliteArtifactRepository implements
           command.viewer.principalId,
           command.viewer.includeServiceOwned ? 1 : 0,
           `${servicePrincipalIdPrefix}%`,
+          localApiTokenPrincipalId,
           command.search ?? null,
           command.search ?? null,
           command.search ?? null,

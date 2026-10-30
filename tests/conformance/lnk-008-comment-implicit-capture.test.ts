@@ -325,7 +325,23 @@ describe("comment threads on a linked artifact anchor to captured versions", () 
     if (response.status !== 201) {
       throw new Error(`Linking failed with ${response.status}.`);
     }
-    return linkedPublicationSchema.parse(await response.json());
+    const linked = linkedPublicationSchema.parse(await response.json());
+    // The commenter is another principal, so the owner shares the artifact.
+    const shared = await fetch(
+      new URL(`/api/v1/artifacts/${linked.artifact.id}/access`, requiredServer().baseUrl),
+      {
+        body: JSON.stringify({
+          accessSetting: "account_required",
+          expectedCurrentVersionId: linked.version.id,
+        }),
+        headers: apiHeaders(installation, `${idempotencyKey}-share`),
+        method: "PATCH",
+      },
+    );
+    if (shared.status !== 200) {
+      throw new Error(`Sharing the linked artifact failed with ${shared.status}.`);
+    }
+    return linked;
   }
 
   async function createThread(

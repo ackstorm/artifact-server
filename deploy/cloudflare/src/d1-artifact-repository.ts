@@ -25,6 +25,7 @@ import {
   VersionNotFound,
 } from "../../../src/core/errors.js";
 import {
+  localApiTokenPrincipalId,
   principalKinds,
   servicePrincipalIdPrefix,
 } from "../../../src/core/identity.js";
@@ -2497,7 +2498,7 @@ export function createD1ArtifactRepository(
           FROM artifacts
           WHERE project_id = ? AND deleted_at IS NULL
             AND (owner_principal_id = ?
-              OR (? = 1 AND owner_principal_id LIKE ?))
+              OR (? = 1 AND (owner_principal_id LIKE ? OR owner_principal_id = ?)))
             AND (? IS NULL
               OR instr(search_name, ?) > 0
               OR EXISTS (
@@ -2518,6 +2519,7 @@ export function createD1ArtifactRepository(
         command.viewer.principalId,
         command.viewer.includeServiceOwned ? 1 : 0,
         `${servicePrincipalIdPrefix}%`,
+        localApiTokenPrincipalId,
         command.search ?? null,
         command.search ?? null,
         command.search ?? null,

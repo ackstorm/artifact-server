@@ -32,6 +32,8 @@ reader who has the link. They no longer put the artifact in other people's lists
 - An artifact published with a service key belongs to that service principal.
   Human administrators treat service-owned artifacts as their own: they list,
   read and manage them. The service key keeps its own owner rights.
+- A local installation's API token is a service principal, so the local
+  administrator reads and manages what the CLI and agents publish locally.
 - The owner appears in artifact responses as `ownerPrincipalId`.
 
 ## 3. Authority
@@ -246,6 +248,7 @@ These existing requirements are reworded:
 | CMT-008 | A principal that can manage any artifact deletes others' comments only on artifacts it controls. |
 | PRS-005 | Bulk clearing is for the artifact's controller or a human administrator. |
 | AUTH-030 | An administrator deletes a Private artifact it cannot read; non-readers receive not found. |
+| AUTH-002 | Account required is no longer the default. |
 | ADM-005 | The bulk action lowers to Organization. |
 
 AUTH-003 to AUTH-006 and GIT-005 keep their wording; their tests run against the

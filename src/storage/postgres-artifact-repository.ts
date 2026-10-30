@@ -112,6 +112,7 @@ import type {
   UpdateCommentThread,
 } from "../core/ports.js";
 import {
+  localApiTokenPrincipalId,
   principalKinds,
   type PrincipalKind,
   servicePrincipalIdPrefix,
@@ -1725,11 +1726,13 @@ export class PostgresArtifactRepository implements
       const limitPlaceholder = `$${queryParameters.length}`;
       const viewer = queryParameters.length;
       const viewerSql = `(owner_principal_id = $${viewer + 1}
-        OR ($${viewer + 2}::boolean AND owner_principal_id LIKE $${viewer + 3}))`;
+        OR ($${viewer + 2}::boolean
+          AND (owner_principal_id LIKE $${viewer + 3} OR owner_principal_id = $${viewer + 4})))`;
       queryParameters.push(
         command.viewer.principalId,
         command.viewer.includeServiceOwned,
         `${servicePrincipalIdPrefix}%`,
+        localApiTokenPrincipalId,
       );
       const rows = yield* sql.unsafe<object>(
         `SELECT * FROM (

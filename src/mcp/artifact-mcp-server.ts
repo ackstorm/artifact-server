@@ -109,10 +109,6 @@ import {
 const serverVersion = "0.2.1";
 const maximumListedArtifacts = 100;
 const maximumTextDiffBytes = 256 * 1_024;
-const accessSettingSchema = z.enum([
-  accessSettings.accountRequired,
-  accessSettings.publicLink,
-]);
 /** Every level an artifact can hold. */
 const artifactAccessLevelSchema = z.enum([
   accessSettings.private,
@@ -617,7 +613,10 @@ export function createArtifactMcpServer(
           omittedProjectRule: z.string(),
           scope: z.literal("project"),
         }),
-        sharing: z.object({modes: z.array(accessSettingSchema)}),
+        sharing: z.object({
+          default: artifactAccessLevelSchema,
+          modes: z.array(artifactAccessLevelSchema),
+        }),
       }),
       annotations: readOnlyAnnotations,
     },
@@ -1263,7 +1262,7 @@ export function createArtifactMcpServer(
         target: z.discriminatedUnion("kind", [
           z.object({
             accessSetting: artifactAccessLevelSchema.default(
-              accessSettings.accountRequired,
+              accessSettings.private,
             ),
             kind: z.literal("new_artifact"),
             name: z.string().min(1).max(200),
@@ -1341,7 +1340,7 @@ export function createArtifactMcpServer(
         replayed: state.replayed,
         version: state.version,
         warning: input.accessSetting !== accessSettings.publicLink
-          ? "New public requests are blocked. Copies already downloaded or cached outside Artifact Server cannot be recalled."
+          ? "New requests that this level does not allow are blocked. Content sessions already issued keep serving their version for up to 15 minutes. Copies already downloaded or cached outside Artifact Server cannot be recalled."
           : null,
       };
     }),
@@ -2407,7 +2406,12 @@ function capabilities(
       scope: "project" as const,
     },
     sharing: {
-      modes: [accessSettings.accountRequired, accessSettings.publicLink],
+      default: accessSettings.private,
+      modes: [
+        accessSettings.private,
+        accessSettings.accountRequired,
+        accessSettings.publicLink,
+      ],
     },
   };
 }

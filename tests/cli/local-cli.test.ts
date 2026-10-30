@@ -25,7 +25,7 @@ const runningProcesses = new Set<ChildProcessWithoutNullStreams>();
 const assignedAddressSchema = z.object({port: z.number().int().positive()});
 const publicationSchema = z.object({
   artifact: z.object({
-    accessSetting: z.enum(["account_required", "public_link"]),
+    accessSetting: z.enum(["private", "account_required", "public_link"]),
     id: z.string(),
     name: z.string(),
     projectId: z.string(),
@@ -357,7 +357,7 @@ describe("local Artifact Server CLI", () => {
       const projectPublication = publicationSchema.parse(
         JSON.parse(projectPublicationResult.output),
       );
-      expect(projectPublication.artifact.projectId).toBe(project.id);
+      expect(projectPublication.artifact).toMatchObject({accessSetting: "private", projectId: project.id});
       expect(projectPublication.version.projectId).toBe(project.id);
       const projectArtifacts = await fetch(
         `http://127.0.0.1:${port}/api/v1/artifacts?projectId=${project.id}`,

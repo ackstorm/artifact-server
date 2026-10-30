@@ -588,7 +588,7 @@ function makeLinkedArtifactService(
           );
           yield* storeCaptureBlob(capture);
           return yield* dependencies.bindings.commitLinkedArtifact({
-            accessSetting: accessSettings.accountRequired,
+            accessSetting: accessSettings.private,
             artifactId: dependencies.ids.artifactId(),
             authorizedByPrincipalId: command.principal.authorizedByPrincipalId,
             binding: {

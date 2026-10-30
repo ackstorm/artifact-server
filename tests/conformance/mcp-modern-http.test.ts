@@ -238,7 +238,9 @@ describe("modern MCP HTTP", () => {
         workflow: z.array(z.string()).min(1),
       }),
       sharing: z.object({
+        default: z.literal("private"),
         modes: z.tuple([
+          z.literal("private"),
           z.literal("account_required"),
           z.literal("public_link"),
         ]),

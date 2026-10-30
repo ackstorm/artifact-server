@@ -7,8 +7,14 @@ import {afterEach, beforeEach, describe, expect, test} from "vitest";
 import {z} from "zod";
 
 import {admitMember, issueApiKey, signInAdministrator} from "../support/agent-dispatch.js";
-import {publishNew} from "../support/publishing.js";
 import {
+  createStagedUpload,
+  parsePublishResponse,
+  publishNew,
+  uploadEveryStagedFile,
+} from "../support/publishing.js";
+import {
+  apiHeaders,
   createTestInstallation,
   removeTestInstallation,
   type RunningTestServer,
@@ -59,13 +65,22 @@ describe("artifact listing by owner", () => {
     await publish(bobKey, "Bob private", "private");
     await publish(administratorKey, "Administrator own", "private");
     await publish(serviceKey, "Service report", "public_link");
+    const local = await publishWithLocalTokenAtDefaultLevel("Local token report");
 
     const adaNames = ["Ada organization", "Ada private", "Ada public"];
     expect(await listNames(bearer(adaKey))).toEqual(adaNames);
     expect(await listNames(bearer(adaKey), "?search=Ada")).toEqual(adaNames);
     expect(await mcpListNames(adaKey)).toEqual(adaNames);
     expect(await listNames(bearer(bobKey))).toEqual(["Bob private"]);
-    expect(await listNames({Cookie: cookies.header})).toEqual(["Administrator own", "Service report"]);
+    expect(await listNames({Cookie: cookies.header}))
+      .toEqual(["Administrator own", "Local token report", "Service report"]);
+    // The local API token is a service principal, so the local administrator
+    // opens what it publishes at the default level.
+    expect(local.artifact.accessSetting).toBe("private");
+    const opened = await fetch(`${server.baseUrl}/api/v1/artifacts/${local.artifact.id}`, {
+      headers: {Cookie: cookies.header},
+    });
+    expect(opened.status).toBe(200);
   });
 
   test("AUTH-034-F: another member's Organization and Public artifacts never appear in lists or search results", async () => {
@@ -134,6 +149,23 @@ describe("artifact listing by owner", () => {
       name,
     });
     return body;
+  }
+
+  async function publishWithLocalTokenAtDefaultLevel(name: string) {
+    const file = {
+      bytes: new TextEncoder().encode(`<!doctype html><title>${name}</title>`),
+      mediaType: "text/html; charset=utf-8",
+      path: "index.html",
+    };
+    const upload = await createStagedUpload(server, installation, file.path, [file]);
+    await uploadEveryStagedFile(installation, upload.body, [file]);
+    const response = await fetch(upload.body.commitUrl, {
+      body: JSON.stringify({target: {kind: "new_artifact", name}}),
+      headers: apiHeaders(installation, `auth-034-${name}`),
+      method: "POST",
+    });
+    expect(response.status).toBe(201);
+    return parsePublishResponse(await response.json());
   }
 
   async function listNames(

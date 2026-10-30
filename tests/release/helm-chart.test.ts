@@ -663,7 +663,7 @@ async function publishFile(
       "--token-file", token,
       "--tag", "helm-proof",
     ];
-    if (accessSetting === "public_link") publishArguments.push("--public");
+    publishArguments.push(accessSetting === "public_link" ? "--public" : "--organization");
     const published = await command("node", publishArguments);
     return publicationSchema.parse(JSON.parse(published.stdout));
   });

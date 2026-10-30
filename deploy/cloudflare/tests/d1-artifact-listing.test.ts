@@ -81,6 +81,7 @@ describe("D1 artifact listing", () => {
     await publish("art_member", "mem_a", "account_required");
     await publish("art_service", "service:key1", "public_link");
     await publish("art_private", "mem_a", "private");
+    await publish("art_local", "local-api-token", "private");
     const listFor = async (principalId: string, includeServiceOwned: boolean) =>
       (await repository.listArtifacts({
         comments: "all",
@@ -94,7 +95,7 @@ describe("D1 artifact listing", () => {
 
     expect(await listFor("mem_b", false)).toEqual([]);
     expect(await listFor("mem_a", false)).toEqual(["art_member", "art_private"]);
-    expect(await listFor("mem_admin", true)).toEqual(["art_service"]);
+    expect(await listFor("mem_admin", true)).toEqual(["art_local", "art_service"]);
     expect(await repository.findArtifact(defaultProjectId, "art_private")).toMatchObject({
       accessSetting: "private",
       ownerPrincipalId: "mem_a",
