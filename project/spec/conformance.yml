@@ -1774,6 +1774,19 @@ requirements:
     depends_on: [AUTH-008, ART-006]
     evidence: []
 
+  - id: AUTH-031
+    kind: behavior
+    behavior: In a private-team installation, the Review application opened without a browser session goes straight to interactive sign-in and returns to the same address, at most once per tab within two minutes; a session that expires while the page is open still shows the Sign in gate.
+    owner: authorization
+    source: {file: oidc-interactive-login-spec.md, anchor: conformance}
+    acceptance:
+      behavior: {id: AUTH-031-B, description: "Opening a Review deep link without a session in an OIDC installation navigates to /auth/login with that deep link as returnTo, without showing the Sign in gate."}
+      failure: {id: AUTH-031-F, description: "A second unauthenticated load in the same tab within the retry window shows the Sign in gate instead of redirecting again, and a local-owner installation never redirects to /auth/login."}
+    deployments: *all
+    status: specified
+    depends_on: [AUTH-019]
+    evidence: []
+
   - id: SEC-001
     kind: security
     behavior: Published websites are treated as untrusted arbitrary browser JavaScript.

@@ -131,6 +131,40 @@ function reviewShortcutBlocked(event: KeyboardEvent): boolean {
   ].join(", ")) !== null;
 }
 
+const automaticSignInKey = "artifact-review-automatic-sign-in";
+const automaticSignInRetryMilliseconds = 2 * 60 * 1_000;
+
+function signInHref(): string {
+  const returnTo = `${window.location.pathname}${window.location.search}`;
+  return `/auth/login?returnTo=${encodeURIComponent(returnTo)}`;
+}
+
+/**
+ * Send a page opened without a session straight to the identity provider,
+ * which signs a returning user in without a prompt. One attempt per tab within
+ * the retry window, so a login that cannot establish a session ends at the
+ * Sign in gate instead of looping.
+ */
+function startAutomaticSignIn(): boolean {
+  try {
+    const attemptedAt = Number(window.sessionStorage.getItem(automaticSignInKey));
+    if (Date.now() - attemptedAt < automaticSignInRetryMilliseconds) return false;
+    window.sessionStorage.setItem(automaticSignInKey, String(Date.now()));
+  } catch {
+    return false;
+  }
+  window.location.assign(signInHref());
+  return true;
+}
+
+function clearAutomaticSignIn(): void {
+  try {
+    window.sessionStorage.removeItem(automaticSignInKey);
+  } catch {
+    // Without session storage no attempt was recorded.
+  }
+}
+
 interface VersionListItem {
   readonly links: {readonly review: string; readonly version: string};
   readonly version: Version;
@@ -400,11 +434,18 @@ export function ReviewApp() {
         throw initialSession.cause;
       }
       const loadedProjects = await api.projects();
+      clearAutomaticSignIn();
       setSession(loadedSession);
       setProjects(loadedProjects);
       setSessionState("ready");
     } catch (caught) {
       if (caught instanceof ApiError && caught.status === 401) {
+        if (
+          accessContextRef.current?.accessMode === "private_team"
+          && startAutomaticSignIn()
+        ) {
+          return;
+        }
         setSession(null);
         setSessionState("unauthenticated");
       } else {
@@ -458,11 +499,10 @@ export function ReviewApp() {
     return <ReviewGate description="Opening the local artifact catalog." title="Loading Artifact Server" />;
   }
   if (sessionState === "unauthenticated") {
-    const returnTo = `${window.location.pathname}${window.location.search}`;
     return (
       <ReviewGate
         action={(
-          <a className="as-button as-button--primary" href={`/auth/login?returnTo=${encodeURIComponent(returnTo)}`}>
+          <a className="as-button as-button--primary" href={signInHref()}>
             Sign in
           </a>
         )}
