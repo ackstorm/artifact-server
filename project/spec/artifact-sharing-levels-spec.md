@@ -196,7 +196,8 @@ GENERAL ACCESS
 - **Schema:** each backend (SQLite, Postgres, Cloudflare D1) adds
   `artifacts.owner_principal_id`, filled from the version 1 publisher. It also
   widens the `access_setting` CHECK on `artifacts` and `idempotency_records` to
-  allow `private`, and indexes `(project_id, owner_principal_id)`.
+  allow `private`, and indexes `(project_id, owner_principal_id)`. Postgres
+  leads the index with `installation_id`, like its other indexes.
 - **No existing level changes.** Account-required artifacts stay readable by
   every member who has the link; they leave other people's lists.
 - **Downgrading** the server after the migration is not supported, as with every
