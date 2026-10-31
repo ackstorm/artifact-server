@@ -94,7 +94,7 @@ opens its raw immutable content. Agents should hand people the Review URL.
 | Comments | `comment_list`, `comment_get`, `comment_create`, `comment_reply`, `comment_update`, `comment_resolve`, `comment_delete` |
 | Git history planning | `project_git_history_status`, `project_git_history_estimate` |
 
-`artifact_set_visibility` sets an artifact's sharing level to `private`, `account_required` (organization) or `public_link`. New artifacts are `private`, and `artifact_capabilities` reports `sharing.default: "private"`. Only the owner raises the level; an administrator can lower it. A caller that cannot read an artifact receives `ARTIFACT_NOT_FOUND`, and `artifact_list` returns only the caller's own artifacts.
+`artifact_set_visibility` sets an artifact's sharing level to `private`, `account_required` (organization) or `public_link`. New artifacts are `private`, and `artifact_capabilities` reports `sharing.default: "private"`. Only the owner raises the level; an administrator can lower it. A caller that cannot read an artifact receives `ARTIFACT_NOT_FOUND`, and `artifact_list` returns only the caller's own artifacts. While public links are off (set by an administrator or by `ARTIFACT_SERVER_PUBLIC_LINKS_ENABLED=false`), raising to `public_link` or publishing at `public_link` fails with `PUBLIC_LINKS_DISABLED`, and `artifact_capabilities` omits `public_link` from `sharing.modes`.
 
 Linked-artifact tools appear only when the deployment enables linked artifacts.
 
