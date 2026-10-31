@@ -52,7 +52,7 @@ jobs:
       - name: Require the tag to match the release version
         run: node scripts/check-release-version.mjs
       - name: Prepare BuildKit
-        uses: docker/setup-buildx-action@v3 # zizmor: ignore[unpinned-uses] Fork policy pins actions to version tags.
+        uses: docker/setup-buildx-action@v4 # zizmor: ignore[unpinned-uses] Fork policy pins actions to version tags.
       - name: Sign in to Ackstorm GHCR
         env:
           ARTIFACTSERVER_GITHUB_ACTOR: ${{ github.actor }}
