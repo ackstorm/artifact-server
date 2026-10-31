@@ -1070,6 +1070,10 @@ export function createApplicationLayer(
   const authorizationLayer = AuthorizationService.layer({
     installationId: adapters.installationId,
   });
+  const policyLayer = PublicLinkPolicyService.layer(
+    publicLinkPolicyRepository,
+    adapters.publicLinksEnabled ?? null,
+  ).pipe(Layer.provideMerge(authorizationLayer));
   const projectLayer = ProjectManagementService.layer(projectDependencies).pipe(
     Layer.provideMerge(authorizationLayer),
   );
@@ -1081,7 +1085,7 @@ export function createApplicationLayer(
   ).pipe(Layer.provideMerge(Layer.mergeAll(authorizationLayer, projectLayer)));
 
   const publishLayer = PublishArtifactService.layer(publishDependencies).pipe(
-    Layer.provideMerge(authorizationLayer),
+    Layer.provideMerge(Layer.mergeAll(authorizationLayer, policyLayer)),
   );
   const stagedLayer = StagedUploadService.layer(stagedDependencies).pipe(
     Layer.provideMerge(Layer.mergeAll(publishLayer, projectLayer)),
@@ -1097,13 +1101,13 @@ export function createApplicationLayer(
     storage: stagedDependencies.staging,
   });
   const contentLayer = ContentAccessService.layer(contentDependencies).pipe(
-    Layer.provideMerge(Layer.mergeAll(authorizationLayer, projectLayer)),
+    Layer.provideMerge(Layer.mergeAll(authorizationLayer, policyLayer, projectLayer)),
   );
   const managementLayer = ArtifactManagementService.layer(
     managementDependencies,
   ).pipe(
     Layer.provideMerge(
-      Layer.mergeAll(authorizationLayer, identityLayer, projectLayer),
+      Layer.mergeAll(authorizationLayer, identityLayer, policyLayer, projectLayer),
     ),
   );
   const linked = adapters.linked;
@@ -1196,10 +1200,6 @@ export function createApplicationLayer(
   ).pipe(
     Layer.provideMerge(Layer.mergeAll(authorizationLayer, managementLayer)),
   );
-  const policyLayer = PublicLinkPolicyService.layer(
-    publicLinkPolicyRepository,
-    adapters.publicLinksEnabled ?? null,
-  ).pipe(Layer.provideMerge(authorizationLayer));
   const comparisonLayer = CompareArtifactService.layer(
     comparisonDependencies,
   ).pipe(Layer.provideMerge(Layer.mergeAll(authorizationLayer, projectLayer)));

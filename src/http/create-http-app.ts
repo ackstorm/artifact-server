@@ -3536,7 +3536,7 @@ async function serveVersionContent(
   if (requestedPath === null) {
     return versionNotFoundResponse();
   }
-  const content = await runHttpApplicationEffect(
+  const authorized = await runHttpApplicationEffect(
     context,
     dependencies,
     ContentAccessService.use((contentAccess) =>
@@ -3550,15 +3550,13 @@ async function serveVersionContent(
       })
     ),
   );
-  if (content === null) {
+  if (authorized === null) {
     return versionNotFoundResponse();
   }
-  const publiclyCacheable = content.accessSetting === accessSettings.publicLink &&
-    content.isCurrent;
   return serveStoredVersionContent(
     context,
-    content,
-    publiclyCacheable,
+    authorized.content,
+    authorized.publicAccess,
     false,
     dependencies,
   );

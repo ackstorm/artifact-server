@@ -172,7 +172,7 @@ describe("content access lifecycle", () => {
         })
       ),
     );
-    expect(authorized?.versionId).toBe(published.version.id);
+    expect(authorized?.content.versionId).toBe(published.version.id);
   });
 
   test("preview lease foundation: tampered leases fail and valid leases expire at their exact boundary", async () => {

@@ -13,6 +13,7 @@ import {
   type InvalidIdempotencyKey,
   type PublishConflict,
   type ProjectArchived,
+  type PublicLinksDisabled,
   type StagingStorageFailure,
   type UploadClosed,
   type UploadExpired,
@@ -20,11 +21,12 @@ import {
   type UploadNotFound,
 } from "../core/errors.js";
 import type { Principal } from "../core/identity.js";
-import type {
-  AccessSetting,
-  CanonicalManifest,
-  PublishedVersion,
-  ReviewMode,
+import {
+  type AccessSetting,
+  accessSettings,
+  type CanonicalManifest,
+  type PublishedVersion,
+  type ReviewMode,
 } from "../core/model.js";
 import type {
   BlobWrite,
@@ -41,6 +43,7 @@ import {
 } from "./authorization.js";
 import type { ApplicationClock } from "./application-clock.js";
 import { parseIdempotencyKey } from "./idempotency-key.js";
+import { PublicLinkPolicyService } from "./public-link-policy.js";
 import { parseArtifactTags } from "./artifact-tags.js";
 
 /** An immutable file source that can be opened during publication. */
@@ -147,7 +150,8 @@ export type PublishArtifactFailure =
   | ProjectArchived
   | BlobStorageFailure
   | StagingStorageFailure
-  | AuthorizationDenied;
+  | AuthorizationDenied
+  | PublicLinksDisabled;
 
 interface PublishArtifactOperations {
   readonly publishPreparedNew: (
@@ -166,12 +170,17 @@ export class PublishArtifactService extends Context.Service<
   /** Construct the service from application-owned publication ports. */
   static readonly layer = (
     dependencies: PublishArtifactDependencies,
-  ): Layer.Layer<PublishArtifactService, never, AuthorizationService> =>
+  ): Layer.Layer<
+    PublishArtifactService,
+    never,
+    AuthorizationService | PublicLinkPolicyService
+  > =>
     Layer.effect(
       PublishArtifactService,
       Effect.gen(function*() {
         const authorization = yield* AuthorizationService;
-        return makePublishArtifactService(dependencies, authorization);
+        const publicLinks = yield* PublicLinkPolicyService;
+        return makePublishArtifactService(dependencies, authorization, publicLinks);
       }),
     );
 }
@@ -182,6 +191,7 @@ const decodeArtifactName = Schema.decodeUnknownEffect(artifactNameSchema);
 function makePublishArtifactService(
   dependencies: PublishArtifactDependencies,
   authorization: AuthorizationOperations,
+  publicLinks: PublicLinkPolicyService["Service"],
 ): PublishArtifactOperations {
   const storeFiles = Effect.fn("PublishArtifactService.storeFiles")(
     function*(
@@ -247,6 +257,9 @@ function makePublishArtifactService(
       inputDigest,
     );
     if (replayed !== null) return replayed;
+    if (command.accessSetting === accessSettings.publicLink) {
+      yield* publicLinks.requireEnabled;
+    }
 
     const sourceCheckTime = DateTime.formatIso(yield* dependencies.clock.now);
     yield* dependencies.repository.assertPublicationSourceReady(

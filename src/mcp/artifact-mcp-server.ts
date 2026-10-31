@@ -35,6 +35,7 @@ import {
   type LinkedPublication,
 } from "../application/linked-artifacts.js";
 import {ProjectManagementService} from "../application/project-management.js";
+import {PublicLinkPolicyService} from "../application/public-link-policy.js";
 import {ProjectGitHistoryService} from
   "../application/project-git-history.js";
 import {
@@ -2670,7 +2671,13 @@ async function authorizedBrowserUrl(
       management.getArtifact({artifactId, principal, projectId})
     ),
   );
-  if (details.artifact.accessSetting === accessSettings.publicLink) {
+  if (
+    details.artifact.accessSetting === accessSettings.publicLink &&
+    await runMcpApplicationEffect(
+      dependencies,
+      PublicLinkPolicyService.use((policy) => policy.enabled),
+    )
+  ) {
     return exactVersion
       ? versionBrowserUrl(
         applicationUrl,

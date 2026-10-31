@@ -37,6 +37,7 @@ import {
   type ProjectManagementFailure,
   ProjectManagementService,
 } from "./project-management.js";
+import { PublicLinkPolicyService } from "./public-link-policy.js";
 
 const bootstrapLifetimeMilliseconds = 2 * 60 * 1_000;
 const contentSessionLifetimeMilliseconds = 15 * 60 * 1_000;
@@ -166,6 +167,12 @@ export interface AuthorizePreviewContentCommand {
   readonly token: Redacted.Redacted;
 }
 
+/** One authorized file read, and whether it was granted to anonymous readers. */
+export interface AuthorizedVersionContent {
+  readonly content: VersionContent;
+  readonly publicAccess: boolean;
+}
+
 /** Expected failures from private and public content access. */
 export type ContentAccessFailure =
   | ArtifactNotFound
@@ -182,7 +189,7 @@ interface ContentAccessOperations {
   ) => Effect.Effect<VersionContent | null, ContentAccessFailure>;
   readonly authorizeVersionContent: (
     command: AuthorizeVersionContentCommand,
-  ) => Effect.Effect<VersionContent | null, ContentAccessFailure>;
+  ) => Effect.Effect<AuthorizedVersionContent | null, ContentAccessFailure>;
   readonly exchangeContentBootstrap: (
     command: ExchangeContentBootstrapCommand,
   ) => Effect.Effect<IssuedContentSession, ContentAccessFailure>;
@@ -208,14 +215,20 @@ export class ContentAccessService extends Context.Service<
   ): Layer.Layer<
     ContentAccessService,
     never,
-    AuthorizationService | ProjectManagementService
+    AuthorizationService | ProjectManagementService | PublicLinkPolicyService
   > =>
     Layer.effect(
       ContentAccessService,
       Effect.gen(function*() {
         const authorization = yield* AuthorizationService;
         const projects = yield* ProjectManagementService;
-        return makeContentAccessService(dependencies, authorization, projects);
+        const publicLinks = yield* PublicLinkPolicyService;
+        return makeContentAccessService(
+          dependencies,
+          authorization,
+          projects,
+          publicLinks,
+        );
       }),
     );
 }
@@ -224,6 +237,7 @@ function makeContentAccessService(
   dependencies: ContentAccessDependencies,
   authorization: AuthorizationOperations,
   projects: ProjectManagementService["Service"],
+  publicLinks: PublicLinkPolicyService["Service"],
 ): ContentAccessOperations {
   const resolveAuthorizedTarget = Effect.fn(
     "ContentAccessService.resolveAuthorizedTarget",
@@ -366,9 +380,10 @@ function makeContentAccessService(
     yield* Effect.annotateCurrentSpan({"artifact.project.id": content.projectId});
     if (
       content.accessSetting === accessSettings.publicLink &&
-      content.isCurrent
+      content.isCurrent &&
+      (yield* publicLinks.enabled)
     ) {
-      return content;
+      return {content, publicAccess: true};
     }
     if (command.sessionToken === null) {
       return yield* sessionRequired();
@@ -379,7 +394,9 @@ function makeContentAccessService(
       command.contentToken,
       now,
     );
-    return session === null ? yield* sessionRequired() : content;
+    return session === null
+      ? yield* sessionRequired()
+      : {content, publicAccess: false};
   });
 
   const authorizePreviewContent = Effect.fn(
@@ -418,7 +435,10 @@ function makeContentAccessService(
     yield* Effect.annotateCurrentSpan({
       "artifact.project.id": current.artifact.projectId,
     });
-    if (current.artifact.accessSetting !== accessSettings.publicLink) {
+    if (
+      current.artifact.accessSetting !== accessSettings.publicLink ||
+      !(yield* publicLinks.enabled)
+    ) {
       return yield* sessionRequired();
     }
     return current;
