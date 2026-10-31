@@ -82,6 +82,9 @@ const listSchema = z.object({
 });
 const bootstrapSchema = z.object({bootstrapUrl: z.url()}).loose();
 const openedSchema = z.object({browserUrl: z.url()}).loose();
+const capabilitiesSchema = z.object({
+  sharing: z.object({default: z.string(), modes: z.array(z.string())}),
+}).loose();
 
 type Json = z.infer<typeof jsonSchema>;
 type Published = z.infer<typeof publishedSchema>;
@@ -174,6 +177,10 @@ describe("installation public-link policy", () => {
     expect((await call(administrator, "PUT", {extra: true, publicLinksEnabled: true})).status)
       .toBe(422);
     expect((await readSession(ada)).installation.publicLinksEnabled).toBe(false);
+    expect(await sharing(adaKey)).toEqual({
+      default: "private",
+      modes: ["private", "account_required"],
+    });
 
     const raises = [
       await changeLevel(ada, organization, "public_link", "ada-session-raise"),
@@ -290,6 +297,7 @@ describe("installation public-link policy", () => {
 
     expect((await call(administrator, "PUT", {publicLinksEnabled: true})).status).toBe(200);
     expect((await anonymousOpen(stored.artifact.id)).status).toBe(302);
+    expect((await sharing(adaKey)).modes.at(-1)).toBe("public_link");
     const reopened = await fetchVersion(server, versionUrl);
     expect(reopened.status).toBe(200);
     expect(reopened.headers.get("cache-control")).toBe("public, no-cache, must-revalidate");
@@ -318,6 +326,7 @@ describe("installation public-link policy", () => {
       .toEqual(disabled);
     expect((await anonymousOpen(stored.artifact.id)).status).toBe(401);
     expect((await readSession(ada)).installation.publicLinksEnabled).toBe(false);
+    expect((await sharing(adaKey)).modes).not.toContain("public_link");
 
     await restart();
     expect((await call(administrator, "PUT", {publicLinksEnabled: false})).status).toBe(200);
@@ -493,6 +502,11 @@ describe("installation public-link policy", () => {
     parameters: Readonly<Record<string, Json>>,
   ): Promise<McpReply> {
     return callMcp(server, token, "tools/call", name, {arguments: parameters, name});
+  }
+
+  async function sharing(token: string) {
+    const reply = await callTool(token, "artifact_capabilities", {});
+    return capabilitiesSchema.parse(reply.result?.structuredContent).sharing;
   }
 
   function runCli(token: string, argumentsToPass: readonly string[]) {

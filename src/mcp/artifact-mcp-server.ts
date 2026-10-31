@@ -621,13 +621,17 @@ export function createArtifactMcpServer(
       }),
       annotations: readOnlyAnnotations,
     },
-    () => successResult(
-      capabilities(
+    () => toolResult(
+      async () => capabilities(
         dependencies.mode,
         dependencies.linkedArtifacts === true,
         dependencies.gitHistory,
+        await runMcpApplicationEffect(
+          dependencies,
+          PublicLinkPolicyService.use((policy) => policy.enabled),
+        ),
       ),
-      "Artifact Server publishes actual files through an upload plan. It does not accept inline HTML, CSS, JavaScript, or base64 content."),
+      () => "Artifact Server publishes actual files through an upload plan. It does not accept inline HTML, CSS, JavaScript, or base64 content."),
   );
 
   registerNudgedTool(
@@ -1307,7 +1311,7 @@ export function createArtifactMcpServer(
     {
       title: "Change artifact visibility",
       description:
-        "Change an artifact between private, account-required and public-link access without changing its saved files. Public copies already downloaded outside Artifact Server cannot be recalled.",
+        "Change an artifact between private, account-required and public-link access without changing its saved files. Public copies already downloaded outside Artifact Server cannot be recalled. Public is refused with PUBLIC_LINKS_DISABLED while an administrator has turned public links off.",
       inputSchema: z.object({
         accessSetting: artifactAccessLevelSchema,
         artifactId: artifactIdSchema,
@@ -2371,6 +2375,7 @@ function capabilities(
   mode: "local" | "remote",
   linkedArtifacts: boolean,
   gitHistory: GitHistoryCapability,
+  publicLinksEnabled: boolean,
 ) {
   return {
     gitHistory,
@@ -2411,7 +2416,7 @@ function capabilities(
       modes: [
         accessSettings.private,
         accessSettings.accountRequired,
-        accessSettings.publicLink,
+        ...(publicLinksEnabled ? [accessSettings.publicLink] : []),
       ],
     },
   };
