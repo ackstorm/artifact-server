@@ -2016,7 +2016,10 @@ export class SqliteArtifactRepository implements
     });
   }
 
-  /** Whether anyone can open a Public artifact without sign-in; a missing row means on. */
+  /**
+   * The installation's stored public-link switch; a missing row means on. It is not the
+   * effective policy: the configuration can override it in PublicLinkPolicyService.
+   */
   readPublicLinksEnabled(): Promise<boolean> {
     return Promise.resolve().then(() => {
       const row = z.object({enabled: z.number()}).optional().parse(

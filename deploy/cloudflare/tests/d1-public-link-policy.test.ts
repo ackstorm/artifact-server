@@ -96,5 +96,8 @@ describe("D1 public-link policy", () => {
     await migrateD1(proxy.env.DB, installationId);
     expect(await createD1ArtifactRepository(proxy.env.DB, installationId).readPublicLinksEnabled())
       .toBe(false);
+
+    await repository.setPublicLinksEnabled(true);
+    expect(await repository.readPublicLinksEnabled()).toBe(true);
   }, 30_000);
 });

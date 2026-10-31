@@ -555,6 +555,7 @@ describe.sequential("external-storage Postgres and S3 runtime", () => {
     opened = await openRepository();
     try {
       const {repository} = opened;
+      expect(await repository.readPublicLinksEnabled()).toBe(true);
       expect(await repository.findArtifact(defaultProjectId, "art_member")).toMatchObject({
         accessSetting: "account_required",
         currentVersionId: "ver_art_member_2",

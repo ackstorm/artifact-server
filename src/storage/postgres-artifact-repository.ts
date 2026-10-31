@@ -1786,7 +1786,10 @@ export class PostgresArtifactRepository implements
     }));
   }
 
-  /** Whether anyone can open a Public artifact without sign-in. */
+  /**
+   * The installation's stored public-link switch. It is not the effective policy: the
+   * configuration can override it in PublicLinkPolicyService.
+   */
   async readPublicLinksEnabled(): Promise<boolean> {
     const installationId = this.#installationId;
     return this.#database.run(Effect.gen(function*() {
