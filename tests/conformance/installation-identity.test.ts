@@ -703,9 +703,9 @@ describe("installation identity and access", () => {
     await server.stop();
     server = await startTestServer(installation, {
       clock,
-      organizationName: "ACKstorm",
+      organizationName: "myOrg",
     });
-    expect(await readOrganizationName()).toBe("ACKstorm");
+    expect(await readOrganizationName()).toBe("myOrg");
   });
 
   test("AUTH-001-B AUTH-001-F AUTH-028-B: external login admits only the configured first administrator and consumes state once", async () => {

@@ -24,7 +24,7 @@ import {
 } from "../support/stub-oidc-provider.js";
 
 const clientSecret = "stub-oidc-client-secret-with-entropy";
-const organizationName = "ACKstorm";
+const organizationName = "myOrg";
 const loweringWarning =
   "Content sessions already issued keep serving their version for up to 15 minutes.";
 

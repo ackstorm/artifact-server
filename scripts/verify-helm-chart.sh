@@ -73,14 +73,14 @@ assert_organization_name() {
     const deployment = documents.find((document) => document.kind === "Deployment");
     const container = deployment.spec.template.spec.containers.find((entry) => entry.name === "artifact-server");
     const entry = container.env.find((variable) => variable.name === "ARTIFACT_SERVER_ORGANIZATION_NAME");
-    assert.equal(entry?.value, process.argv[1] === "set" ? "ACKstorm" : undefined);
+    assert.equal(entry?.value, process.argv[1] === "set" ? "myOrg" : undefined);
   ' "$1" "$artifactserver_repository"
 }
 
 helm template artifact-server "$artifactserver_chart" \
   --kube-version 1.36.0 \
   "${artifactserver_values[@]}" \
-  --set configuration.organizationName=ACKstorm | assert_organization_name set
+  --set configuration.organizationName=myOrg | assert_organization_name set
 
 helm template artifact-server "$artifactserver_chart" \
   --kube-version 1.36.0 \

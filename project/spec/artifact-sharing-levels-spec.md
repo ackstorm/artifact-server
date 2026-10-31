@@ -149,7 +149,7 @@ access".
 ## 6. Organization name
 
 The optional setting `ARTIFACT_SERVER_ORGANIZATION_NAME` names the installation's
-people in the UI, for example "ACKstorm":
+people in the UI, for example "myOrg":
 
 - It is at most 64 characters, with no control characters, and is not a credential.
 - The Helm value is `configuration.organizationName`.
@@ -167,7 +167,7 @@ A **General access** selector at the top of the Share modal replaces
 GENERAL ACCESS
 [🔒 Private               ▾]  Only you can open it.
    🔒 Private        Only you
-   🏢 Organization   Anyone signed in to ACKstorm with the link
+   🏢 Organization   Anyone signed in to myOrg with the link
    🌐 Public         Anyone with the link, no sign-in
 ```
 

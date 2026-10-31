@@ -235,8 +235,8 @@ describe("Artifact Server lifecycle CLI", () => {
           hostname: "127.0.0.1",
           port: "8787",
         }));
-      expect((await withOrganizationName("  ACKstorm ")).organizationName)
-        .toBe("ACKstorm");
+      expect((await withOrganizationName("  myOrg ")).organizationName)
+        .toBe("myOrg");
       expect((await withOrganizationName(undefined)).organizationName)
         .toBeNull();
       expect((await withOrganizationName("   ")).organizationName).toBeNull();
