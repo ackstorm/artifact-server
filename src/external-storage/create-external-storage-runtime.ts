@@ -92,6 +92,7 @@ export interface ExternalStorageRuntimeConfig {
   readonly objectStorage: ObjectStorageProviderFactory;
   readonly organizationName?: string | null;
   readonly postgresMaxConnections?: number;
+  readonly publicLinksEnabled?: boolean | null;
   readonly runtimeLifecycle?: RuntimeLifecycle;
   readonly serviceVersion?: string;
   readonly sessionLifetimeMilliseconds?: number;
@@ -178,6 +179,7 @@ export async function createExternalStorageRuntime(
       interactiveIdentityProvider: config.interactiveIdentityProvider ?? null,
       localBootstrapCredential: config.localBootstrapCredential ?? null,
       protectBootstrapAdministrator: false,
+      publicLinksEnabled: config.publicLinksEnabled ?? null,
       repository,
       sessionLifetimeMilliseconds: config.sessionLifetimeMilliseconds,
       staging,

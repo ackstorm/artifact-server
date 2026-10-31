@@ -12,6 +12,7 @@ import {
   browserLoginKinds,
   privateTeamBrowserAccess,
 } from "../../src/core/browser-access.js";
+import type {AccessSetting} from "../../src/core/model.js";
 import {createOidcIdentityProvider} from
   "../../src/identity/oidc-identity-provider.js";
 import {
@@ -49,6 +50,7 @@ const keyCapabilities = [
   "content-session:issue",
 ];
 const disabled = {code: "PUBLIC_LINKS_DISABLED", status: 409};
+const locked = {code: "PUBLIC_LINK_POLICY_LOCKED", status: 409};
 const repositoryRoot = path.resolve(import.meta.dirname, "../..");
 const cliExecutable = path.join(repositoryRoot, "node_modules/.bin/tsx");
 const cliEntrypoint = path.join(repositoryRoot, "src/cli/main.ts");
@@ -82,7 +84,6 @@ const bootstrapSchema = z.object({bootstrapUrl: z.url()}).loose();
 const openedSchema = z.object({browserUrl: z.url()}).loose();
 
 type Json = z.infer<typeof jsonSchema>;
-type Level = "private" | "account_required" | "public_link";
 type Published = z.infer<typeof publishedSchema>;
 
 type Credential =
@@ -109,6 +110,7 @@ describe("installation public-link policy", () => {
   let installation: TestInstallation;
   let oidc: RunningStubOidcProvider;
   let server: RunningTestServer;
+  let serverOptions: NonNullable<Parameters<typeof startTestServer>[1]>;
   let workspace: string;
 
   beforeEach(async () => {
@@ -120,7 +122,7 @@ describe("installation public-link policy", () => {
     });
     const port = await reserveLoopbackPort();
     const applicationOrigin = `http://127.0.0.1:${port}`;
-    server = await startTestServer(installation, {
+    serverOptions = {
       applicationOrigin,
       bootstrapAdministratorEmail: administratorEmail,
       browserAccess: privateTeamBrowserAccess(browserLoginKinds.oidc),
@@ -132,7 +134,8 @@ describe("installation public-link policy", () => {
         scopes: "openid email profile",
       }),
       port,
-    });
+    };
+    server = await startTestServer(installation, serverOptions);
   });
 
   afterEach(async () => {
@@ -255,12 +258,17 @@ describe("installation public-link policy", () => {
     expect(anonymousPublic).toEqual(await anonymousOpen(organization.artifact.id));
     const versionUrl = stored.links.version;
     const etag = `"${createHash("sha256").update(html("stored")).digest("hex")}"`;
+    const conditional = {"If-None-Match": etag};
     const origin = await Promise.all([
       fetchVersion(server, versionUrl),
       fetchVersion(server, versionUrl, "HEAD"),
-      fetchVersion(server, versionUrl, "GET", {"If-None-Match": etag}),
-    ]);
+      fetchVersion(server, versionUrl, "GET", conditional),
+    ].map(async (response) => contentOutcome(await response)));
     expect(origin.map(({status}) => status)).toEqual([401, 401, 401]);
+    expect(origin.slice(0, 2)).toEqual(await Promise.all([
+      fetchVersion(server, organization.links.version),
+      fetchVersion(server, organization.links.version, "HEAD"),
+    ].map(async (response) => contentOutcome(await response))));
 
     const issued = await request(ada, "POST", `/api/v1/artifacts/${stored.artifact.id}/content-sessions`);
     expect(issued.status).toBe(201);
@@ -285,8 +293,45 @@ describe("installation public-link policy", () => {
     const reopened = await fetchVersion(server, versionUrl);
     expect(reopened.status).toBe(200);
     expect(reopened.headers.get("cache-control")).toBe("public, no-cache, must-revalidate");
+    expect((await fetchVersion(server, versionUrl, "GET", conditional)).status).toBe(304);
     expect(await call(administrator, "GET")).toEqual({
       body: {publicArtifactCount: 1, publicLinksEnabled: true, setByConfiguration: false},
+      status: 200,
+    });
+
+    await restart({publicLinksEnabled: false});
+    expect(await call(administrator, "GET")).toEqual({
+      body: {publicArtifactCount: 1, publicLinksEnabled: false, setByConfiguration: true},
+      status: 200,
+    });
+    const lockedChanges = [
+      await call(administrator, "PUT", {publicLinksEnabled: true}),
+      await call(administrator, "PUT", {publicLinksEnabled: false}),
+    ];
+    expect(lockedChanges.map(outcome)).toEqual(lockedChanges.map(() => locked));
+    expect(failureSchema.parse(lockedChanges[0]?.body).error.message).toBe(
+      "ARTIFACT_SERVER_PUBLIC_LINKS_ENABLED in the server configuration sets this policy. Change it there.",
+    );
+    expect(outcome(await call(bob, "PUT", {publicLinksEnabled: true})))
+      .toEqual({code: "AUTHORIZATION_DENIED", status: 403});
+    expect(outcome(await changeLevel(ada, organization, "public_link", "ada-locked-raise")))
+      .toEqual(disabled);
+    expect((await anonymousOpen(stored.artifact.id)).status).toBe(401);
+    expect((await readSession(ada)).installation.publicLinksEnabled).toBe(false);
+
+    await restart();
+    expect((await call(administrator, "PUT", {publicLinksEnabled: false})).status).toBe(200);
+    await restart({publicLinksEnabled: true});
+    expect(await call(administrator, "GET")).toEqual({
+      body: {publicArtifactCount: 1, publicLinksEnabled: true, setByConfiguration: true},
+      status: 200,
+    });
+    expect((await anonymousOpen(stored.artifact.id)).status).toBe(302);
+    expect(outcome(await call(administrator, "PUT", {publicLinksEnabled: false}))).toEqual(locked);
+
+    await restart();
+    expect(await call(administrator, "GET")).toEqual({
+      body: {publicArtifactCount: 1, publicLinksEnabled: false, setByConfiguration: false},
       status: 200,
     });
   });
@@ -332,6 +377,11 @@ describe("installation public-link policy", () => {
     return {ada, adaKey, administrator, administratorKey, bob, bobKey, serviceKey};
   }
 
+  async function restart(configured: {readonly publicLinksEnabled?: boolean} = {}) {
+    await server.stop();
+    server = await startTestServer(installation, {...serverOptions, ...configured});
+  }
+
   async function readSession(credential: Credential) {
     const response = await request(credential, "GET", "/api/v1/session");
     expect(response.status).toBe(200);
@@ -347,7 +397,7 @@ describe("installation public-link policy", () => {
     ));
   }
 
-  async function publishNew(credential: Credential, accessSetting: Level, label: string) {
+  async function publishNew(credential: Credential, accessSetting: AccessSetting, label: string) {
     const upload = await stage(credential, html(label));
     const committed = await commit(
       credential,
@@ -397,7 +447,7 @@ describe("installation public-link policy", () => {
   async function changeLevel(
     credential: Credential,
     published: Published,
-    accessSetting: Level,
+    accessSetting: AccessSetting,
     label: string,
   ): Promise<Answer> {
     return answer(await request(
@@ -502,7 +552,7 @@ function html(label: string): string {
   return `<!doctype html><title>Ada's ${label} plan</title>`;
 }
 
-function newArtifact(accessSetting: Level, name: string) {
+function newArtifact(accessSetting: AccessSetting, name: string) {
   return {accessSetting, kind: "new_artifact", name};
 }
 
@@ -517,6 +567,13 @@ function session(cookies: ApplicationCookies): Credential {
 async function answer(response: Response): Promise<Answer> {
   const text = await response.text();
   return {body: text === "" ? null : jsonSchema.parse(JSON.parse(text)), status: response.status};
+}
+
+async function contentOutcome(response: Response) {
+  return {
+    cacheControl: response.headers.get("cache-control"),
+    ...outcome(await answer(response)),
+  };
 }
 
 function outcome(reply: Answer) {

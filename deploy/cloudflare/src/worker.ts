@@ -68,6 +68,7 @@ export interface WorkerEnvironment {
   readonly ARTIFACT_SERVER_OIDC_SCOPES?: string;
   readonly ARTIFACT_SERVER_ORGANIZATION_NAME?: string;
   readonly ARTIFACT_SERVER_ORIGIN: string;
+  readonly ARTIFACT_SERVER_PUBLIC_LINKS_ENABLED?: string | boolean;
   readonly ARTIFACT_SERVER_QUALIFICATION_MODE?: "enabled";
   readonly ARTIFACT_SERVER_R2_BUCKET: R2Bucket;
   readonly ARTIFACT_SERVER_REQUEST_LOG_SAMPLE_RATE?: string | number;
@@ -199,6 +200,7 @@ async function createCloudflareRuntime(
       hostedAuthentication?.interactiveIdentityProvider ?? null,
     localBootstrapCredential: null,
     protectBootstrapAdministrator: false,
+    publicLinksEnabled: configuredPublicLinks(environment),
     repository,
     sessionLifetimeMilliseconds: sessionLifetimeMilliseconds(environment),
     staging,
@@ -553,6 +555,17 @@ function sessionLifetimeMilliseconds(
       hours >= 1 && hours <= maximumSessionLifetimeHours
     ? hours * 60 * 60 * 1_000
     : undefined;
+}
+
+/** Worker variables arrive typed, as a string or a JSON boolean. */
+function configuredPublicLinks(environment: WorkerEnvironment): boolean | null {
+  const value = environment.ARTIFACT_SERVER_PUBLIC_LINKS_ENABLED;
+  if (value === undefined || value === "") return null;
+  if (value === true || value === "true") return true;
+  if (value === false || value === "false") return false;
+  throw new Error(
+    "ARTIFACT_SERVER_PUBLIC_LINKS_ENABLED must be true or false, or unset so administrators choose in Settings.",
+  );
 }
 
 const readyComponent = {

@@ -251,6 +251,28 @@ describe("Artifact Server lifecycle CLI", () => {
       await expect(withOrganizationName("ACK\u0007storm"))
         .rejects.toMatchObject(invalidOrganizationName);
 
+      const withPublicLinks = (value: string | undefined) =>
+        Effect.runPromise(parseCompactRuntimeConfiguration({
+          dataDirectory,
+          environment: {
+            ...environment,
+            ARTIFACT_SERVER_PUBLIC_LINKS_ENABLED: value,
+          },
+          hostname: "127.0.0.1",
+          port: "8787",
+        }));
+      expect((await withPublicLinks(undefined)).publicLinksEnabled).toBeNull();
+      expect((await withPublicLinks("")).publicLinksEnabled).toBeNull();
+      expect((await withPublicLinks("true")).publicLinksEnabled).toBe(true);
+      expect((await withPublicLinks("false")).publicLinksEnabled).toBe(false);
+      const invalidPublicLinks = {
+        field: "ARTIFACT_SERVER_PUBLIC_LINKS_ENABLED",
+        reason: "invalid_value",
+      };
+      await Promise.all(["TRUE", "1", "yes", " true"].map((value) =>
+        expect(withPublicLinks(value)).rejects.toMatchObject(invalidPublicLinks)
+      ));
+
       const support = await runCli([
         "support",
         "manifest",
@@ -368,6 +390,20 @@ describe("Artifact Server lifecycle CLI", () => {
           objectStorageSecret: "provider_chain",
         });
       expect(providerChain.objectStorage).not.toHaveProperty("accessKeyId");
+      const externalWithPublicLinks = (value: string) =>
+        Effect.runPromise(parseExternalStorageRuntimeConfiguration({
+          environment: {
+            ...externalConfigurationEnvironment(),
+            ARTIFACT_SERVER_PUBLIC_LINKS_ENABLED: value,
+          },
+          hostname: "127.0.0.1",
+          port: "8787",
+        }));
+      expect((await externalWithPublicLinks("false")).publicLinksEnabled).toBe(false);
+      await expect(externalWithPublicLinks("yes")).rejects.toMatchObject({
+        field: "ARTIFACT_SERVER_PUBLIC_LINKS_ENABLED",
+        reason: "invalid_value",
+      });
       const gcs = await Effect.runPromise(
         parseExternalStorageRuntimeConfiguration({
           environment: {

@@ -106,6 +106,7 @@ export async function startTestServer(
     readonly observability?: boolean;
     readonly organizationName?: string;
     readonly port?: number;
+    readonly publicLinksEnabled?: boolean;
     readonly sessionLifetimeMilliseconds?: number;
     readonly webAssetsRoot?: string;
   } = {},
@@ -199,6 +200,9 @@ export async function startTestServer(
   }
   if (options.organizationName !== undefined) {
     config = {...config, organizationName: options.organizationName};
+  }
+  if (options.publicLinksEnabled !== undefined) {
+    config = {...config, publicLinksEnabled: options.publicLinksEnabled};
   }
   if (options.webAssetsRoot !== undefined) {
     config = {...config, webAssetsRoot: options.webAssetsRoot};

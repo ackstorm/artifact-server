@@ -181,8 +181,8 @@ export interface ApplicationAdapters {
   readonly linked?: LinkedApplicationAdapters;
   readonly localBootstrapCredential: Redacted.Redacted | null;
   readonly protectBootstrapAdministrator: boolean;
-  /** The configured public-link policy; absent or null lets administrators choose in Settings. */
-  readonly publicLinksEnabled?: boolean | null;
+  /** The configured public-link policy; null lets administrators choose in Settings. */
+  readonly publicLinksEnabled: boolean | null;
   readonly repository: ArtifactRepository &
     CommentRepository &
     ContentSessionRepository &
@@ -1072,7 +1072,7 @@ export function createApplicationLayer(
   });
   const policyLayer = PublicLinkPolicyService.layer(
     publicLinkPolicyRepository,
-    adapters.publicLinksEnabled ?? null,
+    adapters.publicLinksEnabled,
   ).pipe(Layer.provideMerge(authorizationLayer));
   const projectLayer = ProjectManagementService.layer(projectDependencies).pipe(
     Layer.provideMerge(authorizationLayer),
