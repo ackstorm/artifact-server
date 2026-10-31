@@ -2016,6 +2016,39 @@ export class SqliteArtifactRepository implements
     });
   }
 
+  /** Whether anyone can open a Public artifact without sign-in; a missing row means on. */
+  readPublicLinksEnabled(): Promise<boolean> {
+    return Promise.resolve().then(() => {
+      const row = z.object({enabled: z.number()}).optional().parse(
+        this.#database.prepare(
+          "SELECT public_links_enabled AS enabled FROM installation_settings WHERE installation_id = ?",
+        ).get(this.#installationId),
+      );
+      return row === undefined || row.enabled === 1;
+    });
+  }
+
+  /** Store the installation's public-link switch. */
+  setPublicLinksEnabled(enabled: boolean): Promise<void> {
+    return Promise.resolve().then(() => {
+      this.#database.prepare(
+        `INSERT INTO installation_settings (installation_id, public_links_enabled) VALUES (?, ?)
+         ON CONFLICT (installation_id) DO UPDATE SET public_links_enabled = excluded.public_links_enabled`,
+      ).run(this.#installationId, enabled ? 1 : 0);
+      return undefined;
+    });
+  }
+
+  /** Count the artifacts the public-link inventory lists. */
+  countPublicLinks(): Promise<number> {
+    return Promise.resolve().then(() => z.object({count: z.number()}).parse(
+      this.#database.prepare(
+        `SELECT COUNT(*) AS count FROM artifacts
+         WHERE deleted_at IS NULL AND access_setting = 'public_link' AND current_version_id IS NOT NULL`,
+      ).get(),
+    ).count);
+  }
+
   /** List one bounded installation-wide page of active public-link artifacts. */
   listPublicLinks(command: ListPublicLinks): Promise<PublicLinkInventoryPage> {
     return Promise.resolve().then(() => {
@@ -5008,6 +5041,11 @@ export class SqliteArtifactRepository implements
         storage_budget_bytes INTEGER,
         updated_by_principal_id TEXT NOT NULL,
         updated_at TEXT NOT NULL
+      ) STRICT;
+
+      CREATE TABLE IF NOT EXISTS installation_settings (
+        installation_id TEXT PRIMARY KEY,
+        public_links_enabled INTEGER NOT NULL CHECK (public_links_enabled IN (0, 1))
       ) STRICT;
 
       CREATE INDEX IF NOT EXISTS versions_artifact_id
