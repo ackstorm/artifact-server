@@ -77,6 +77,10 @@ Details:
   administrator turned them off. The setting is read only on the would-be-public
   path, on a raise and on `GET /api/v1/session`, so Private and Organization
   content reads pay nothing extra.
+- **Concurrent raise.** A raise checks the policy and then stores the level, with
+  no transaction around both. A raise that lands while an administrator turns
+  public links off can still store `public_link`. Nothing becomes readable: the
+  read-time check keeps it closed until public links are turned back on.
 
 ### Configuration lock
 
