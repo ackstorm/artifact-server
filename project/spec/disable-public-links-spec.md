@@ -59,11 +59,13 @@ Details:
   stored level is lower. Setting `public_link` on an artifact that is already
   Public makes nothing more readable, so it is allowed and behaves as today
   (including an idempotent replay).
-- **Idempotent replay.** A publish or level change that succeeded before the
-  switch was turned off replays its original result under the same key. The
-  artifact keeps `public_link` and is not publicly readable. The replay check
-  runs before the policy check, so a retry never reports failure for work that
-  was done, and the read-time rule keeps the artifact closed. A new key, or a
+- **Idempotent replay.** A publish that succeeded before the switch was turned
+  off replays its original result under the same key. The artifact keeps
+  `public_link` and is not publicly readable. The replay check runs before the
+  policy check, so a retry never reports failure for work that was done, and the
+  read-time rule keeps the artifact closed. A level change retried under its key
+  while the artifact is still Public is a no-op, as above. If the level has
+  dropped since, the retry is a new raise and is refused. A new key, or a
   changed body, is a new request and is refused.
 - **Anonymous answer.** Anonymous requests receive exactly the response for an
   Organization artifact (`401 CONTENT_NOT_PUBLIC`, `Cache-Control: private,
