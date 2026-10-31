@@ -62,6 +62,7 @@ interface ReviewShareControlProps {
   readonly details: ArtifactDetails | null;
   readonly onArtifactChanged: (artifact: ArtifactDetails["artifact"]) => void;
   readonly organizationName: string | null;
+  readonly publicLinksEnabled: boolean;
   readonly selectedPath: string | null;
   readonly selectedVersion: ArtifactVersion | null;
   readonly triggerClassName: string;
@@ -74,6 +75,7 @@ export function ReviewShareControl({
   details,
   onArtifactChanged,
   organizationName,
+  publicLinksEnabled,
   selectedPath,
   selectedVersion,
   triggerClassName,
@@ -197,7 +199,13 @@ export function ReviewShareControl({
     if (level !== "public_link") void saveAccess(level);
   };
 
-  const publicArtifact = savedAccess === "public_link";
+  const publicLinksOff = !publicLinksEnabled;
+  // A stored-Public artifact reads as Organization while public links are off.
+  const effectiveAccess = savedAccess === "public_link" && publicLinksOff
+    ? "account_required"
+    : savedAccess;
+  const publicArtifact = effectiveAccess === "public_link";
+  const shownAccess = chosenAccess ?? savedAccess;
   const serverOrigin = details === null ? "" : new URL(details.links.artifact).origin;
   const mcpAddress = `${serverOrigin}/mcp`;
 
@@ -275,7 +283,7 @@ export function ReviewShareControl({
                   <div className="as-share-access__control">
                     <HugeiconsIcon
                       aria-hidden="true"
-                      icon={accessLevelIcons[chosenAccess ?? savedAccess]}
+                      icon={accessLevelIcons[shownAccess]}
                       strokeWidth={1.8}
                     />
                     <select
@@ -287,18 +295,31 @@ export function ReviewShareControl({
                         accessLevels.find((level) => level === event.currentTarget.value)
                           ?? savedAccess,
                       )}
-                      value={chosenAccess ?? savedAccess}
+                      value={shownAccess}
                     >
                       {accessChoices.map((level) => (
-                        <option key={level} value={level}>
-                          {canRaise || canLower
-                            ? accessOptionLabel(level, organization)
-                            : level === "public_link" ? "Public" : `Shared with ${organization}`}
+                        <option
+                          disabled={publicLinksOff && level === "public_link"}
+                          key={level}
+                          value={level}
+                        >
+                          {publicLinksOff && level === "public_link"
+                            ? "Public — Turned off by an administrator"
+                            : canRaise || canLower
+                              ? accessOptionLabel(level, organization)
+                              : level === "public_link" ? "Public" : `Shared with ${organization}`}
                         </option>
                       ))}
                     </select>
                   </div>
-                  <p>{accessDescription(chosenAccess ?? savedAccess, organization)}</p>
+                  <p>
+                    {publicLinksOff && shownAccess === "public_link"
+                      ? `Public links are turned off by an administrator. Only people signed in to ${organization} with the link can open it until they are turned back on.`
+                      : accessDescription(shownAccess, organization)}
+                  </p>
+                  {canRaise && publicLinksOff && savedAccess !== "public_link"
+                    ? <p>Public links are turned off by an administrator.</p>
+                    : null}
                   {confirmingPublic ? (
                     <div className="as-share-access__confirm" role="group" aria-label="Confirm public access">
                       <p>
@@ -374,7 +395,7 @@ export function ReviewShareControl({
                       {copiedTarget === "review-link" ? "Copied" : "Copy Review link"}
                     </button>
                   </div>
-                  <p>{reviewLinkNote(savedAccess, organization)}</p>
+                  <p>{reviewLinkNote(effectiveAccess, organization)}</p>
                 </section>
 
                 <section aria-labelledby="as-share-secondary-heading" className="as-share-secondary">

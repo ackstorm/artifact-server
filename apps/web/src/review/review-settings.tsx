@@ -169,7 +169,7 @@ function SettingsContent({
     case "apiKeys":
       return <ApiKeysScreen />;
     case "publicLinks":
-      return <PublicLinksScreen />;
+      return <PublicLinksScreen organizationName={session.installation.organizationName} />;
   }
   return <AdministratorPermissionRequired />;
 }

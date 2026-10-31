@@ -6,6 +6,7 @@ import {
   type PublicLinkItem,
   type PublicLinkMutationResult,
   type PublicLinkPage,
+  type PublicLinkPolicy,
 } from "@/api/client";
 import {ErrorPanel, PageHeader, StatePanel, StatusBadge} from "@/components/product";
 import {
@@ -38,9 +39,14 @@ interface FailedMutation {
   readonly result: FailedMutationResult;
 }
 
-/** Administrator-only cross-project inventory and shutdown surface for public links. */
-export function PublicLinksScreen() {
+/** Administrator-only public-link switch, cross-project inventory and shutdown surface. */
+export function PublicLinksScreen({
+  organizationName,
+}: {
+  readonly organizationName: string | null;
+}) {
   const [pages, setPages] = useState<readonly PublicLinkPage[]>([]);
+  const [policy, setPolicy] = useState<PublicLinkPolicy | null>(null);
   const [pageIndex, setPageIndex] = useState(0);
   const [selectedKeys, setSelectedKeys] = useState<ReadonlySet<string>>(new Set());
   const [confirmation, setConfirmation] = useState<readonly PublicLinkItem[]>([]);
@@ -69,8 +75,12 @@ export function PublicLinksScreen() {
     setLoading(true);
     setError(null);
     try {
-      const firstPage = await api.publicLinks(null);
+      const [firstPage, loadedPolicy] = await Promise.all([
+        api.publicLinks(null),
+        api.publicLinkPolicy(),
+      ]);
       setPages([firstPage]);
+      setPolicy(loadedPolicy);
       setPageIndex(0);
       setSelectedKeys(new Set());
       setFailures([]);
@@ -170,6 +180,7 @@ export function PublicLinksScreen() {
       setFailures(nextFailures);
       setSelectedKeys(new Set(nextFailures.map(({item}) => selectionKey(item))));
       if (response.summary.succeeded > 0) {
+        setPolicy(await api.publicLinkPolicy());
         setNotice(
           `${response.summary.succeeded} ${response.summary.succeeded === 1 ? "link is" : "links are"} no longer public. ${response.warning}`,
         );
@@ -270,6 +281,14 @@ export function PublicLinksScreen() {
         title="Public links"
       />
 
+      {policy === null ? null : (
+        <PublicLinkSwitch
+          onChanged={setPolicy}
+          organization={organizationName ?? "this Artifact Server"}
+          policy={policy}
+        />
+      )}
+
       {error === null ? null : <ErrorPanel error={error} onRetry={() => void loadFirstPage()} />}
       {notice === null ? null : (
         <Alert>
@@ -317,6 +336,16 @@ export function PublicLinksScreen() {
         )
         : (
           <>
+            {policy?.publicLinksEnabled === false
+              ? (
+                <Alert>
+                  <AlertDescription>
+                    Public links are off. These artifacts keep their Public setting but do not
+                    open without sign-in. Stop public access lowers them to Organization.
+                  </AlertDescription>
+                </Alert>
+              )
+              : null}
             <section
               aria-label="Bulk selection"
               className="flex flex-col gap-3 border p-4 sm:flex-row sm:items-center sm:justify-between"
@@ -548,6 +577,137 @@ export function PublicLinksScreen() {
       </Dialog>
     </div>
   );
+}
+
+/** Turns public links off or on for the installation, confirming in place. */
+function PublicLinkSwitch({
+  onChanged,
+  organization,
+  policy,
+}: {
+  readonly onChanged: (policy: PublicLinkPolicy) => void;
+  readonly organization: string;
+  readonly policy: PublicLinkPolicy;
+}) {
+  const [confirming, setConfirming] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [policyError, setPolicyError] = useState<string | null>(null);
+  const enabled = policy.publicLinksEnabled;
+  const action = enabled ? "Turn off public links" : "Turn on public links";
+
+  const change = async () => {
+    setSaving(true);
+    setPolicyError(null);
+    try {
+      onChanged(await api.changePublicLinkPolicy(!enabled));
+    } catch (caught) {
+      setPolicyError(
+        caught instanceof Error ? caught.message : "The public-link setting could not be changed.",
+      );
+    } finally {
+      setSaving(false);
+      setConfirming(false);
+    }
+  };
+
+  return (
+    <section aria-labelledby="as-public-link-switch-heading" className="flex flex-col gap-3 border p-4">
+      <h2
+        className="text-xs font-semibold tracking-widest text-muted-foreground uppercase"
+        id="as-public-link-switch-heading"
+      >
+        Public links for this installation
+      </h2>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm leading-6" role="status">
+          {enabled
+            ? (
+              <>
+                <strong>On.</strong> Owners can make an artifact Public, so anyone with its link
+                opens it without signing in.
+              </>
+            )
+            : (
+              <>
+                <strong>Off.</strong> No artifact opens without sign-in, and nobody can make one
+                Public.
+              </>
+            )}
+        </p>
+        {confirming ? null : (
+          <Button
+            disabled={policy.setByConfiguration}
+            onClick={() => setConfirming(true)}
+            size="sm"
+            type="button"
+            variant="outline"
+          >
+            {action}
+          </Button>
+        )}
+      </div>
+      {policy.setByConfiguration
+        ? (
+          <p className="text-sm break-words text-muted-foreground">
+            Set by the server configuration. Change ARTIFACT_SERVER_PUBLIC_LINKS_ENABLED to change it.
+          </p>
+        )
+        : null}
+      {confirming
+        ? (
+          <div
+            aria-label={enabled
+              ? "Confirm turning off public links"
+              : "Confirm turning on public links"}
+            className="flex flex-col gap-3 border border-dashed p-4 text-sm leading-6"
+            role="group"
+          >
+            {(enabled
+              ? disableCopy(policy.publicArtifactCount, organization)
+              : [enableCopy(policy.publicArtifactCount)]
+            ).map((line) => <p key={line}>{line}</p>)}
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button
+                disabled={saving}
+                onClick={() => setConfirming(false)}
+                size="sm"
+                type="button"
+                variant="outline"
+              >
+                Cancel
+              </Button>
+              <Button disabled={saving} onClick={() => void change()} size="sm" type="button">
+                {saving ? "Saving…" : action}
+              </Button>
+            </div>
+          </div>
+        )
+        : null}
+      {policyError === null ? null : (
+        <p className="text-sm text-destructive" role="alert">{policyError}</p>
+      )}
+    </section>
+  );
+}
+
+function disableCopy(count: number, organization: string): readonly string[] {
+  const reach = count === 0
+    ? "No artifact is Public now."
+    : count === 1
+      ? `1 artifact is Public now. It stops opening without sign-in as soon as you turn public links off. It keeps its Public setting, and opens without sign-in again if you turn public links back on. Until then, people signed in to ${organization} with the link can still open it.`
+      : `${count} artifacts are Public now. They stop opening without sign-in as soon as you turn public links off. They keep their Public setting, and open without sign-in again if you turn public links back on. Until then, people signed in to ${organization} with the link can still open them.`;
+  return [
+    reach,
+    "Nobody can make an artifact Public while public links are off. Pages already open or downloaded, and copies cached outside Artifact Server, cannot be recalled.",
+  ];
+}
+
+function enableCopy(count: number): string {
+  return count === 0
+    ? "Owners can make artifacts Public again."
+    : count === 1
+      ? "1 artifact keeps its Public setting and opens without sign-in again as soon as you turn public links on."
+      : `${count} artifacts keep their Public setting and open without sign-in again as soon as you turn public links on.`;
 }
 
 function makePrivateCommand(item: PublicLinkItem): MakePublicLinkPrivateItem {
