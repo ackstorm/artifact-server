@@ -1,6 +1,6 @@
 # 0033: Public links are an installation switch that gates reads, not stored levels
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** October 31, 2026
 
 Specified in [Disable public links](../disable-public-links-spec.md). Implements

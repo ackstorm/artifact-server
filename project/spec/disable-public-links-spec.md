@@ -1,6 +1,6 @@
 # Disable public links
 
-**Status:** Proposed
+**Status:** Accepted; implemented — AUTH-006 behavior-verified on the local deployment (October 31, 2026)
 **Date:** October 31, 2026
 **Companion documents:** [Product specification](./artifact-server-product-spec.html#sharing),
 [Artifact sharing levels](./artifact-sharing-levels-spec.md),
