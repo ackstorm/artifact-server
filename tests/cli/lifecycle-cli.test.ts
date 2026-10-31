@@ -267,6 +267,8 @@ describe("Artifact Server lifecycle CLI", () => {
       expect((await withPublicLinks("false")).publicLinksEnabled).toBe(false);
       const invalidPublicLinks = {
         field: "ARTIFACT_SERVER_PUBLIC_LINKS_ENABLED",
+        message:
+          "ARTIFACT_SERVER_PUBLIC_LINKS_ENABLED must be true or false, or unset so administrators choose in Settings.",
         reason: "invalid_value",
       };
       await Promise.all(["TRUE", "1", "yes", " true"].map((value) =>
@@ -562,6 +564,7 @@ describe("Artifact Server lifecycle CLI", () => {
       const environment = compactEnvironment({
         ARTIFACT_SERVER_OIDC_CLIENT_ID: "lifecycle-test-client",
         ARTIFACT_SERVER_OIDC_ISSUER: "https://identity.example.test",
+        ARTIFACT_SERVER_PUBLIC_LINKS_ENABLED: "false",
         ARTIFACT_SERVER_READINESS_WITHDRAWAL_MS: "300",
         ARTIFACT_SERVER_SHUTDOWN_DEADLINE_MS: "3000",
       });
@@ -573,6 +576,16 @@ describe("Artifact Server lifecycle CLI", () => {
         String(port),
       ], environment);
       await waitForOutput(server, '"status":"ready"');
+      const apiToken = (
+        await readFile(path.join(dataDirectory, "secrets/api-token"), "utf8")
+      ).trim();
+      const session = await fetch(`http://127.0.0.1:${port}/api/v1/session`, {
+        headers: {Authorization: `Bearer ${apiToken}`},
+      });
+      expect(session.status).toBe(200);
+      expect(await session.json()).toMatchObject({
+        installation: {publicLinksEnabled: false},
+      });
 
       const publication = await runCli([
         "publish",

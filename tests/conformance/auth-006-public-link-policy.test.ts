@@ -329,6 +329,10 @@ describe("installation public-link policy", () => {
     expect((await sharing(adaKey)).modes).not.toContain("public_link");
 
     await restart();
+    expect(await call(administrator, "GET")).toEqual({
+      body: {publicArtifactCount: 1, publicLinksEnabled: true, setByConfiguration: false},
+      status: 200,
+    });
     expect((await call(administrator, "PUT", {publicLinksEnabled: false})).status).toBe(200);
     await restart({publicLinksEnabled: true});
     expect(await call(administrator, "GET")).toEqual({

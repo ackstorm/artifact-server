@@ -721,8 +721,11 @@ function parseOrganizationName(
   return Effect.succeed(value);
 }
 
-/** Compose passes an empty `.env` entry through as "", so empty counts as unset. */
-function parsePublicLinksEnabled(
+/**
+ * Parse `ARTIFACT_SERVER_PUBLIC_LINKS_ENABLED` for any local-server entry point.
+ * Compose passes an empty `.env` entry through as "", so empty counts as unset.
+ */
+export function parsePublicLinksEnabled(
   environment: NodeJS.ProcessEnv,
 ): Effect.Effect<boolean | null, RuntimeConfigurationError> {
   const field = "ARTIFACT_SERVER_PUBLIC_LINKS_ENABLED";

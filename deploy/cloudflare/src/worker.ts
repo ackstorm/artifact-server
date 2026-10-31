@@ -150,6 +150,7 @@ async function createCloudflareRuntime(
   environment: WorkerEnvironment,
 ): Promise<CloudflareRuntime> {
   validateEnvironment(environment);
+  const publicLinksEnabled = configuredPublicLinks(environment);
   const oidcIdentityProvider = oidcAuthentication(environment);
   const admissionPolicy = oidcIdentityProvider === null ? null :
     parseOidcAdmissionPolicy(
@@ -200,7 +201,7 @@ async function createCloudflareRuntime(
       hostedAuthentication?.interactiveIdentityProvider ?? null,
     localBootstrapCredential: null,
     protectBootstrapAdministrator: false,
-    publicLinksEnabled: configuredPublicLinks(environment),
+    publicLinksEnabled,
     repository,
     sessionLifetimeMilliseconds: sessionLifetimeMilliseconds(environment),
     staging,

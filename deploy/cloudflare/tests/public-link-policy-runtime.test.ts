@@ -38,7 +38,7 @@ describe("Cloudflare Worker", () => {
     }
 
     const directory = await mkdtemp(join(tmpdir(), "artifact-server-public-links-off-"));
-    const worker = await startWorker(directory, {[variable]: "false"});
+    const worker = await startWorker(directory, {[variable]: false});
     try {
       const upload = await stageFile(worker, "<h1>Configured off</h1>");
       const commit = (accessSetting: string) => worker.fetch(upload.commitUrl, {
@@ -98,7 +98,7 @@ async function stageFile(worker: Unstable_DevWorker, source: string) {
 
 function startWorker(
   persistenceDirectory: string,
-  variables: Record<string, string>,
+  variables: Record<string, string | boolean>,
 ): Promise<Unstable_DevWorker> {
   return unstable_dev("src/worker.ts", {
     bundle: true,
