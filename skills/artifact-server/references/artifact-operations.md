@@ -48,7 +48,7 @@ Prefer `artifact_get` over several discovery calls when the artifact ID is alrea
 
 Call `artifact_get` immediately before a write to obtain the current version ID. Generate a new opaque idempotency key for the action and reuse it only for an exact retry.
 
-- `artifact_set_visibility`: set `private`, `account_required` or `public_link` without changing file bytes; `public_link` fails with `PUBLIC_LINKS_DISABLED` when an administrator has turned public links off.
+- `artifact_set_visibility`: set `private`, `account_required` or `public_link` without changing file bytes; `public_link` fails with `PUBLIC_LINKS_DISABLED` while public links are off.
 - `artifact_set_tags`: replace the complete tag set. Preserve existing tags the user did not ask to remove.
 - `artifact_set_review_mode`: set the artifact's default to `annotate` or `interact` without creating a version or changing file bytes. A valid `mode=annotate` or `mode=interact` parameter on the Review URL overrides this default for that link.
 - `artifact_restore_version`: make an existing saved version current. This restores an artifact version; it does not restore a server backup. When the user identifies the target relatively, such as "the older of the latest two," run `artifact_version_list` again immediately before the restore and confirm that the chosen version still has that relationship to the current version. An optimistic current-version guard alone does not preserve a relative description.

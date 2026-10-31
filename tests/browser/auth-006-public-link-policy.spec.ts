@@ -187,6 +187,9 @@ test.describe("AUTH-006 public-link policy", () => {
       const publicPlan = await publishAsAda(fixture, "Ada's public plan", "public_link");
       const draft = await publishAsAda(fixture, "Ada's draft", "private");
       expect(await anonymousLatest(publicPlan)).toBe(302);
+      const publicShare = await openShare(fixture.ada, fixture, publicPlan);
+      await expect(publicShare.share.getByRole("heading", {exact: true, name: "Public link"}))
+        .toBeVisible();
 
       const section = await openSwitch(fixture);
       await expect(section.getByRole("status").getByText("On.", {exact: true})).toBeVisible();
@@ -257,7 +260,6 @@ test.describe("AUTH-006 public-link policy", () => {
       await expect(section.getByRole("status").getByText("Off.", {exact: true})).toBeVisible();
       const turnOn = section.getByRole("button", {name: "Turn on public links"});
       await expect(turnOn).toBeDisabled();
-      await turnOn.click({force: true});
       await expect(section.getByRole("group")).toHaveCount(0);
       await expect(section.getByText(configurationNote, {exact: true})).toBeVisible();
 

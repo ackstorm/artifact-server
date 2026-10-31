@@ -1,4 +1,5 @@
-import {useEffect, useMemo, useState} from "react";
+import {useEffect, useMemo, useRef, useState} from "react";
+import {flushSync} from "react-dom";
 
 import {
   api,
@@ -180,10 +181,10 @@ export function PublicLinksScreen({
       setFailures(nextFailures);
       setSelectedKeys(new Set(nextFailures.map(({item}) => selectionKey(item))));
       if (response.summary.succeeded > 0) {
-        setPolicy(await api.publicLinkPolicy());
         setNotice(
           `${response.summary.succeeded} ${response.summary.succeeded === 1 ? "link is" : "links are"} no longer public. ${response.warning}`,
         );
+        setPolicy(await api.publicLinkPolicy());
       }
     } catch (caught) {
       setError(caught instanceof Error ? caught : new Error("Stopping public access failed."));
@@ -592,8 +593,19 @@ function PublicLinkSwitch({
   const [confirming, setConfirming] = useState(false);
   const [saving, setSaving] = useState(false);
   const [policyError, setPolicyError] = useState<string | null>(null);
+  const switchButton = useRef<HTMLButtonElement>(null);
   const enabled = policy.publicLinksEnabled;
   const action = enabled ? "Turn off public links" : "Turn on public links";
+
+  const openConfirmation = () => {
+    setPolicyError(null);
+    setConfirming(true);
+  };
+
+  const closeConfirmation = () => {
+    flushSync(() => setConfirming(false));
+    switchButton.current?.focus();
+  };
 
   const change = async () => {
     setSaving(true);
@@ -606,7 +618,7 @@ function PublicLinkSwitch({
       );
     } finally {
       setSaving(false);
-      setConfirming(false);
+      closeConfirmation();
     }
   };
 
@@ -637,7 +649,8 @@ function PublicLinkSwitch({
         {confirming ? null : (
           <Button
             disabled={policy.setByConfiguration}
-            onClick={() => setConfirming(true)}
+            onClick={openConfirmation}
+            ref={switchButton}
             size="sm"
             type="button"
             variant="outline"
@@ -668,8 +681,9 @@ function PublicLinkSwitch({
             ).map((line) => <p key={line}>{line}</p>)}
             <div className="flex flex-wrap justify-end gap-2">
               <Button
+                autoFocus
                 disabled={saving}
-                onClick={() => setConfirming(false)}
+                onClick={closeConfirmation}
                 size="sm"
                 type="button"
                 variant="outline"
