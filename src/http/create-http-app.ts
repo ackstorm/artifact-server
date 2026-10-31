@@ -159,6 +159,7 @@ import type {
 
 const maximumJsonRequestBytes = 1_500_000;
 const accessSettingSchema = z.enum([
+  accessSettings.private,
   accessSettings.accountRequired,
   accessSettings.publicLink,
 ]);
@@ -190,7 +191,7 @@ const createUploadSchema = z.object({
 const commitUploadSchema = z.object({
   target: z.discriminatedUnion("kind", [
     z.object({
-      accessSetting: accessSettingSchema.default(accessSettings.accountRequired),
+      accessSetting: accessSettingSchema.default(accessSettings.private),
       kind: z.literal("new_artifact"),
       name: z.string().min(1).max(200),
       reviewMode: z.enum(["annotate", "interact"]).default("annotate"),
@@ -497,6 +498,8 @@ export interface HttpAppDependencies {
    */
   readonly linkedArtifacts?: boolean;
   readonly mcpOAuthResource?: McpOAuthResourceConfiguration;
+  /** Names the installation's people in the UI; null or absent when unset. */
+  readonly organizationName?: string | null;
   readonly readiness?: ReadinessProbe;
   readonly runtimeLifecycle?: RuntimeLifecycle;
   readonly trustedApplicationOrigin: string | null;
@@ -1048,6 +1051,7 @@ export function createHttpApp(
         gitHistory: gitHistory.read(),
         linkedArtifacts: dependencies.linkedArtifacts === true,
       },
+      installation: {organizationName: dependencies.organizationName ?? null},
       principal: context.get("principal"),
     }));
 
@@ -2109,8 +2113,8 @@ export function createHttpApp(
           dependencies.contentDomain,
           state,
         ),
-        warning: body.accessSetting === accessSettings.accountRequired
-          ? "New public requests are blocked. Copies already downloaded or cached outside Artifact Server cannot be recalled."
+        warning: body.accessSetting !== accessSettings.publicLink
+          ? "New requests that this level does not allow are blocked. Content sessions already issued keep serving their version for up to 15 minutes. Copies already downloaded or cached outside Artifact Server cannot be recalled."
           : null,
       });
     },

@@ -440,6 +440,23 @@ function makeLinkedArtifactService(
     },
   );
 
+  const requireControlledArtifact = Effect.fn(
+    "LinkedArtifactService.requireControlledArtifact",
+  )(function*(principal: Principal, projectId: string, artifactId: string) {
+    const current = yield* dependencies.publication.findCurrentVersion(
+      projectId,
+      artifactId,
+    );
+    if (current !== null) {
+      yield* authorization.requireArtifactVisible(principal, current.artifact);
+      yield* authorization.requireArtifactControl(principal, current.artifact);
+      return;
+    }
+    yield* new ArtifactNotFound({
+      message: "The artifact does not exist.",
+    });
+  });
+
   const runLadder = Effect.fn("LinkedArtifactService.runLadder")(
     function*(rawPath: string) {
       const canonical = yield* runEngine(() =>
@@ -571,7 +588,7 @@ function makeLinkedArtifactService(
           );
           yield* storeCaptureBlob(capture);
           return yield* dependencies.bindings.commitLinkedArtifact({
-            accessSetting: accessSettings.accountRequired,
+            accessSetting: accessSettings.private,
             artifactId: dependencies.ids.artifactId(),
             authorizedByPrincipalId: command.principal.authorizedByPrincipalId,
             binding: {
@@ -705,6 +722,7 @@ function makeLinkedArtifactService(
         command.principal,
         command.projectId,
       );
+      yield* requireControlledArtifact(command.principal, project.id, command.artifactId);
       const binding = yield* requireBinding(project.id, command.artifactId);
       const observation = yield* runEngine(() =>
         dependencies.engine.refreshFreshness(binding.path, binding.fingerprint)
@@ -777,6 +795,7 @@ function makeLinkedArtifactService(
         command.principal,
         command.projectId,
       );
+      yield* requireControlledArtifact(command.principal, project.id, command.artifactId);
       yield* requireBinding(project.id, command.artifactId);
       const idempotencyKey = yield* parseIdempotencyKey(command.idempotencyKey);
       const canonical = yield* runLadder(command.path);

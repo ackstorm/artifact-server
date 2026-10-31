@@ -394,6 +394,40 @@ export async function startStubOidcLogin(
 }
 
 
+/** Complete one stub OIDC login as this person and keep its application cookies. */
+export async function signInWithStubOidc(
+  baseUrl: string,
+  provider: RunningStubOidcProvider,
+  email: string,
+  subject: string,
+): Promise<{readonly csrf: string; readonly header: string}> {
+  provider.claims.email = email;
+  provider.claims.name = subject;
+  provider.claims.subject = subject;
+  const authorization = await startStubOidcLogin(baseUrl);
+  const completed = await fetch(authorization.callbackUrl, {
+    headers: {Cookie: authorization.handshakeCookie},
+    redirect: "manual",
+  });
+  if (completed.status !== 303) {
+    throw new Error(`The OIDC callback answered ${completed.status}.`);
+  }
+  const pairs = completed.headers.getSetCookie()
+    .filter((value) =>
+      value.startsWith("artifact_session=") || value.startsWith("artifact_csrf=")
+    )
+    .map((value) => value.split(";", 1)[0] ?? "");
+  const csrfPair = pairs.find((pair) => pair.startsWith("artifact_csrf="));
+  if (pairs.length !== 2 || csrfPair === undefined) {
+    throw new Error("The login response did not issue both application cookies.");
+  }
+  return {
+    csrf: csrfPair.slice(csrfPair.indexOf("=") + 1),
+    header: pairs.join("; "),
+  };
+}
+
+
 function redirectTarget(response: Response, step: string): URL {
   const location = response.headers.get("location");
   if (location === null) {

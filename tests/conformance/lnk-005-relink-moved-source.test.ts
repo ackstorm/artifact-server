@@ -13,6 +13,7 @@ import path from "node:path";
 import {afterEach, beforeEach, describe, expect, test} from "vitest";
 import {z} from "zod";
 
+import {issueApiKey, signInAdministrator} from "../support/agent-dispatch.js";
 import {
   apiHeaders,
   createTestInstallation,
@@ -229,6 +230,42 @@ describe("relinking one binding at a moved source file", () => {
     expect(protectedTarget.status).toBe(403);
     await expectRefusal(protectedTarget, "LINK_PATH_PROTECTED");
 
+    // Only the owner relinks: a non-owning manage:any and publish:any key
+    // is refused at Organization and cannot see the artifact at Private.
+    const outsider = await issueOutsiderKey();
+    const movedPath = path.join(sourceRoot, "moved-roadmap.md");
+    await writeFile(movedPath, linkedBytes);
+    await setLevel(
+      linked.artifact.id,
+      linked.version.id,
+      "account_required",
+      "lnk-005-failure-organization",
+    );
+    const refused = await relink(
+      linked.artifact.id,
+      movedPath,
+      digestOf(linkedBytes),
+      "lnk-005-failure-outsider-org",
+      outsider,
+    );
+    expect(refused.status).toBe(403);
+    await expectRefusal(refused, "AUTHORIZATION_DENIED");
+    await setLevel(
+      linked.artifact.id,
+      linked.version.id,
+      "private",
+      "lnk-005-failure-private-level",
+    );
+    const hidden = await relink(
+      linked.artifact.id,
+      movedPath,
+      digestOf(linkedBytes),
+      "lnk-005-failure-outsider-private",
+      outsider,
+    );
+    expect(hidden.status).toBe(404);
+    await expectRefusal(hidden, "ARTIFACT_NOT_FOUND");
+
     // Every refusal left the original binding, history, and thread in place.
     const binding = await readArtifactBinding(linked.artifact.id);
     expect(binding.path).toBe(sourcePath);
@@ -254,6 +291,37 @@ describe("relinking one binding at a moved source file", () => {
       await deliveredBytes(linked.artifact.id, linked.version.id),
     )).toBe(linkedBytes);
   });
+
+  async function setLevel(
+    artifactId: string,
+    expectedCurrentVersionId: string,
+    accessSetting: "account_required" | "private",
+    idempotencyKey: string,
+  ): Promise<void> {
+    const response = await fetch(
+      new URL(`/api/v1/artifacts/${artifactId}/access`, requiredServer().baseUrl),
+      {
+        body: JSON.stringify({accessSetting, expectedCurrentVersionId}),
+        headers: apiHeaders(installation, idempotencyKey),
+        method: "PATCH",
+      },
+    );
+    expect(response.status).toBe(200);
+  }
+
+  async function issueOutsiderKey(): Promise<TestInstallation> {
+    const running = requiredServer();
+    const cookies = await signInAdministrator(running, installation);
+    return {
+      ...installation,
+      apiToken: await issueApiKey(
+        running,
+        cookies,
+        ["artifact:manage:any", "artifact:publish:any", "artifact:read"],
+        "Outside manager",
+      ),
+    };
+  }
 
   function requiredServer(): RunningTestServer {
     if (server === null) throw new Error("The test server is not running.");
@@ -287,6 +355,7 @@ describe("relinking one binding at a moved source file", () => {
     linkPath: string,
     expectedSha256: string,
     idempotencyKey: string,
+    caller: TestInstallation = installation,
   ): Promise<Response> {
     return fetch(
       new URL(
@@ -295,7 +364,7 @@ describe("relinking one binding at a moved source file", () => {
       ),
       {
         body: JSON.stringify({expectedSha256, path: linkPath}),
-        headers: apiHeaders(installation, idempotencyKey),
+        headers: apiHeaders(caller, idempotencyKey),
         method: "PUT",
       },
     );

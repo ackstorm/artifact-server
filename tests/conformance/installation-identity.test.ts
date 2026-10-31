@@ -685,6 +685,29 @@ describe("installation identity and access", () => {
     expect(await sessionStatus()).toBe(401);
   });
 
+  test("the session response names the installation's organization, or null when unset", async () => {
+    const readOrganizationName = async (): Promise<string | null> => {
+      const token = await issueLocalBrowserLogin(server, installation);
+      const login = await fetch(
+        `${server.baseUrl}/auth/local?token=${token}`,
+        {redirect: "manual"},
+      );
+      const response = await fetch(`${server.baseUrl}/api/v1/session`, {
+        headers: {Cookie: applicationCookies(login.headers.getSetCookie()).header},
+      });
+      return z.object({
+        installation: z.object({organizationName: z.string().nullable()}),
+      }).loose().parse(await response.json()).installation.organizationName;
+    };
+    expect(await readOrganizationName()).toBeNull();
+    await server.stop();
+    server = await startTestServer(installation, {
+      clock,
+      organizationName: "myOrg",
+    });
+    expect(await readOrganizationName()).toBe("myOrg");
+  });
+
   test("AUTH-001-B AUTH-001-F AUTH-028-B: external login admits only the configured first administrator and consumes state once", async () => {
     await server.stop();
     const provider = new TestIdentityProvider({

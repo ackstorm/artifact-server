@@ -7,6 +7,7 @@ import {afterEach, beforeEach, describe, expect, test} from "vitest";
 import {z} from "zod";
 
 import {
+  admitMember,
   ApiClient,
   dispatchCreationSchema,
   failureSchema,
@@ -92,26 +93,34 @@ describe("bulk comment clearing", () => {
       .toEqual({deleted: 0, skippedDispatched: 0});
 
     // The service exception mirrors dispatch send: artifact:manage:any may
-    // clear everything, open threads included.
+    // clear everything, open threads included, on an artifact it owns.
     const administrator = await signInAdministrator(server, installation);
-    const manager = new ApiClient(
+    const managerToken = await issueApiKey(
       server,
-      await issueApiKey(
-        server,
-        administrator,
-        ["artifact:manage:any"],
-        "Bulk clear manager",
-      ),
+      administrator,
+      ["artifact:create", "artifact:manage:any"],
+      "Bulk clear manager",
     );
-    const allClear = await clear(manager, {state: "all"});
+    const manager = new ApiClient(server, managerToken);
+    const managed = (await publishNew(server, {...installation, apiToken: managerToken}, {
+      accessSetting: "account_required",
+      content: "<!doctype html><title>Managed clear</title>",
+      idempotencyKey: "bulk-clear-managed-publish",
+      name: "Managed clear report",
+    })).body;
+    await client.openThread(managed, "Open on the manager's report.", "bulk-clear-thread-b-managed-1");
+    await client.openThread(managed, "Also open there.", "bulk-clear-thread-b-managed-2");
+    const allClear = await clear(manager, {state: "all"}, managed);
     expect(allClear.status).toBe(200);
     expect(clearingSchema.parse(await allClear.json()))
       .toEqual({deleted: 2, skippedDispatched: 0});
-    expect(await client.listThreadIds(published)).toEqual([]);
-    expect(await commentDeleteActions()).toBe(4);
+    expect(await client.listThreadIds(managed)).toEqual([]);
+    expect(await commentDeleteActions(managed)).toBe(2);
+    expect([...await client.listThreadIds(published)].toSorted())
+      .toEqual([third, fourth].toSorted());
   });
 
-  test("PRS-005-F: an actively dispatched thread is skipped and counted, a non-member key is refused, and MCP comment_clear answers the same shape", async () => {
+  test("PRS-005-F: an actively dispatched thread is skipped and counted, principals that do not control the artifact are refused, and MCP comment_clear answers the same shape", async () => {
     expect.hasAssertions();
     const dispatched = await openThread("Held by an agent.", "f-held");
     const resolved = await openThread("Free to delete.", "f-free");
@@ -144,12 +153,27 @@ describe("bulk comment clearing", () => {
         "Bulk clear bystander",
       ),
     );
-    const refused = await clear(bridge, {state: "all"});
-    expect(refused.status).toBe(403);
-    expect(failureSchema.parse(await refused.json()).error.code)
-      .toBe("AUTHORIZATION_DENIED");
+    // Clearing belongs to the artifact's controller: a non-owning member
+    // and a non-owning manage:any key are refused as well.
+    const memberId = await admitMember(server, administrator, "Bob", "bob@example.test");
+    const [member, outsider] = await Promise.all([
+      issueApiKey(server, administrator, ["artifact:manage:any"], "Bob's agent", memberId),
+      issueApiKey(server, administrator, ["artifact:manage:any"], "Outside manager"),
+    ]);
+    const refusals = await Promise.all(
+      [bridge, new ApiClient(server, member), new ApiClient(server, outsider)]
+        .map(async (caller) => {
+          const refused = await clear(caller, {state: "all"});
+          return {
+            code: failureSchema.parse(await refused.json()).error.code,
+            status: refused.status,
+          };
+        }),
+    );
+    expect(refusals).toEqual(refusals.map(() => ({code: "AUTHORIZATION_DENIED", status: 403})));
     expect(await client.listThreadIds(published, "&state=resolved"))
       .toEqual([resolved]);
+    expect(await commentDeleteActions()).toBe(0);
 
     // The queued bundle keeps its thread: clearing never yanks work out
     // from under an agent.
@@ -181,17 +205,18 @@ describe("bulk comment clearing", () => {
   function clear(
     caller: ApiClient,
     body: {readonly state: "all" | "resolved"; readonly versionId?: string},
+    target: PublishResponse = published,
   ): Promise<Response> {
     return caller.fetch(
-      `/api/v1/projects/${projectId}/artifacts/${published.artifact.id}` +
+      `/api/v1/projects/${projectId}/artifacts/${target.artifact.id}` +
         "/comments/clear",
       {body: JSON.stringify(body), method: "POST"},
     );
   }
 
-  async function commentDeleteActions(): Promise<number> {
+  async function commentDeleteActions(target: PublishResponse = published): Promise<number> {
     const response = await client.fetch(
-      `/api/v1/artifacts/${published.artifact.id}/actions` +
+      `/api/v1/artifacts/${target.artifact.id}/actions` +
         `?projectId=${projectId}&limit=100`,
     );
     expect(response.status).toBe(200);
@@ -201,8 +226,8 @@ describe("bulk comment clearing", () => {
     );
     for (const deletion of deletions) {
       expect(deletion).toMatchObject({
-        artifactId: published.artifact.id,
-        versionId: published.version.id,
+        artifactId: target.artifact.id,
+        versionId: target.version.id,
       });
     }
     return deletions.length;

@@ -24,6 +24,7 @@ export const publicLinkInventoryRowSchema = z.object({
   entryPath: z.string(),
   installationId: z.string(),
   manifestDigest: z.string(),
+  ownerPrincipalId: z.string(),
   projectArchivedAt: z.string().nullable(),
   projectCreatedAt: z.string(),
   projectId: z.string(),

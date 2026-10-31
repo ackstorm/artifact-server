@@ -108,6 +108,7 @@ import {
   VersionNotFound,
 } from "../core/errors.js";
 import {
+  localApiTokenPrincipalId,
   membershipRoles,
   principalCapabilities,
   principalKinds,
@@ -590,6 +591,10 @@ export function createApplicationLayer(
         "findCommentThread",
         () => adapters.repository.findThread(projectId, artifactId, threadId),
       ),
+      findThreadById: (projectId, threadId) => commentEffect(
+        "findCommentThread",
+        () => adapters.repository.findThreadById(projectId, threadId),
+      ),
       listReplies: (threadId) => commentEffect(
         "listCommentReplies",
         () => adapters.repository.listReplies(threadId),
@@ -638,9 +643,17 @@ export function createApplicationLayer(
         "findRegisteredAgent",
         () => dispatchStore.findAgent(installationId, agentId),
       ),
+      findArtifact: (projectId, artifactId) => dispatchEffect(
+        "findArtifact",
+        () => adapters.repository.findArtifact(projectId, artifactId),
+      ),
       findDispatch: (installationId, dispatchId, now) => dispatchEffect(
         "findAgentDispatch",
         () => dispatchStore.findDispatch(installationId, dispatchId, now),
+      ),
+      findThreadById: (projectId, threadId) => dispatchEffect(
+        "findCommentThread",
+        () => adapters.repository.findThreadById(projectId, threadId),
       ),
       listAgents: (installationId, now) => dispatchEffect(
         "listRegisteredAgents",
@@ -779,7 +792,7 @@ export function createApplicationLayer(
       principalCapabilities.writeComments,
     ],
     displayName: "Local",
-    id: "local-api-token",
+    id: localApiTokenPrincipalId,
     installationId: adapters.installationId,
     kind: principalKinds.service,
     membershipRole: membershipRoles.member,

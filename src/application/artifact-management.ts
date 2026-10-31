@@ -27,7 +27,7 @@ import {
   InvalidPagination,
   VersionNotFound,
 } from "../core/errors.js";
-import type { Principal } from "../core/identity.js";
+import { isHumanAdministrator, type Principal } from "../core/identity.js";
 import type {
   AccessSetting,
   ArtifactActionPage,
@@ -51,6 +51,13 @@ import type {
 } from "../core/ports.js";
 
 const maximumPageSize = 100;
+
+// Each level opens the artifact to everyone the levels below it reach.
+const levelRank = {
+  private: 0,
+  account_required: 1,
+  public_link: 2,
+} satisfies Record<AccessSetting, number>;
 
 /** One artifact and the complete record for its current saved version. */
 export interface ArtifactDetails {
@@ -327,6 +334,14 @@ function makeArtifactManagementService(
     return yield* new ArtifactNotFound({message: "The artifact does not exist."});
   });
 
+  const requireArtifactChange = Effect.fn(
+    "ArtifactManagementService.requireArtifactChange",
+  )(function*(principal: Principal, artifact: ArtifactRecord) {
+    yield* authorization.requireArtifactVisible(principal, artifact);
+    yield* authorization.requireArtifactManagement(principal);
+    yield* authorization.requireArtifactControl(principal, artifact);
+  });
+
   const requirePageSize = Effect.fn("ArtifactManagementService.requirePageSize")(
     function*(limit: number) {
       if (Number.isInteger(limit) && limit >= 1 && limit <= maximumPageSize) {
@@ -363,6 +378,7 @@ function makeArtifactManagementService(
         command.projectId,
       );
       const artifact = yield* requireArtifact(project.id, command.artifactId);
+      yield* authorization.requireArtifactVisible(command.principal, artifact);
       yield* authorization.requireArtifactRead(command.principal);
       const current = yield* requireVersion(
         project.id,
@@ -393,6 +409,7 @@ function makeArtifactManagementService(
       if (artifact === null) {
         return yield* new ArtifactNotFound({message: "The artifact does not exist."});
       }
+      yield* authorization.requireArtifactVisible(command.principal, artifact);
       yield* authorization.requireArtifactRead(command.principal);
       if (version === null) {
         return yield* new VersionNotFound({
@@ -429,6 +446,7 @@ function makeArtifactManagementService(
       if (artifact === null) {
         return yield* new ArtifactNotFound({message: "The artifact does not exist."});
       }
+      yield* authorization.requireArtifactVisible(command.principal, artifact);
       yield* authorization.requireArtifactRead(command.principal);
       return versions;
     },
@@ -459,6 +477,10 @@ function makeArtifactManagementService(
         search,
         sort,
         tags,
+        viewer: {
+          includeServiceOwned: isHumanAdministrator(command.principal),
+          principalId: command.principal.id,
+        },
       });
     },
   );
@@ -475,6 +497,7 @@ function makeArtifactManagementService(
       project.id,
       command.artifactId,
     );
+    yield* authorization.requireArtifactVisible(command.principal, artifact);
     yield* authorization.requireArtifactManagement(command.principal);
     return yield* dependencies.repository.listArtifactActions({
       artifactId: artifact.id,
@@ -491,7 +514,7 @@ function makeArtifactManagementService(
         command.projectId,
       );
       const artifact = yield* requireArtifact(project.id, command.artifactId);
-      yield* authorization.requireArtifactManagement(command.principal);
+      yield* requireArtifactChange(command.principal, artifact);
       yield* requireVersion(project.id, artifact.id, command.versionId);
       const idempotencyKey = yield* parseIdempotencyKey(command.idempotencyKey);
       const createdAt = DateTime.formatIso(yield* dependencies.clock.now);
@@ -523,7 +546,13 @@ function makeArtifactManagementService(
         command.projectId,
       );
       const artifact = yield* requireArtifact(project.id, command.artifactId);
+      yield* authorization.requireArtifactVisible(command.principal, artifact);
       yield* authorization.requireArtifactManagement(command.principal);
+      if (levelRank[command.accessSetting] > levelRank[artifact.accessSetting]) {
+        yield* authorization.requireArtifactControl(command.principal, artifact);
+      } else {
+        yield* authorization.requireArtifactLevelLowering(command.principal, artifact);
+      }
       const idempotencyKey = yield* parseIdempotencyKey(command.idempotencyKey);
       const createdAt = DateTime.formatIso(yield* dependencies.clock.now);
       return yield* dependencies.repository.changeAccessSetting({
@@ -551,7 +580,7 @@ function makeArtifactManagementService(
     function*(command: ChangeArtifactReviewModeCommand) {
       const project = yield* resolveProjectForRead(command.principal, command.projectId);
       const artifact = yield* requireArtifact(project.id, command.artifactId);
-      yield* authorization.requireArtifactManagement(command.principal);
+      yield* requireArtifactChange(command.principal, artifact);
       const idempotencyKey = yield* parseIdempotencyKey(command.idempotencyKey);
       const createdAt = DateTime.formatIso(yield* dependencies.clock.now);
       return yield* dependencies.repository.changeReviewMode({
@@ -582,7 +611,7 @@ function makeArtifactManagementService(
         command.projectId,
       );
       const artifact = yield* requireArtifact(project.id, command.artifactId);
-      yield* authorization.requireArtifactManagement(command.principal);
+      yield* requireArtifactChange(command.principal, artifact);
       const idempotencyKey = yield* parseIdempotencyKey(command.idempotencyKey);
       const tags = yield* parseArtifactTags(command.tags);
       const createdAt = DateTime.formatIso(yield* dependencies.clock.now);
@@ -617,20 +646,16 @@ function makeArtifactManagementService(
         project.id,
         command.artifactId,
       );
-      // A deleted artifact lists no versions. Its repository call can only
-      // replay the original deletion, whose input digest binds the principal.
+      // A deleted artifact's repository call can only replay the original
+      // deletion, whose input digest binds the principal. Administrators
+      // delete artifacts they cannot read.
       if (artifact.deletedAt === null) {
-        const versions = yield* dependencies.repository.listArtifactVersions(
-          project.id,
-          artifact.id,
-        );
-        const creator = versions.find(({number}) => number === 1);
-        if (creator === undefined) {
-          return yield* new ArtifactNotFound({message: "The artifact does not exist."});
+        if (!isHumanAdministrator(command.principal)) {
+          yield* authorization.requireArtifactVisible(command.principal, artifact);
         }
         yield* authorization.requireArtifactDeletion(
           command.principal,
-          creator.publisherPrincipalId,
+          artifact.ownerPrincipalId,
         );
       }
       const idempotencyKey = yield* parseIdempotencyKey(command.idempotencyKey);

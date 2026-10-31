@@ -8,7 +8,7 @@ import {defaultGitHistoryMaximumCopiedFiles} from
   "../../../src/git-history/git-history-capability.js";
 
 /** D1 schema revision required by the Cloudflare runtime. */
-export const requiredD1SchemaVersion = 11;
+export const requiredD1SchemaVersion = 12;
 
 /** SQL literal list of every action kind the ledger accepts. */
 const actionKindList = [
@@ -45,11 +45,12 @@ const schemaSql = `
     project_id TEXT NOT NULL REFERENCES projects(id),
     name TEXT NOT NULL,
     search_name TEXT NOT NULL,
-    access_setting TEXT NOT NULL CHECK (access_setting IN ('account_required', 'public_link')),
+    access_setting TEXT NOT NULL CHECK (access_setting IN ('private', 'account_required', 'public_link')),
     review_mode TEXT NOT NULL DEFAULT 'annotate' CHECK (review_mode IN ('annotate', 'interact')),
     current_version_id TEXT,
     created_at TEXT NOT NULL,
-    deleted_at TEXT
+    deleted_at TEXT,
+    owner_principal_id TEXT NOT NULL
   );
 
   CREATE TABLE IF NOT EXISTS versions (
@@ -89,7 +90,7 @@ const schemaSql = `
     artifact_id TEXT NOT NULL REFERENCES artifacts(id),
     version_id TEXT NOT NULL REFERENCES versions(id),
     operation TEXT NOT NULL CHECK (operation IN ('publish', 'restore', 'change_access', 'change_review_mode', 'change_tags', 'delete')),
-    access_setting TEXT CHECK (access_setting IS NULL OR access_setting IN ('account_required', 'public_link')),
+    access_setting TEXT CHECK (access_setting IS NULL OR access_setting IN ('private', 'account_required', 'public_link')),
     tags_json TEXT,
     review_mode TEXT NOT NULL DEFAULT 'annotate' CHECK (review_mode IN ('annotate', 'interact')),
     created_at TEXT NOT NULL,
@@ -623,6 +624,7 @@ export async function migrateD1(
     await addArtifactSearchNameIfMissing(database);
     await addArtifactReviewModeIfMissing(database);
     await addStagedUploadGrantIfMissing(database);
+    await addArtifactOwnerIfMissing(database);
   }
   await database.batch([
     database.prepare(`
@@ -642,6 +644,84 @@ export async function migrateD1(
       new Date(0).toISOString(),
     ),
   ]);
+}
+
+// Dropping the parent `artifacts` leaves deferred foreign-key violations that
+// only an insert into the renamed table clears, so its rows go through a
+// snapshot: copy out, drop, rename, then insert.
+const addArtifactOwnerStatements = [
+  "PRAGMA defer_foreign_keys = ON",
+  `CREATE TABLE artifacts_upgrade_snapshot AS SELECT
+    id, project_id, name, search_name, access_setting, review_mode,
+    current_version_id, created_at, deleted_at,
+    (
+      SELECT publisher_principal_id FROM versions
+      WHERE versions.artifact_id = artifacts.id AND versions.number = 1
+    ) AS owner_principal_id
+    FROM artifacts`,
+  `CREATE TABLE artifacts_next (
+    id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL REFERENCES projects(id),
+    name TEXT NOT NULL,
+    search_name TEXT NOT NULL,
+    access_setting TEXT NOT NULL CHECK (access_setting IN ('private', 'account_required', 'public_link')),
+    review_mode TEXT NOT NULL DEFAULT 'annotate' CHECK (review_mode IN ('annotate', 'interact')),
+    current_version_id TEXT,
+    created_at TEXT NOT NULL,
+    deleted_at TEXT,
+    owner_principal_id TEXT NOT NULL
+  )`,
+  "DROP TABLE artifacts",
+  "ALTER TABLE artifacts_next RENAME TO artifacts",
+  `INSERT INTO artifacts (
+    id, project_id, name, search_name, access_setting, review_mode,
+    current_version_id, created_at, deleted_at, owner_principal_id
+  ) SELECT id, project_id, name, search_name, access_setting, review_mode,
+    current_version_id, created_at, deleted_at, owner_principal_id
+    FROM artifacts_upgrade_snapshot`,
+  "DROP TABLE artifacts_upgrade_snapshot",
+  `CREATE TABLE idempotency_records_next (
+    project_id TEXT NOT NULL REFERENCES projects(id),
+    idempotency_key TEXT NOT NULL,
+    input_digest TEXT NOT NULL,
+    artifact_id TEXT NOT NULL REFERENCES artifacts(id),
+    version_id TEXT NOT NULL REFERENCES versions(id),
+    operation TEXT NOT NULL CHECK (operation IN ('publish', 'restore', 'change_access', 'change_review_mode', 'change_tags', 'delete')),
+    access_setting TEXT CHECK (access_setting IS NULL OR access_setting IN ('private', 'account_required', 'public_link')),
+    tags_json TEXT,
+    review_mode TEXT NOT NULL DEFAULT 'annotate' CHECK (review_mode IN ('annotate', 'interact')),
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (project_id, idempotency_key)
+  )`,
+  `INSERT INTO idempotency_records_next (
+    project_id, idempotency_key, input_digest, artifact_id, version_id,
+    operation, access_setting, tags_json, review_mode, created_at
+  ) SELECT project_id, idempotency_key, input_digest, artifact_id, version_id,
+    operation, access_setting, tags_json, review_mode, created_at
+    FROM idempotency_records`,
+  "DROP TABLE idempotency_records",
+  "ALTER TABLE idempotency_records_next RENAME TO idempotency_records",
+  `CREATE INDEX artifacts_active_created
+    ON artifacts(project_id, deleted_at, created_at DESC, id DESC)`,
+] as const;
+
+/**
+ * Record each artifact's owner from its version 1 publisher and admit the
+ * private level. The owner index cannot live in the shared schema statements:
+ * a database created before this revision lacks the column until the rebuild.
+ */
+async function addArtifactOwnerIfMissing(database: D1Database): Promise<void> {
+  const columns = await database.prepare("PRAGMA table_info(artifacts)")
+    .all<{name: string}>();
+  if (!columns.results.some((column) => column.name === "owner_principal_id")) {
+    await database.batch(
+      addArtifactOwnerStatements.map((statement) => database.prepare(statement)),
+    );
+  }
+  await database.prepare(`
+    CREATE INDEX IF NOT EXISTS artifacts_owner
+      ON artifacts(project_id, owner_principal_id)
+  `).run();
 }
 
 /** Give staged uploads a nullable grant digest; older uploads keep none. */

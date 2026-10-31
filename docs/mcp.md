@@ -94,6 +94,8 @@ opens its raw immutable content. Agents should hand people the Review URL.
 | Comments | `comment_list`, `comment_get`, `comment_create`, `comment_reply`, `comment_update`, `comment_resolve`, `comment_delete` |
 | Git history planning | `project_git_history_status`, `project_git_history_estimate` |
 
+`artifact_set_visibility` sets an artifact's sharing level to `private`, `account_required` (organization) or `public_link`. New artifacts are `private`, and `artifact_capabilities` reports `sharing.default: "private"`. Only the owner raises the level; an administrator can lower it. A caller that cannot read an artifact receives `ARTIFACT_NOT_FOUND`, and `artifact_list` returns only the caller's own artifacts.
+
 Linked-artifact tools appear only when the deployment enables linked artifacts.
 
 `project_set_git_history` enables one project only after an authorized caller confirms a fresh estimate. Provider configuration alone copies nothing. Agents should report the returned project state and must not describe `waiting`, `degraded`, or `budget-limited` history as ready.

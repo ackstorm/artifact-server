@@ -22,7 +22,11 @@ import {
   ProjectArchived,
   ProjectNotFound,
 } from "../core/errors.js";
-import {principalKinds} from "../core/identity.js";
+import {
+  localApiTokenPrincipalId,
+  principalKinds,
+  servicePrincipalIdPrefix,
+} from "../core/identity.js";
 import type {
   ProjectGitHistoryProgress,
   StoredProjectGitHistorySetting,
@@ -156,6 +160,7 @@ import {
 } from "../git-history/git-history-capability.js";
 
 const accessSettingSchema = z.enum([
+  accessSettings.private,
   accessSettings.accountRequired,
   accessSettings.publicLink,
 ]);
@@ -211,6 +216,7 @@ const publishedRowSchema = z.object({
   currentVersionId: z.string(),
   entryPath: z.string(),
   manifestDigest: z.string(),
+  ownerPrincipalId: z.string(),
   publisherPrincipalId: z.string(),
   projectId: z.string(),
   routingMode: routingModeSchema,
@@ -264,6 +270,7 @@ const artifactRowSchema = z.object({
   deletedAt: z.string().nullable(),
   id: z.string(),
   name: z.string(),
+  ownerPrincipalId: z.string(),
   projectId: z.string(),
 });
 const artifactListRowSchema = artifactRowSchema.extend({
@@ -1334,9 +1341,9 @@ export class SqliteArtifactRepository implements
       .prepare(
         `INSERT INTO artifacts (
           id, project_id, name, search_name, access_setting, review_mode,
-          current_version_id, created_at, deleted_at,
+          current_version_id, created_at, deleted_at, owner_principal_id,
           source_path, source_fingerprint, source_status, source_verified_at
-        ) VALUES (?, ?, ?, ?, ?, ?, NULL, ?, NULL, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, NULL, ?, NULL, ?, ?, ?, ?, ?)`,
       )
       .run(
         command.artifactId,
@@ -1346,6 +1353,7 @@ export class SqliteArtifactRepository implements
         command.accessSetting,
         command.reviewMode ?? reviewModes.annotate,
         command.createdAt,
+        command.principalId,
         binding === null ? null : binding.path,
         binding === null ? null : binding.fingerprint,
         binding === null ? null : sourceFreshnessStates.inSync,
@@ -1946,6 +1954,7 @@ export class SqliteArtifactRepository implements
               current_version_id AS currentVersionId,
               created_at AS createdAt,
               deleted_at AS deletedAt,
+              owner_principal_id AS ownerPrincipalId,
               (
                 SELECT COUNT(*) FROM comment_threads
                 WHERE comment_threads.project_id = artifacts.project_id
@@ -1959,6 +1968,10 @@ export class SqliteArtifactRepository implements
             FROM artifacts
             WHERE project_id = ?
               AND deleted_at IS NULL
+              AND (
+                owner_principal_id = ?
+                OR (? = 1 AND (owner_principal_id LIKE ? OR owner_principal_id = ?))
+              )
               AND (
                 ? IS NULL
                 OR instr(search_name, ?) > 0
@@ -1983,6 +1996,10 @@ export class SqliteArtifactRepository implements
         )
         .all(
           command.projectId,
+          command.viewer.principalId,
+          command.viewer.includeServiceOwned ? 1 : 0,
+          `${servicePrincipalIdPrefix}%`,
+          localApiTokenPrincipalId,
           command.search ?? null,
           command.search ?? null,
           command.search ?? null,
@@ -2014,6 +2031,7 @@ export class SqliteArtifactRepository implements
             artifact.current_version_id AS currentVersionId,
             artifact.created_at AS artifactCreatedAt,
             artifact.deleted_at AS artifactDeletedAt,
+            artifact.owner_principal_id AS ownerPrincipalId,
             project.installation_id AS installationId,
             project.name AS projectName,
             project.created_at AS projectCreatedAt,
@@ -2058,6 +2076,7 @@ export class SqliteArtifactRepository implements
         deletedAt: row.artifactDeletedAt,
         id: row.artifactId,
         name: row.artifactName,
+        ownerPrincipalId: row.ownerPrincipalId,
         projectId: row.projectId,
       })));
       return publicLinkPageFromRows(parsedRows, artifacts, command.limit);
@@ -2760,7 +2779,8 @@ export class SqliteArtifactRepository implements
           review_mode AS reviewMode, access_setting AS accessSetting,
           current_version_id AS currentVersionId,
           created_at AS createdAt,
-          deleted_at AS deletedAt
+          deleted_at AS deletedAt,
+          owner_principal_id AS ownerPrincipalId
          FROM artifacts
          WHERE project_id = ? AND id = ? AND deleted_at IS NULL`,
       )
@@ -2782,7 +2802,8 @@ export class SqliteArtifactRepository implements
           review_mode AS reviewMode, access_setting AS accessSetting,
           current_version_id AS currentVersionId,
           created_at AS createdAt,
-          deleted_at AS deletedAt
+          deleted_at AS deletedAt,
+          owner_principal_id AS ownerPrincipalId
          FROM artifacts
          WHERE project_id = ? AND id = ?`,
       )
@@ -3342,6 +3363,19 @@ export class SqliteArtifactRepository implements
     return Promise.resolve().then(() => {
       const row = this.#readThreadRowOrNull(projectId, artifactId, threadId);
       return row === null ? null : commentThreadFromRow(row);
+    });
+  }
+
+  findThreadById(
+    projectId: string,
+    threadId: string,
+  ): Promise<CommentThreadRecord | null> {
+    return Promise.resolve().then(() => {
+      const row = this.#database
+        .prepare(`${commentThreadColumns} WHERE t.id = ? AND t.project_id = ?`)
+        .get(threadId, projectId);
+      const parsed = commentThreadRowSchema.nullable().parse(row ?? null);
+      return parsed === null ? null : commentThreadFromRow(parsed);
     });
   }
 
@@ -4840,10 +4874,11 @@ export class SqliteArtifactRepository implements
         project_id TEXT NOT NULL REFERENCES projects(id),
         name TEXT NOT NULL,
         search_name TEXT NOT NULL,
-        access_setting TEXT NOT NULL CHECK (access_setting IN ('account_required', 'public_link')),
+        access_setting TEXT NOT NULL CHECK (access_setting IN ('private', 'account_required', 'public_link')),
         current_version_id TEXT,
         created_at TEXT NOT NULL,
-        deleted_at TEXT
+        deleted_at TEXT,
+        owner_principal_id TEXT NOT NULL
       ) STRICT;
 
       CREATE TABLE IF NOT EXISTS versions (
@@ -4883,7 +4918,7 @@ export class SqliteArtifactRepository implements
         artifact_id TEXT NOT NULL REFERENCES artifacts(id),
         version_id TEXT NOT NULL REFERENCES versions(id),
         operation TEXT NOT NULL DEFAULT 'publish' CHECK (operation IN ('publish', 'restore', 'change_access', 'change_tags', 'delete')),
-        access_setting TEXT CHECK (access_setting IS NULL OR access_setting IN ('account_required', 'public_link')),
+        access_setting TEXT CHECK (access_setting IS NULL OR access_setting IN ('private', 'account_required', 'public_link')),
         tags_json TEXT,
         created_at TEXT NOT NULL,
         PRIMARY KEY (project_id, idempotency_key)
@@ -5008,11 +5043,119 @@ export class SqliteArtifactRepository implements
     this.#addSourceBindingColumnsIfMissing();
     this.#addGitHistoryMirrorTablesIfMissing();
     this.#addStagedUploadGrantIfMissing();
+    this.#addArtifactOwnerIfMissing();
     this.#database.exec(`
       CREATE INDEX IF NOT EXISTS projects_active_created
         ON projects (archived_at, created_at, id);
+      CREATE INDEX IF NOT EXISTS artifacts_owner
+        ON artifacts (project_id, owner_principal_id);
     `);
     this.#database.exec(`PRAGMA user_version = ${requiredSqliteSchemaVersion};`);
+  }
+
+  /** Record each artifact's owner from its version 1 publisher and admit the private level. */
+  #addArtifactOwnerIfMissing(): void {
+    const tables = z.array(z.object({sql: z.string()})).parse(this.#database.prepare(
+      "SELECT sql FROM sqlite_schema WHERE type = 'table' AND name IN ('artifacts', 'idempotency_records')",
+    ).all());
+    if (this.#tableColumns("artifacts").includes("owner_principal_id") &&
+      tables.every(({sql}) => sql.includes("'private'"))) return;
+    // Renaming a rebuilt table fails while any trigger names a missing table,
+    // so every trigger is dropped for the rebuild and recreated after it.
+    const dependents = z.array(z.object({name: z.string(), sql: z.string(), type: z.string()})).parse(
+      this.#database.prepare(
+        `SELECT name, sql, type FROM sqlite_schema
+         WHERE sql IS NOT NULL AND (
+           type = 'trigger'
+           OR (type = 'index' AND tbl_name IN ('artifacts', 'idempotency_records'))
+         )`,
+      ).all(),
+    );
+    this.#database.exec("PRAGMA foreign_keys = OFF;");
+    try {
+      this.#transaction(() => {
+        for (const trigger of dependents.filter(({type}) => type === "trigger")) {
+          this.#database.exec(`DROP TRIGGER "${trigger.name}"`);
+        }
+        this.#database.exec(`
+          CREATE TABLE artifacts_owned (
+            id TEXT PRIMARY KEY,
+            project_id TEXT NOT NULL REFERENCES projects(id),
+            name TEXT NOT NULL,
+            search_name TEXT NOT NULL,
+            access_setting TEXT NOT NULL CHECK (access_setting IN ('private', 'account_required', 'public_link')),
+            current_version_id TEXT,
+            created_at TEXT NOT NULL,
+            deleted_at TEXT,
+            owner_principal_id TEXT NOT NULL,
+            review_mode TEXT NOT NULL DEFAULT 'annotate' CHECK (review_mode IN ('annotate', 'interact')),
+            source_path TEXT,
+            source_fingerprint TEXT,
+            source_status TEXT CHECK (
+              source_status IS NULL
+              OR source_status IN ('in-sync', 'modified', 'missing', 'unreadable')
+            ),
+            source_verified_at TEXT CHECK (
+              (
+                source_path IS NULL
+                AND source_fingerprint IS NULL
+                AND source_status IS NULL
+                AND source_verified_at IS NULL
+              ) OR (
+                source_path IS NOT NULL
+                AND source_fingerprint IS NOT NULL
+                AND source_status IS NOT NULL
+                AND source_verified_at IS NOT NULL
+              )
+            )
+          ) STRICT;
+          INSERT INTO artifacts_owned (
+            id, project_id, name, search_name, access_setting, current_version_id,
+            created_at, deleted_at, owner_principal_id, review_mode,
+            source_path, source_fingerprint, source_status, source_verified_at
+          ) SELECT
+            id, project_id, name, search_name, access_setting, current_version_id,
+            created_at, deleted_at,
+            (
+              SELECT publisher_principal_id FROM versions
+              WHERE versions.artifact_id = artifacts.id AND versions.number = 1
+            ),
+            review_mode, source_path, source_fingerprint, source_status, source_verified_at
+          FROM artifacts;
+          DROP TABLE artifacts;
+          ALTER TABLE artifacts_owned RENAME TO artifacts;
+
+          CREATE TABLE idempotency_records_owned (
+            project_id TEXT NOT NULL REFERENCES projects(id),
+            idempotency_key TEXT NOT NULL,
+            input_digest TEXT NOT NULL,
+            artifact_id TEXT NOT NULL REFERENCES artifacts(id),
+            version_id TEXT NOT NULL REFERENCES versions(id),
+            operation TEXT NOT NULL DEFAULT 'publish' CHECK (operation IN ('publish', 'restore', 'change_access', 'change_review_mode', 'change_tags', 'delete')),
+            access_setting TEXT CHECK (access_setting IS NULL OR access_setting IN ('private', 'account_required', 'public_link')),
+            tags_json TEXT,
+            created_at TEXT NOT NULL,
+            review_mode TEXT NOT NULL DEFAULT 'annotate' CHECK (review_mode IN ('annotate', 'interact')),
+            PRIMARY KEY (project_id, idempotency_key)
+          ) STRICT;
+          INSERT INTO idempotency_records_owned (
+            project_id, idempotency_key, input_digest, artifact_id, version_id,
+            operation, access_setting, tags_json, created_at, review_mode
+          ) SELECT
+            project_id, idempotency_key, input_digest, artifact_id, version_id,
+            operation, access_setting, tags_json, created_at, review_mode
+          FROM idempotency_records;
+          DROP TABLE idempotency_records;
+          ALTER TABLE idempotency_records_owned RENAME TO idempotency_records;
+        `);
+        for (const dependent of dependents) this.#database.exec(dependent.sql);
+        if (this.#database.prepare("PRAGMA foreign_key_check").all().length > 0) {
+          throw new Error("SQLite artifact owner migration produced invalid foreign keys.");
+        }
+      });
+    } finally {
+      this.#database.exec("PRAGMA foreign_keys = ON;");
+    }
   }
 
   #addArtifactReviewModeIfMissing(): void {
@@ -5039,7 +5182,7 @@ export class SqliteArtifactRepository implements
           artifact_id TEXT NOT NULL REFERENCES artifacts(id),
           version_id TEXT NOT NULL REFERENCES versions(id),
           operation TEXT NOT NULL DEFAULT 'publish' CHECK (operation IN ('publish', 'restore', 'change_access', 'change_review_mode', 'change_tags', 'delete')),
-          access_setting TEXT CHECK (access_setting IS NULL OR access_setting IN ('account_required', 'public_link')),
+          access_setting TEXT CHECK (access_setting IS NULL OR access_setting IN ('private', 'account_required', 'public_link')),
           tags_json TEXT,
           created_at TEXT NOT NULL,
           review_mode TEXT NOT NULL DEFAULT 'annotate' CHECK (review_mode IN ('annotate', 'interact')),
@@ -5744,6 +5887,7 @@ export class SqliteArtifactRepository implements
           a.current_version_id AS currentVersionId,
           a.created_at AS artifactCreatedAt,
           a.deleted_at AS artifactDeletedAt,
+          a.owner_principal_id AS ownerPrincipalId,
           v.id AS versionId,
           v.number AS versionNumber,
           v.manifest_digest AS manifestDigest,
@@ -5766,6 +5910,7 @@ export class SqliteArtifactRepository implements
       deletedAt: parsed.artifactDeletedAt,
       id: parsed.artifactId,
       name: parsed.artifactName,
+      ownerPrincipalId: parsed.ownerPrincipalId,
       projectId: parsed.projectId,
       tags: this.#readTags(parsed.artifactId),
     };

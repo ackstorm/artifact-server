@@ -19,6 +19,7 @@ const authorCredential = "comment-author-credential";
 const otherCredential = "comment-other-member-credential";
 const administratorCredential = "comment-administrator-credential";
 const managerCredential = "comment-artifact-manager-credential";
+const outsideManagerCredential = "comment-outside-manager-credential";
 
 const createdThreadSchema = z.object({
   thread: z.object({
@@ -63,7 +64,7 @@ describe("comment authorship", () => {
     server = await startTestServer(installation, {
       externalApiBearerVerifier: commentAuthorshipVerifier,
     });
-    published = (await publishNew(server, installation, {
+    published = (await publishNew(server, {...installation, apiToken: managerCredential}, {
       accessSetting: "account_required",
       content: "<!doctype html><title>Authorship</title>",
       idempotencyKey: "comment-authorship-publish",
@@ -172,6 +173,8 @@ describe("comment authorship", () => {
       }),
       await credentialFetch(otherCredential, threadPath, {method: "DELETE"}),
       await credentialFetch(otherCredential, replyPath, {method: "DELETE"}),
+      await credentialFetch(outsideManagerCredential, threadPath, {method: "DELETE"}),
+      await credentialFetch(outsideManagerCredential, replyPath, {method: "DELETE"}),
       await credentialFetch(administratorCredential, threadPath, {
         body: JSON.stringify({body: "Rewritten by the administrator."}),
         method: "PATCH",
@@ -302,9 +305,18 @@ const commentAuthorshipPrincipals: ReadonlyMap<string, Principal> = new Map([
   }],
   [managerCredential, {
     authorizedByPrincipalId: null,
-    capabilities: ["artifact:manage:any"],
+    capabilities: ["artifact:create", "artifact:manage:any"],
     displayName: "Artifact manager automation",
     id: "service:comment_artifact_manager",
+    installationId: "local",
+    kind: "service",
+    membershipRole: "member",
+  }],
+  [outsideManagerCredential, {
+    authorizedByPrincipalId: null,
+    capabilities: ["artifact:manage:any"],
+    displayName: "Outside manager automation",
+    id: "service:comment_outside_manager",
     installationId: "local",
     kind: "service",
     membershipRole: "member",

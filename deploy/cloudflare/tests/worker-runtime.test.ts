@@ -76,14 +76,14 @@ describe("Cloudflare Worker runtime", () => {
     expect(committed.status).toBe(201);
     const publication = publicationSchema.parse(await committed.json());
     await worker.stop();
-    let downgraded = false;
+    let downgradedPath: string | null = null;
     const files = await readdir(persistPath, {recursive: true});
     for (const filename of files.filter((file) => file.endsWith(".sqlite"))) {
       const database = new DatabaseSync(join(persistPath, filename));
       try {
         const table = database.prepare("SELECT name FROM sqlite_schema WHERE type = 'table' AND name = 'artifacts'").get();
         if (table === undefined) continue;
-        database.exec("ALTER TABLE artifacts DROP COLUMN review_mode; ALTER TABLE idempotency_records DROP COLUMN review_mode; UPDATE artifact_server_schema SET version = 9 WHERE component = 'runtime';");
+        database.exec("DROP INDEX artifacts_owner; ALTER TABLE artifacts DROP COLUMN owner_principal_id; ALTER TABLE artifacts DROP COLUMN review_mode; ALTER TABLE idempotency_records DROP COLUMN review_mode; UPDATE artifact_server_schema SET version = 9 WHERE component = 'runtime';");
         for (const tableName of ["idempotency_records", "actions"]) {
           const schema = z.object({sql: z.string()}).parse(database.prepare(
             "SELECT sql FROM sqlite_schema WHERE type = 'table' AND name = ?",
@@ -93,21 +93,96 @@ describe("Cloudflare Worker runtime", () => {
           ).all(tableName));
           const legacySchema = schema.sql
             .replace(`CREATE TABLE ${tableName}`, `CREATE TABLE ${tableName}_legacy`)
-            .replace("'change_review_mode', ", "");
+            .replace("'change_review_mode', ", "")
+            .replace("'private', ", "");
           expect(legacySchema).not.toContain("change_review_mode");
+          expect(legacySchema).not.toContain("'private'");
           database.exec(`${legacySchema}; INSERT INTO ${tableName}_legacy SELECT * FROM ${tableName}; DROP TABLE ${tableName}; ALTER TABLE ${tableName}_legacy RENAME TO ${tableName};`);
           for (const index of indexes) database.exec(index.sql);
         }
-        downgraded = true;
+        downgradedPath = join(persistPath, filename);
       } finally {database.close();}
     }
-    expect(downgraded).toBe(true);
+    expect(downgradedPath).not.toBeNull();
     worker = await startWorker(persistPath);
     const replay = await publish();
     expect(replay.status).toBe(200);
     expect(await replay.json()).toMatchObject({artifact: {reviewMode: "annotate"}, replayed: true, version: publication.version});
     const content = await worker.fetch(publication.links.version);
     expect(await content.text()).toBe(source);
+    const upgraded = new DatabaseSync(downgradedPath ?? "", {readOnly: true});
+    try {
+      expect(upgraded.prepare("SELECT sql FROM sqlite_schema WHERE type = 'table' AND name = 'idempotency_records'").get())
+        .toMatchObject({sql: expect.stringContaining("'private'")});
+    } finally {upgraded.close();}
+  }, 30_000);
+
+  it("a populated schema 11 D1 database records each artifact's owner from version 1", async () => {
+    const upload = await stageFile("<h1>Owner migration</h1>");
+    const publish = () => worker.fetch(upload.commitUrl, {
+      body: JSON.stringify({target: {accessSetting: "account_required", kind: "new_artifact", name: "Owner migration"}}),
+      headers: {...authenticatedJsonHeaders(), "Idempotency-Key": "cloudflare-owner-migration"},
+      method: "POST",
+    });
+    const committed = await publish();
+    expect(committed.status).toBe(201);
+    const publication = publicationSchema.parse(await committed.json());
+    await worker.stop();
+    const databasePaths: string[] = [];
+    let columnsBefore: readonly string[] = [];
+    const files = await readdir(persistPath, {recursive: true});
+    for (const filename of files.filter((file) => file.endsWith(".sqlite"))) {
+      const database = new DatabaseSync(join(persistPath, filename));
+      try {
+        const table = database.prepare("SELECT name FROM sqlite_schema WHERE type = 'table' AND name = 'artifacts'").get();
+        if (table === undefined) continue;
+        columnsBefore = ownerTableColumns(database);
+        database.exec("DROP INDEX artifacts_owner; ALTER TABLE artifacts DROP COLUMN owner_principal_id; UPDATE artifact_server_schema SET version = 11 WHERE component = 'runtime';");
+        for (const tableName of ["artifacts", "idempotency_records"]) {
+          const schema = z.object({sql: z.string()}).parse(database.prepare(
+            "SELECT sql FROM sqlite_schema WHERE type = 'table' AND name = ?",
+          ).get(tableName));
+          const indexes = z.array(z.object({sql: z.string()})).parse(database.prepare(
+            "SELECT sql FROM sqlite_schema WHERE type = 'index' AND tbl_name = ? AND sql IS NOT NULL",
+          ).all(tableName));
+          const legacySchema = schema.sql
+            .replace(/CREATE TABLE "?\w+"?/u, `CREATE TABLE ${tableName}_legacy`)
+            .replace("'private', ", "");
+          expect(legacySchema).not.toContain("'private'");
+          database.exec(`PRAGMA foreign_keys = OFF; PRAGMA legacy_alter_table = ON; ${legacySchema}; INSERT INTO ${tableName}_legacy SELECT * FROM ${tableName}; DROP TABLE ${tableName}; ALTER TABLE ${tableName}_legacy RENAME TO ${tableName};`);
+          for (const index of indexes) database.exec(index.sql);
+        }
+        databasePaths.push(join(persistPath, filename));
+      } finally {database.close();}
+    }
+    expect(databasePaths).toHaveLength(1);
+    worker = await startWorker(persistPath);
+    const replay = await publish();
+    expect(replay.status).toBe(200);
+    expect(await replay.json()).toMatchObject({
+      artifact: {accessSetting: "account_required"},
+      replayed: true,
+      version: publication.version,
+    });
+    const listed = await worker.fetch(`${origin}/api/v1/artifacts?limit=100`, {headers: authenticatedJsonHeaders()});
+    expect(artifactListSchema.parse(await listed.json()).artifacts.map(({artifact}) => artifact.id))
+      .toContain(publication.artifact.id);
+    const database = new DatabaseSync(databasePaths[0] ?? "", {readOnly: true});
+    try {
+      const owners = z.object({owner: z.string(), publisher: z.string()}).parse(database.prepare(`
+        SELECT a.owner_principal_id AS owner, v.publisher_principal_id AS publisher
+        FROM artifacts a JOIN versions v ON v.artifact_id = a.id AND v.number = 1
+        WHERE a.id = ?
+      `).get(publication.artifact.id));
+      expect(owners.owner).toBe(owners.publisher);
+      expect(ownerTableColumns(database)).toEqual(columnsBefore);
+      for (const tableName of ["artifacts", "idempotency_records"]) {
+        expect(database.prepare("SELECT sql FROM sqlite_schema WHERE type = 'table' AND name = ?").get(tableName))
+          .toMatchObject({sql: expect.stringContaining("'private'")});
+      }
+      expect(database.prepare("SELECT name FROM sqlite_schema WHERE type = 'index' AND name = 'artifacts_owner'").get())
+        .toEqual({name: "artifacts_owner"});
+    } finally {database.close();}
   }, 30_000);
 
   it("ART-012: review mode and historical mutation replay survive D1 restart without changing content", async () => {
@@ -507,4 +582,21 @@ async function mcpTool<T>(
   }).parse(await response.json()).result;
   expect(result.isError).not.toBe(true);
   return schema.parse(result.structuredContent);
+}
+
+/** Columns of the two tables the owner rebuild rewrites, independent of column order. */
+function ownerTableColumns(database: DatabaseSync): readonly string[] {
+  return ["artifacts", "idempotency_records"].flatMap((table) =>
+    z.array(z.object({
+      dflt_value: z.string().nullable(),
+      name: z.string(),
+      notnull: z.number(),
+      pk: z.number(),
+      type: z.string(),
+    })).parse(database.prepare(`PRAGMA table_info(${table})`).all())
+      .map((column) =>
+        `${table}.${column.name} ${column.type} ${column.notnull} ${column.dflt_value ?? ""} ${column.pk}`
+      )
+      .toSorted()
+  );
 }

@@ -133,9 +133,9 @@ describe("local publishing security boundaries", () => {
     expect(authorized.body.artifact.id).not.toBe("");
   });
 
-  test("AUTH-002-B: account-required is the default and an admitted principal can open it", async () => {
+  test("AUTH-002-B: an account-required artifact needs sign-in and an admitted principal can open it", async () => {
     const file = {
-      bytes: new TextEncoder().encode("<title>Private by default</title>"),
+      bytes: new TextEncoder().encode("<title>Account required</title>"),
       mediaType: "text/html; charset=utf-8",
       path: "index.html",
     };
@@ -148,10 +148,11 @@ describe("local publishing security boundaries", () => {
     await uploadEveryStagedFile(installation, upload.body, [file]);
     const response = await fetch(upload.body.commitUrl, {
       body: JSON.stringify({target: {
+        accessSetting: "account_required",
         kind: "new_artifact",
-        name: "Default private artifact",
+        name: "Account-required artifact",
       }}),
-      headers: apiHeaders(installation, "default-account-required-setting"),
+      headers: apiHeaders(installation, "explicit-account-required-setting"),
       method: "POST",
     });
     const published = parsePublishResponse(await response.json());
@@ -178,7 +179,7 @@ describe("local publishing security boundaries", () => {
       "GET",
       {Cookie: cookie ?? ""},
     );
-    expect(await opened.text()).toContain("Private by default");
+    expect(await opened.text()).toContain("Account required");
   });
 
   test("PUB-002-F SCP-007-F: public APIs reject raw contents, paths, and source URLs", async () => {

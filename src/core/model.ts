@@ -3,6 +3,7 @@ import {Predicate} from "effect";
 import type {PrincipalKind} from "./identity.js";
 
 export const accessSettings = {
+  private: "private",
   accountRequired: "account_required",
   publicLink: "public_link",
 } as const;
@@ -85,6 +86,7 @@ export interface ArtifactRecord {
   readonly deletedAt: string | null;
   readonly id: string;
   readonly name: string;
+  readonly ownerPrincipalId: string;
   readonly projectId: string;
   readonly tags: readonly string[];
 }

@@ -11,6 +11,7 @@ import {
 import {
   principalCapabilities,
   principalKinds,
+  servicePrincipalIdPrefix,
 } from "../core/identity.js";
 import {identitySecretsEqual} from "./installation-access.js";
 
@@ -48,7 +49,7 @@ export async function ensureBootstrapManagedApiKey(input: {
     installationId: input.installationId,
     name: "Installation bootstrap key",
     prefix: credential.slice(0, Math.min(credential.length, 32)),
-    principalId: `service:${keyId}`,
+    principalId: `${servicePrincipalIdPrefix}${keyId}`,
     principalKind: principalKinds.service,
     revokedAt: null,
     rotatedFromId: null,

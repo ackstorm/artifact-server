@@ -66,6 +66,7 @@ export interface WorkerEnvironment {
   readonly ARTIFACT_SERVER_OIDC_CLIENT_SECRET?: string;
   readonly ARTIFACT_SERVER_OIDC_ISSUER?: string;
   readonly ARTIFACT_SERVER_OIDC_SCOPES?: string;
+  readonly ARTIFACT_SERVER_ORGANIZATION_NAME?: string;
   readonly ARTIFACT_SERVER_ORIGIN: string;
   readonly ARTIFACT_SERVER_QUALIFICATION_MODE?: "enabled";
   readonly ARTIFACT_SERVER_R2_BUCKET: R2Bucket;
@@ -223,6 +224,7 @@ async function createCloudflareRuntime(
     completedRequestLogSampleRate: requestLogSampleRate(environment),
     contentDomain: environment.ARTIFACT_SERVER_CONTENT_DOMAIN,
     gitHistory: gitHistory.capability,
+    organizationName: environment.ARTIFACT_SERVER_ORGANIZATION_NAME?.trim() || null,
     readiness: () => readiness(environment),
     trustedApplicationOrigin: origin.origin,
     webAssets: {

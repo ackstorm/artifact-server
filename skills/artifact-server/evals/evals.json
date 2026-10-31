@@ -4,7 +4,7 @@
     {
       "id": 1,
       "prompt": "Publish ./dist to our team Artifact Server in the launch project. Keep it private and open it for me.",
-      "expected_output": "Resolves the team server and project without guessing, uses artifactserver publish for ./dist, keeps account-required access, verifies the structured result, and opens or returns the exact browser URL.",
+      "expected_output": "Resolves the team server and project without guessing, uses artifactserver publish for ./dist, keeps the default private access, verifies the structured result, and opens or returns the exact browser URL.",
       "files": [],
       "expectations": [
         "Uses the CLI because ./dist is a local path",
@@ -12,7 +12,7 @@
         "Treats team as a profile only if that exact profile exists",
         "Stops for a project ID or MCP connection if the selected profile has no matching MCP",
         "Does not send a local path or inline content through MCP",
-        "Does not enable public-link access",
+        "Does not pass --public or --organization, so the artifact stays private",
         "Returns the server, project ID, artifact ID, exact version ID, and browser link"
       ]
     },

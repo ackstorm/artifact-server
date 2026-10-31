@@ -3,15 +3,10 @@ import {
   CLIENT_INFO_META_KEY,
   PROTOCOL_VERSION_META_KEY,
 } from "@modelcontextprotocol/server";
-import {Effect, Redacted} from "effect";
+import {Effect} from "effect";
 import {afterEach, beforeEach, describe, expect, test} from "vitest";
 import {z} from "zod";
 
-import {
-  defaultGitHistoryFileCopyBytes,
-  defaultGitHistoryVersionCopyBytes,
-  type GitHistoryLimits,
-} from "../../src/git-history/git-history-capability.js";
 import {
   applyGitHistoryPurge,
   planGitHistoryPurge,
@@ -20,8 +15,6 @@ import {SqliteArtifactRepository} from
   "../../src/storage/sqlite-artifact-repository.js";
 import type {GitHistoryProviderHealthProbe} from
   "../../src/git-history/git-history-provider-health.js";
-import type {NodeGitHistoryConfiguration} from
-  "../../src/git-history/node-git-history-configuration.js";
 import {
   createTestInstallation,
   removeTestInstallation,
@@ -36,7 +29,11 @@ import {
   uploadEveryStagedFile,
   type TestSiteFile,
 } from "../support/publishing.js";
-import {RecordingGitHistoryProvider} from "../support/git-history-provider.js";
+import {
+  availableHealthProbe,
+  configuredGitHistory,
+  RecordingGitHistoryProvider,
+} from "../support/git-history-provider.js";
 
 const protocolVersion = "2026-07-28";
 const settingSchema = z.object({
@@ -570,41 +567,9 @@ describe("simple per-project Git history setting", () => {
   });
 });
 
-const availableHealthProbe: GitHistoryProviderHealthProbe = {
-  check: () => Effect.succeed({state: "available"}),
-};
 const degradedHealthProbe: GitHistoryProviderHealthProbe = {
   check: () => Effect.succeed({reason: "provider_unavailable", state: "degraded"}),
 };
-
-function configuredGitHistory(
-  limits: Partial<Pick<
-    GitHistoryLimits,
-    "fileCopyBytes" | "storageBudgetBytes" | "versionCopyBytes"
-  >> = {},
-): Extract<NodeGitHistoryConfiguration, {readonly _tag: "CloudflareArtifactsRest"}> {
-  return {
-    _tag: "CloudflareArtifactsRest",
-    apiToken: Redacted.make("project-setting-test-token"),
-    capability: {
-      limits: {
-        fileCopyBytes: limits.fileCopyBytes ?? defaultGitHistoryFileCopyBytes,
-        logicalCopiedBytes: 0,
-        logicalReservedBytes: 0,
-        storageBudgetBytes: limits.storageBudgetBytes ?? null,
-        versionCopyBytes: limits.versionCopyBytes ?? defaultGitHistoryVersionCopyBytes,
-      },
-      provider: "cloudflare-artifacts",
-      providerState: "checking",
-    },
-    identity: {
-      accountId: "project-setting-account",
-      namespace: "project-setting-namespace",
-      provider: "cloudflare-artifacts",
-    },
-    issues: [],
-  };
-}
 
 function siteFile(filePath: string, content: string): TestSiteFile {
   return {

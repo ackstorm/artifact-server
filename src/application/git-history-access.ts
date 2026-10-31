@@ -122,6 +122,11 @@ function makeGitHistoryAccessService(
         message: "Git history is not available for this artifact.",
       });
     }
+    yield* authorization.requireArtifactVisible(command.principal, artifact).pipe(
+      Effect.mapError(() => new ArtifactNotFound({
+        message: "Git history is not available for this artifact.",
+      })),
+    );
     const provider = dependencies.provider;
     if (provider === null) {
       return yield* new ArtifactNotFound({

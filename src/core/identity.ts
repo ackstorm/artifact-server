@@ -4,6 +4,20 @@ export const principalKinds = {
   service: "service",
 } as const;
 
+/** Every service principal id is this prefix followed by its API key id. */
+export const servicePrincipalIdPrefix = "service:";
+
+/**
+ * The local installation's API token principal: a service principal without
+ * the prefix. Local databases record this id as the publisher of artifacts.
+ */
+export const localApiTokenPrincipalId = "local-api-token";
+
+/** Whether a principal id names a service principal. */
+export function isServicePrincipalId(id: string): boolean {
+  return id.startsWith(servicePrincipalIdPrefix) || id === localApiTokenPrincipalId;
+}
+
 /** One provider-neutral principal kind. */
 export type PrincipalKind =
   (typeof principalKinds)[keyof typeof principalKinds];

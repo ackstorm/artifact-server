@@ -104,6 +104,7 @@ export async function startTestServer(
     readonly linkRoots?: readonly string[];
     readonly mcpOAuthResource?: McpOAuthResourceConfiguration;
     readonly observability?: boolean;
+    readonly organizationName?: string;
     readonly port?: number;
     readonly sessionLifetimeMilliseconds?: number;
     readonly webAssetsRoot?: string;
@@ -195,6 +196,9 @@ export async function startTestServer(
   }
   if (options.mcpOAuthResource !== undefined) {
     config = {...config, mcpOAuthResource: options.mcpOAuthResource};
+  }
+  if (options.organizationName !== undefined) {
+    config = {...config, organizationName: options.organizationName};
   }
   if (options.webAssetsRoot !== undefined) {
     config = {...config, webAssetsRoot: options.webAssetsRoot};

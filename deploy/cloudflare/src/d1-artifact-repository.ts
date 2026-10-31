@@ -24,7 +24,11 @@ import {
   UploadNotFound,
   VersionNotFound,
 } from "../../../src/core/errors.js";
-import {principalKinds} from "../../../src/core/identity.js";
+import {
+  localApiTokenPrincipalId,
+  principalKinds,
+  servicePrincipalIdPrefix,
+} from "../../../src/core/identity.js";
 import type {
   ProjectGitHistoryProgress,
   ProjectGitHistoryStore,
@@ -140,6 +144,7 @@ import type {GitHistoryPurgeStore} from
   "../../../src/git-history/git-history-purge.js";
 
 const accessSettingSchema = z.enum([
+  accessSettings.private,
   accessSettings.accountRequired,
   accessSettings.publicLink,
 ]);
@@ -288,6 +293,7 @@ const artifactRowSchema = z.object({
   deletedAt: z.string().nullable(),
   id: z.string(),
   name: z.string(),
+  ownerPrincipalId: z.string(),
   projectId: z.string(),
 });
 const artifactListRowSchema = artifactRowSchema.extend({
@@ -523,7 +529,8 @@ const artifactSelect = `
   SELECT id, project_id AS projectId, name,
     review_mode AS reviewMode, access_setting AS accessSetting,
     current_version_id AS currentVersionId,
-    created_at AS createdAt, deleted_at AS deletedAt
+    created_at AS createdAt, deleted_at AS deletedAt,
+    owner_principal_id AS ownerPrincipalId
   FROM artifacts
 `;
 const versionSelect = `
@@ -2233,8 +2240,8 @@ export function createD1ArtifactRepository(
           database.prepare(`
             INSERT INTO artifacts (
               id, project_id, name, search_name, access_setting, review_mode,
-              current_version_id, created_at, deleted_at
-            ) VALUES (?, ?, ?, ?, ?, ?, NULL, ?, NULL)
+              current_version_id, created_at, deleted_at, owner_principal_id
+            ) VALUES (?, ?, ?, ?, ?, ?, NULL, ?, NULL, ?)
           `).bind(
             command.artifactId,
             command.projectId,
@@ -2243,6 +2250,7 @@ export function createD1ArtifactRepository(
             command.accessSetting,
             command.reviewMode ?? reviewModes.annotate,
             command.createdAt,
+            command.principalId,
           ),
           ...versionStatements(command, 1),
           database.prepare(`
@@ -2476,6 +2484,7 @@ export function createD1ArtifactRepository(
             review_mode AS reviewMode, access_setting AS accessSetting,
             current_version_id AS currentVersionId,
             created_at AS createdAt, deleted_at AS deletedAt,
+            owner_principal_id AS ownerPrincipalId,
             (
               SELECT COUNT(*) FROM comment_threads
               WHERE comment_threads.project_id = artifacts.project_id
@@ -2488,6 +2497,8 @@ export function createD1ArtifactRepository(
             ) AS versionCount
           FROM artifacts
           WHERE project_id = ? AND deleted_at IS NULL
+            AND (owner_principal_id = ?
+              OR (? = 1 AND (owner_principal_id LIKE ? OR owner_principal_id = ?)))
             AND (? IS NULL
               OR instr(search_name, ?) > 0
               OR EXISTS (
@@ -2505,6 +2516,10 @@ export function createD1ArtifactRepository(
         ORDER BY ${orderSql} LIMIT ?
       `).bind(
         command.projectId,
+        command.viewer.principalId,
+        command.viewer.includeServiceOwned ? 1 : 0,
+        `${servicePrincipalIdPrefix}%`,
+        localApiTokenPrincipalId,
         command.search ?? null,
         command.search ?? null,
         command.search ?? null,
@@ -2537,6 +2552,7 @@ export function createD1ArtifactRepository(
           artifact.current_version_id AS currentVersionId,
           artifact.created_at AS artifactCreatedAt,
           artifact.deleted_at AS artifactDeletedAt,
+          artifact.owner_principal_id AS ownerPrincipalId,
           project.installation_id AS installationId,
           project.name AS projectName,
           project.created_at AS projectCreatedAt,
@@ -2579,6 +2595,7 @@ export function createD1ArtifactRepository(
         deletedAt: row.artifactDeletedAt,
         id: row.artifactId,
         name: row.artifactName,
+        ownerPrincipalId: row.ownerPrincipalId,
         projectId: row.projectId,
         tags: await readTags(row.artifactId),
       })));
@@ -3126,6 +3143,13 @@ export function createD1ArtifactRepository(
     findThread: async (projectId, artifactId, threadId) => {
       const row = await readThreadRowOrNull(projectId, artifactId, threadId);
       return row === null ? null : commentThreadFromRow(row);
+    },
+    findThreadById: async (projectId, threadId) => {
+      const row = await database.prepare(`${commentThreadSelect}
+        WHERE t.id = ? AND t.project_id = ?
+      `).bind(threadId, projectId)
+        .first<z.input<typeof commentThreadRowSchema>>();
+      return row === null ? null : commentThreadFromRow(commentThreadRowSchema.parse(row));
     },
     findIdempotentThread: async (projectId, idempotencyKey) => {
       const row = await readIdempotentThreadRowOrNull(projectId, idempotencyKey);

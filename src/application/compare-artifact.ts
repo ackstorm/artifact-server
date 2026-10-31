@@ -215,6 +215,7 @@ function makeCompareArtifactService(
           message: "The artifact does not exist.",
         });
       }
+      yield* authorization.requireArtifactVisible(command.principal, artifact);
       yield* authorization.requireArtifactRead(command.principal);
       const [from, to] = yield* Effect.all([
         requireVersion(project.id, artifact.id, command.fromVersionId),

@@ -73,12 +73,13 @@ const mediaTypesByExtension = new Map<string, string>([
 const positiveIntegerSchema = Schema.Int.check(Schema.isGreaterThan(0));
 const nonnegativeIntegerSchema = Schema.Int.check(Schema.isGreaterThanOrEqualTo(0));
 const artifactSchema = Schema.Struct({
-  accessSetting: Schema.Literals(["account_required", "public_link"]),
+  accessSetting: Schema.Literals(["private", "account_required", "public_link"]),
   createdAt: Schema.String,
   currentVersionId: Schema.String,
   deletedAt: Schema.NullOr(Schema.String),
   id: Schema.String,
   name: Schema.String,
+  ownerPrincipalId: Schema.String,
   projectId: Schema.String,
   reviewMode: Schema.Literals(["annotate", "interact"]),
   tags: Schema.Array(Schema.String),
@@ -187,7 +188,7 @@ export type FilePublicationResult = typeof publishResponseSchema.Type;
 /** Target selected by a file-first publication caller. */
 export type FilePublicationTarget =
   | {
-    readonly accessSetting: "account_required" | "public_link";
+    readonly accessSetting: "private" | "account_required" | "public_link";
     readonly kind: "new_artifact";
     readonly name?: string;
     readonly reviewMode?: "annotate" | "interact";
@@ -262,7 +263,7 @@ interface CreateUploadRequestBody {
 
 type CommitPublicationTarget =
   | {
-    readonly accessSetting: "account_required" | "public_link";
+    readonly accessSetting: "private" | "account_required" | "public_link";
     readonly kind: "new_artifact";
     readonly name: string;
     readonly reviewMode?: "annotate" | "interact";

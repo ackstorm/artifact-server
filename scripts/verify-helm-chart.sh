@@ -62,6 +62,30 @@ helm template artifact-server "$artifactserver_chart" \
   --set secret.keys.workosApiKey=workos-api-key | \
   assert_admission_environment workos
 
+assert_organization_name() {
+  node --input-type=module -e '
+    import assert from "node:assert/strict";
+    import {readFileSync, realpathSync} from "node:fs";
+    import {createRequire} from "node:module";
+    const require = createRequire(realpathSync(`${process.argv[2]}/deploy/cloudflare/node_modules/wrangler/package.json`));
+    const {parseAllDocuments} = require("yaml");
+    const documents = parseAllDocuments(readFileSync(0, "utf8")).map((document) => document.toJS());
+    const deployment = documents.find((document) => document.kind === "Deployment");
+    const container = deployment.spec.template.spec.containers.find((entry) => entry.name === "artifact-server");
+    const entry = container.env.find((variable) => variable.name === "ARTIFACT_SERVER_ORGANIZATION_NAME");
+    assert.equal(entry?.value, process.argv[1] === "set" ? "myOrg" : undefined);
+  ' "$1" "$artifactserver_repository"
+}
+
+helm template artifact-server "$artifactserver_chart" \
+  --kube-version 1.36.0 \
+  "${artifactserver_values[@]}" \
+  --set configuration.organizationName=myOrg | assert_organization_name set
+
+helm template artifact-server "$artifactserver_chart" \
+  --kube-version 1.36.0 \
+  "${artifactserver_values[@]}" | assert_organization_name unset
+
 for artifactserver_kubernetes_version in 1.34.0 1.35.0 1.36.0; do
   helm template artifact-server "$artifactserver_chart" \
     --kube-version "$artifactserver_kubernetes_version" \

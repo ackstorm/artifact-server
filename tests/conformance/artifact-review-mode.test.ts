@@ -100,12 +100,17 @@ describe("artifact review mode", () => {
       .rejects.toThrow("HTTP 409");
   });
 
-  test("a publish-only credential cannot change the artifact's review default", async () => {
-    const published = await publishNew(server, installation, {
+  test("a publishing credential without manage authority cannot change its own artifact's review default", async () => {
+    const administrator = await signInAdministrator(server, installation);
+    const token = await issueApiKey(
+      server,
+      administrator,
+      ["artifact:create", "artifact:publish:any", "artifact:read"],
+      "Publisher only",
+    );
+    const published = await publishNew(server, {...installation, apiToken: token}, {
       accessSetting: "account_required", content: "scoped credential", idempotencyKey: "review_mode_scoped_001",
     });
-    const administrator = await signInAdministrator(server, installation);
-    const token = await issueApiKey(server, administrator, ["artifact:publish:any"], "Publisher only");
     const denied = await fetch(`${server.baseUrl}/api/v1/artifacts/${published.body.artifact.id}/review-mode`, {
       body: JSON.stringify({expectedCurrentVersionId: published.body.version.id, reviewMode: "interact"}),
       headers: {
@@ -114,6 +119,7 @@ describe("artifact review mode", () => {
       method: "PATCH",
     });
     expect(denied.status).toBe(403);
+    expect(await denied.json()).toMatchObject({error: {code: "AUTHORIZATION_DENIED"}});
     const details = await fetch(`${server.baseUrl}/api/v1/artifacts/${published.body.artifact.id}`, {
       headers: apiHeaders(installation, "review_mode_scoped_read"),
     });

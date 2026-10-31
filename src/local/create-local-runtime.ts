@@ -108,6 +108,7 @@ export interface LocalRuntimeConfig {
   readonly localBootstrapToken?: string;
   readonly mcpOAuthResource?: McpOAuthResourceConfiguration;
   readonly observability?: boolean;
+  readonly organizationName?: string | null;
   readonly runtimeLifecycle?: RuntimeLifecycle;
   readonly installationId?: string;
   readonly serviceVersion?: string;
@@ -303,6 +304,7 @@ export async function createLocalRuntime(
       gitHistory: gitHistoryMonitor?.reader ??
         fixedGitHistoryCapabilityReader(gitHistory.capability),
       linkedArtifacts: linkedFilesEnabled,
+      organizationName: config.organizationName ?? null,
       trustedApplicationOrigin: config.applicationOrigin ?? null,
       webAssets: createNodeWebAssetStore(config.webAssetsRoot),
     };

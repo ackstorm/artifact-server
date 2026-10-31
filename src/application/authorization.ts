@@ -1,15 +1,16 @@
 import { Context, Effect, Layer } from "effect";
 
-import { AuthorizationDenied } from "../core/errors.js";
+import { ArtifactNotFound, AuthorizationDenied } from "../core/errors.js";
 import {
   hasCapability,
   isDirectHumanPrincipal,
   isHumanAdministrator,
+  isServicePrincipalId,
   principalCapabilities,
   principalKinds,
   type Principal,
 } from "../core/identity.js";
-import type { ArtifactRecord } from "../core/model.js";
+import { accessSettings, type ArtifactRecord } from "../core/model.js";
 
 /** Configuration trusted by standalone authorization policy. */
 export interface AuthorizationDependencies {
@@ -43,6 +44,20 @@ export interface AuthorizationOperations {
   readonly requireArtifactRead: (
     principal: Principal,
   ) => Effect.Effect<void, AuthorizationDenied>;
+  /** Fails as not found so an unreadable artifact's existence does not leak. */
+  readonly requireArtifactVisible: (
+    principal: Principal,
+    artifact: ArtifactRecord,
+  ) => Effect.Effect<void, ArtifactNotFound>;
+  /** Publish, tag, restore, review mode, capture, relink, or raise the level. */
+  readonly requireArtifactControl: (
+    principal: Principal,
+    artifact: ArtifactRecord,
+  ) => Effect.Effect<void, AuthorizationDenied>;
+  readonly requireArtifactLevelLowering: (
+    principal: Principal,
+    artifact: ArtifactRecord,
+  ) => Effect.Effect<void, AuthorizationDenied>;
   readonly requireCommentRead: (
     principal: Principal,
   ) => Effect.Effect<void, AuthorizationDenied>;
@@ -52,7 +67,7 @@ export interface AuthorizationOperations {
   readonly requireContentSession: (
     principal: Principal,
     artifact: ArtifactRecord,
-  ) => Effect.Effect<void, AuthorizationDenied>;
+  ) => Effect.Effect<void, ArtifactNotFound | AuthorizationDenied>;
   readonly requirePublicationPreparation: (
     principal: Principal,
   ) => Effect.Effect<void, AuthorizationDenied>;
@@ -85,12 +100,13 @@ export class AuthorizationService extends Context.Service<
 function makeAuthorizationService(
   dependencies: AuthorizationDependencies,
 ): AuthorizationOperations {
+  const inInstallation = (principal: Principal): boolean =>
+    principal.installationId === dependencies.installationId;
+
   const requireInstallation = (
     principal: Principal,
   ): Effect.Effect<void, AuthorizationDenied> =>
-    principal.installationId === dependencies.installationId
-      ? Effect.void
-      : denied();
+    inInstallation(principal) ? Effect.void : denied();
 
   const requireArtifactCreation = Effect.fn(
     "AuthorizationService.requireArtifactCreation",
@@ -159,8 +175,9 @@ function makeAuthorizationService(
 
   const requireContentSession = Effect.fn(
     "AuthorizationService.requireContentSession",
-  )(function*(principal: Principal, _artifact: ArtifactRecord) {
+  )(function*(principal: Principal, artifact: ArtifactRecord) {
     yield* requireInstallation(principal);
+    yield* requireArtifactVisible(principal, artifact);
     if (
       isDirectHumanPrincipal(principal) ||
       hasCapability(principal, principalCapabilities.issueContentSession)
@@ -178,6 +195,45 @@ function makeAuthorizationService(
       isDirectHumanPrincipal(principal) ||
       hasCapability(principal, principalCapabilities.readArtifacts) ||
       hasCapability(principal, principalCapabilities.manageAnyArtifact)
+    ) {
+      return;
+    }
+    yield* denied();
+  });
+
+  const requireArtifactVisible = Effect.fn(
+    "AuthorizationService.requireArtifactVisible",
+  )(function*(principal: Principal, artifact: ArtifactRecord) {
+    if (
+      inInstallation(principal) &&
+      (controlsArtifact(principal, artifact) ||
+        (artifact.accessSetting !== accessSettings.private &&
+          holdsReadAuthority(principal)))
+    ) {
+      return;
+    }
+    yield* new ArtifactNotFound({
+      message: "The artifact does not exist.",
+    });
+  });
+
+  const requireArtifactControl = Effect.fn(
+    "AuthorizationService.requireArtifactControl",
+  )(function*(principal: Principal, artifact: ArtifactRecord) {
+    yield* requireInstallation(principal);
+    if (controlsArtifact(principal, artifact)) return;
+    yield* denied();
+  });
+
+  // Any human administrator may lower the level of an artifact it can read;
+  // callers check visibility first.
+  const requireArtifactLevelLowering = Effect.fn(
+    "AuthorizationService.requireArtifactLevelLowering",
+  )(function*(principal: Principal, artifact: ArtifactRecord) {
+    yield* requireInstallation(principal);
+    if (
+      principal.id === artifact.ownerPrincipalId ||
+      isHumanAdministrator(principal)
     ) {
       return;
     }
@@ -306,6 +362,9 @@ function makeAuthorizationService(
     requireArtifactDeletion,
     requireArtifactManagement,
     requireArtifactRead,
+    requireArtifactVisible,
+    requireArtifactControl,
+    requireArtifactLevelLowering,
     requireCommentRead,
     requireCommentWrite,
     requireContentSession,
@@ -314,6 +373,22 @@ function makeAuthorizationService(
     requireProjectManagement,
     requireVersionPublication,
   });
+}
+
+// Human administrators treat artifacts a service key published as their own.
+function controlsArtifact(
+  principal: Principal,
+  artifact: ArtifactRecord,
+): boolean {
+  return principal.id === artifact.ownerPrincipalId ||
+    (isServicePrincipalId(artifact.ownerPrincipalId) &&
+      isHumanAdministrator(principal));
+}
+
+function holdsReadAuthority(principal: Principal): boolean {
+  return isDirectHumanPrincipal(principal) ||
+    hasCapability(principal, principalCapabilities.readArtifacts) ||
+    hasCapability(principal, principalCapabilities.manageAnyArtifact);
 }
 
 function denied(): Effect.Effect<never, AuthorizationDenied> {

@@ -79,6 +79,7 @@
         "requestLogSampleRate": {"type": "number", "minimum": 0, "maximum": 1},
         "readinessWithdrawalMilliseconds": {"type": "integer", "minimum": 0, "maximum": 60000},
         "sessionLifetimeHours": {"type": "integer", "minimum": 1, "maximum": 720},
+        "organizationName": {"type": "string", "maxLength": 64},
         "shutdownDeadlineMilliseconds": {"type": "integer", "minimum": 1, "maximum": 300000},
         "s3": {
           "type": "object",

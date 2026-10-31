@@ -1,6 +1,7 @@
 import {
   ArrowLeft01Icon,
   ArrowRight01Icon,
+  Building06Icon,
   Cancel01Icon,
   Copy01Icon,
   File01Icon,
@@ -19,6 +20,7 @@ import {
   type ArtifactDetails,
   type ArtifactVersion,
 } from "@/api/client";
+import { accessSettingLabel } from "@/lib/presentation";
 import claudeLogoUrl from "./assets/agents/claude.svg";
 import codexDarkLogoUrl from "./assets/agents/codex-dark.svg";
 import codexLightLogoUrl from "./assets/agents/codex-light.svg";
@@ -31,20 +33,35 @@ import opencodeLightLogoUrl from "./assets/agents/opencode-light.svg";
 import piLogoUrl from "./assets/agents/pi.svg";
 import piLightLogoUrl from "./assets/agents/pi-light.svg";
 
-type ShareScreen = "access" | "agents" | "overview";
+type ShareScreen = "agents" | "overview";
 type CopiedTarget =
   | "agent-prompt"
   | "latest-link"
   | "local-command"
   | "mcp-address"
+  | "public-link"
   | "raw-link"
   | "review-link";
 
 const copiedResetMilliseconds = 1_600;
 
+/** Every level, lowest first. */
+const accessLevels: readonly AccessSetting[] = ["private", "account_required", "public_link"];
+
+const accessLevelIcons = {
+  account_required: Building06Icon,
+  private: SecurityLockIcon,
+  public_link: Globe02Icon,
+} as const;
+
 interface ReviewShareControlProps {
+  /** The reader may lower the level: the owner or a human administrator. */
+  readonly canLower: boolean;
+  /** The reader may raise the level: the principal that controls the artifact. */
+  readonly canRaise: boolean;
   readonly details: ArtifactDetails | null;
   readonly onArtifactChanged: (artifact: ArtifactDetails["artifact"]) => void;
+  readonly organizationName: string | null;
   readonly selectedPath: string | null;
   readonly selectedVersion: ArtifactVersion | null;
   readonly triggerClassName: string;
@@ -52,20 +69,22 @@ interface ReviewShareControlProps {
 
 /** Share one artifact from either the standard viewer header or focus controls. */
 export function ReviewShareControl({
+  canLower,
+  canRaise,
   details,
   onArtifactChanged,
+  organizationName,
   selectedPath,
   selectedVersion,
   triggerClassName,
 }: ReviewShareControlProps) {
   const [open, setOpen] = useState(false);
   const [screen, setScreen] = useState<ShareScreen>("overview");
-  const [selectedAccess, setSelectedAccess] = useState<AccessSetting>(
-    details?.artifact.accessSetting ?? "account_required",
-  );
+  const [chosenAccess, setChosenAccess] = useState<AccessSetting | null>(null);
   const [pending, setPending] = useState(false);
   const [copiedTarget, setCopiedTarget] = useState<CopiedTarget | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
+  const [accessFailure, setAccessFailure] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const copiedResetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -80,6 +99,9 @@ export function ReviewShareControl({
       setScreen("overview");
       setCopiedTarget(null);
       setFailure(null);
+      setChosenAccess(null);
+      setAccessFailure(null);
+      setNotice(null);
     }
   };
 
@@ -130,50 +152,52 @@ export function ReviewShareControl({
     );
   };
 
-  const openAccess = (): void => {
-    if (details === null) return;
-    setSelectedAccess(details.artifact.accessSetting);
-    setFailure(null);
-    setNotice(null);
-    setScreen("access");
-  };
+  const savedAccess = details?.artifact.accessSetting ?? "private";
+  const organization = organizationName ?? "this Artifact Server";
+  const accessChoices = canRaise
+    ? accessLevels
+    : canLower
+      ? accessLevels.slice(0, accessLevels.indexOf(savedAccess) + 1)
+      : [savedAccess];
+  const confirmingPublic = chosenAccess === "public_link" && !pending;
 
-  const saveAccess = async (): Promise<void> => {
+  const saveAccess = async (level: AccessSetting): Promise<void> => {
     if (details === null) return;
-    if (selectedAccess === details.artifact.accessSetting) {
-      setScreen("overview");
-      return;
-    }
+    const lowering = accessLevels.indexOf(level)
+      < accessLevels.indexOf(details.artifact.accessSetting);
     setPending(true);
-    setFailure(null);
-    setNotice(null);
     try {
       const changed = await api.changeAccess(
         details.artifact.projectId,
         details.artifact.id,
         details.artifact.currentVersionId,
-        selectedAccess,
+        level,
         crypto.randomUUID(),
       );
       onArtifactChanged(changed.artifact);
-      setNotice(
-        changed.warning ?? (
-          selectedAccess === "public_link"
-            ? "The current version can now be opened without signing in."
-            : "This artifact now requires an admitted account."
-        ),
-      );
-      setScreen("overview");
+      setNotice(lowering ? changed.warning : null);
     } catch (caught) {
-      setFailure(
+      setAccessFailure(
         caught instanceof Error ? caught.message : "Artifact access could not be changed.",
       );
     } finally {
       setPending(false);
+      setChosenAccess(null);
     }
   };
 
-  const publicArtifact = details?.artifact.accessSetting === "public_link";
+  const chooseAccess = (level: AccessSetting): void => {
+    setAccessFailure(null);
+    setNotice(null);
+    if (level === savedAccess) {
+      setChosenAccess(null);
+      return;
+    }
+    setChosenAccess(level);
+    if (level !== "public_link") void saveAccess(level);
+  };
+
+  const publicArtifact = savedAccess === "public_link";
   const serverOrigin = details === null ? "" : new URL(details.links.artifact).origin;
   const mcpAddress = `${serverOrigin}/mcp`;
 
@@ -227,7 +251,7 @@ export function ReviewShareControl({
                   <HugeiconsIcon aria-hidden="true" icon={ArrowLeft01Icon} strokeWidth={1.8} />
                 </button>
                 <div>
-                  <h2>{screen === "access" ? "Artifact access" : "Connect MCP"}</h2>
+                  <h2>Connect MCP</h2>
                   <p>{details?.artifact.name ?? "No artifact selected"}</p>
                 </div>
                 <button
@@ -244,6 +268,94 @@ export function ReviewShareControl({
 
             {screen === "overview" ? (
               <div className="as-share-overview">
+                <section aria-labelledby="as-share-access-heading" className="as-share-access">
+                  <h3 id="as-share-access-heading">
+                    <label htmlFor="as-share-access-level">General access</label>
+                  </h3>
+                  <div className="as-share-access__control">
+                    <HugeiconsIcon
+                      aria-hidden="true"
+                      icon={accessLevelIcons[chosenAccess ?? savedAccess]}
+                      strokeWidth={1.8}
+                    />
+                    <select
+                      aria-busy={pending}
+                      className="as-button as-button--secondary"
+                      disabled={details === null || pending || accessChoices.length < 2}
+                      id="as-share-access-level"
+                      onChange={(event) => chooseAccess(
+                        accessLevels.find((level) => level === event.currentTarget.value)
+                          ?? savedAccess,
+                      )}
+                      value={chosenAccess ?? savedAccess}
+                    >
+                      {accessChoices.map((level) => (
+                        <option key={level} value={level}>
+                          {canRaise || canLower
+                            ? accessOptionLabel(level, organization)
+                            : level === "public_link" ? "Public" : `Shared with ${organization}`}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <p>{accessDescription(chosenAccess ?? savedAccess, organization)}</p>
+                  {confirmingPublic ? (
+                    <div className="as-share-access__confirm" role="group" aria-label="Confirm public access">
+                      <p>
+                        Anyone with the link, including people outside {organization}, can open the latest version.
+                      </p>
+                      <div>
+                        <button
+                          className="as-button"
+                          onClick={() => setChosenAccess(null)}
+                          type="button"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          className="as-button as-button--primary"
+                          onClick={() => void saveAccess("public_link")}
+                          type="button"
+                        >
+                          Confirm
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+                  {accessFailure === null ? null : (
+                    <p className="as-share-message" data-tone="error" role="alert">{accessFailure}</p>
+                  )}
+                  {notice === null ? null : (
+                    <p className="as-share-message" data-tone="notice" role="status">{notice}</p>
+                  )}
+                </section>
+
+                {publicArtifact && details !== null ? (
+                  <section aria-labelledby="as-share-public-heading" className="as-share-link">
+                    <h3 id="as-share-public-heading">Public link</h3>
+                    <div>
+                      <code title={details.links.artifact}>{details.links.artifact}</code>
+                      <button
+                        className="as-button as-button--primary"
+                        onClick={() => void copyText(
+                          details.links.artifact,
+                          "public-link",
+                          "The public link could not be copied.",
+                        )}
+                        type="button"
+                      >
+                        <HugeiconsIcon
+                          aria-hidden="true"
+                          icon={copiedTarget === "public-link" ? Tick02Icon : Copy01Icon}
+                          strokeWidth={1.8}
+                        />
+                        {copiedTarget === "public-link" ? "Copied" : "Copy Public link"}
+                      </button>
+                    </div>
+                    <p>Opens the latest version without signing in.</p>
+                  </section>
+                ) : null}
+
                 <section aria-labelledby="as-share-link-heading" className="as-share-link">
                   <h3 id="as-share-link-heading">Review and comment</h3>
                   <div>
@@ -262,27 +374,8 @@ export function ReviewShareControl({
                       {copiedTarget === "review-link" ? "Copied" : "Copy Review link"}
                     </button>
                   </div>
+                  <p>{reviewLinkNote(savedAccess, organization)}</p>
                 </section>
-
-                <div className="as-share-access-summary">
-                  <HugeiconsIcon
-                    aria-hidden="true"
-                    icon={publicArtifact ? Globe02Icon : SecurityLockIcon}
-                    strokeWidth={1.8}
-                  />
-                  <p>
-                    People with access to this Artifact Server can review this exact version.
-                    {publicArtifact ? " The latest raw artifact is public." : ""}
-                  </p>
-                  <button
-                    className="as-button"
-                    disabled={details === null}
-                    onClick={openAccess}
-                    type="button"
-                  >
-                    Manage access
-                  </button>
-                </div>
 
                 <section aria-labelledby="as-share-secondary-heading" className="as-share-secondary">
                   <h3 id="as-share-secondary-heading">Other links</h3>
@@ -356,11 +449,8 @@ export function ReviewShareControl({
                 {failure === null ? null : (
                   <p className="as-share-message" data-tone="error" role="alert">{failure}</p>
                 )}
-                {notice === null ? null : (
-                  <p className="as-share-message" data-tone="notice" role="status">{notice}</p>
-                )}
               </div>
-            ) : screen === "agents" ? (
+            ) : (
               <div className="as-share-agent-setup">
                 <p>Choose the connection that matches where Artifact Server is running.</p>
 
@@ -411,64 +501,6 @@ export function ReviewShareControl({
                 {failure === null ? null : (
                   <p className="as-share-message" data-tone="error" role="alert">{failure}</p>
                 )}
-              </div>
-            ) : (
-              <div className="as-share-access-editor">
-                <p>Choose who can open the current version from the stable artifact link.</p>
-                <fieldset>
-                  <legend className="as-visually-hidden">Who can open this artifact</legend>
-                  <ShareAccessOption
-                    checked={selectedAccess === "account_required"}
-                    description="An admitted installation account is required."
-                    disabled={pending}
-                    label="Private"
-                    onChange={() => setSelectedAccess("account_required")}
-                    value="account_required"
-                  />
-                  <ShareAccessOption
-                    checked={selectedAccess === "public_link"}
-                    description="No sign-in. Anyone who can reach this server and has the link can open the current version."
-                    disabled={pending}
-                    label="Public link"
-                    onChange={() => setSelectedAccess("public_link")}
-                    value="public_link"
-                  />
-                </fieldset>
-                <p className="as-share-network-note">
-                  Public access does not create a tunnel, open a firewall, or make an unreachable server reachable.
-                </p>
-                {selectedAccess !== details?.artifact.accessSetting ? (
-                  <p className="as-share-access-warning">
-                    {selectedAccess === "public_link"
-                      ? "The link can be redistributed. Earlier versions and history stay account-required."
-                      : "Downloaded or externally cached copies cannot be recalled."}
-                  </p>
-                ) : null}
-                {failure === null ? null : (
-                  <p className="as-share-message" data-tone="error" role="alert">{failure}</p>
-                )}
-                <div className="as-share-access-editor__actions">
-                  <button
-                    className="as-button"
-                    disabled={pending}
-                    onClick={() => setScreen("overview")}
-                    type="button"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    className="as-button as-button--primary"
-                    disabled={
-                      details === null
-                      || pending
-                      || selectedAccess === details.artifact.accessSetting
-                    }
-                    onClick={() => void saveAccess()}
-                    type="button"
-                  >
-                    {pending ? "Saving…" : "Save"}
-                  </button>
-                </div>
               </div>
             )}
 
@@ -630,7 +662,7 @@ Project ID: ${details.artifact.projectId}
 Artifact ID: ${details.artifact.id}
 Version: ${selectedVersion.version.number}
 Version ID: ${selectedVersion.version.id}
-Access: ${details.artifact.accessSetting === "public_link" ? "public link" : "private"}
+Access: ${accessSettingLabel(details.artifact.accessSetting)}
 Review and comment: ${reviewLink}
 Raw exact version: ${selectedVersion.links.version}
 Moving latest link: ${details.links.artifact}
@@ -651,36 +683,26 @@ If Artifact Server MCP is not connected:
 Never paste credentials into chat, source files, or the review. If access fails, state which connection or permission is missing.`;
 }
 
-function ShareAccessOption({
-  checked,
-  description,
-  disabled,
-  label,
-  onChange,
-  value,
-}: {
-  readonly checked: boolean;
-  readonly description: string;
-  readonly disabled: boolean;
-  readonly label: string;
-  readonly onChange: () => void;
-  readonly value: AccessSetting;
-}) {
-  return (
-    <label className="as-share-access-option" data-checked={checked}>
-      <input
-        checked={checked}
-        disabled={disabled}
-        name="review-artifact-access"
-        onChange={onChange}
-        type="radio"
-        value={value}
-      />
-      <span aria-hidden="true" className="as-share-access-option__indicator" />
-      <span>
-        <strong>{label}</strong>
-        <small>{description}</small>
-      </span>
-    </label>
-  );
+function accessOptionLabel(level: AccessSetting, organization: string): string {
+  return {
+    account_required: `Organization — Anyone signed in to ${organization} with the link`,
+    private: "Private — Only you",
+    public_link: "Public — Anyone with the link, no sign-in",
+  }[level];
+}
+
+function accessDescription(level: AccessSetting, organization: string): string {
+  return {
+    account_required: `Anyone signed in to ${organization} with the link can open it.`,
+    private: "Only you can open it.",
+    public_link: "Anyone with the link can open the latest version, no sign-in.",
+  }[level];
+}
+
+function reviewLinkNote(level: AccessSetting, organization: string): string {
+  return {
+    account_required: `Anyone signed in to ${organization} can open this link.`,
+    private: "Only you can open this link.",
+    public_link: "For signed-in members.",
+  }[level];
 }

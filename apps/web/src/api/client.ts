@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-const accessSettingSchema = z.enum(["account_required", "public_link"]);
+const accessSettingSchema = z.enum(["private", "account_required", "public_link"]);
 const reviewModeSchema = z.enum(["annotate", "interact"]);
 const membershipRoleSchema = z.enum(["administrator", "member"]);
 const principalKindSchema = z.enum(["human", "service"]);
@@ -71,6 +71,7 @@ const deploymentCapabilitiesSchema = z.object({
 const sessionSchema = z.object({
   authenticationMethod: z.enum(["bearer", "session"]),
   capabilities: deploymentCapabilitiesSchema,
+  installation: z.object({organizationName: z.string().nullable()}),
   principal: principalSchema,
 });
 
@@ -135,6 +136,7 @@ const artifactSchema = z.object({
   deletedAt: z.string().nullable(),
   id: z.string(),
   name: z.string(),
+  ownerPrincipalId: z.string(),
   projectId: z.string(),
   reviewMode: reviewModeSchema.default("annotate"),
   tags: z.array(z.string()),

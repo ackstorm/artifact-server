@@ -56,6 +56,7 @@ import {
   type Version,
 } from "@/api/client";
 import {
+  accessSettingLabel,
   actionLabel,
   formatBytes,
   formatTimestamp,
@@ -1031,28 +1032,29 @@ function ArtifactReview({
     session.principal.kind === "human"
     && session.principal.authorizedByPrincipalId === null
   ) || session.principal.capabilities.includes("project:manage");
-  const canManageArtifacts = selectedProject?.archivedAt === null && (
-    (
-      session.principal.kind === "human"
-      && session.principal.authorizedByPrincipalId === null
-    )
-    || session.principal.capabilities.includes("artifact:manage:any")
-  );
-  const creatorPrincipalId = versions
-    .find(({version}) => version.number === 1)?.version.publisherPrincipalId;
-  const canDeleteArtifact = selectedProject?.archivedAt === null && (
-    session.principal.id === creatorPrincipalId
-    || (
-      session.principal.kind === "human"
-      && session.principal.authorizedByPrincipalId === null
-      && session.principal.membershipRole === "administrator"
-    )
-  );
-  const canDeleteAnyComment = (
-    session.principal.kind === "human"
+  const humanAdministrator = session.principal.kind === "human"
     && session.principal.authorizedByPrincipalId === null
-    && session.principal.membershipRole === "administrator"
-  ) || session.principal.capabilities.includes("artifact:manage:any");
+    && session.principal.membershipRole === "administrator";
+  const ownerPrincipalId = details?.artifact.ownerPrincipalId;
+  const ownsArtifact = ownerPrincipalId === session.principal.id;
+  const controlsArtifact = ownsArtifact || (
+    humanAdministrator
+    && ownerPrincipalId !== undefined
+    && isServicePrincipalId(ownerPrincipalId)
+  );
+  const canManageArtifacts = selectedProject?.archivedAt === null
+    && controlsArtifact
+    && (
+      (
+        session.principal.kind === "human"
+        && session.principal.authorizedByPrincipalId === null
+      )
+      || session.principal.capabilities.includes("artifact:manage:any")
+    );
+  const canDeleteArtifact = selectedProject?.archivedAt === null
+    && (ownsArtifact || humanAdministrator);
+  const canDeleteAnyComment = humanAdministrator
+    || session.principal.capabilities.includes("artifact:manage:any");
   const previewKind = reviewPreviewKind(selectedVersion, selectedPath);
   const download = reviewDownload(
     projectId,
@@ -1753,9 +1755,12 @@ function ArtifactReview({
                     <span className="as-focus-controls__count">{openCommentCount}</span>
                   </button>
                   <ReviewShareControl
+                    canLower={ownsArtifact || humanAdministrator}
+                    canRaise={controlsArtifact}
                     details={details}
                     key={`focus-share-${details?.artifact.id ?? "empty"}`}
                     onArtifactChanged={updateArtifact}
+                    organizationName={session.installation.organizationName}
                     selectedPath={selectedPath}
                     selectedVersion={selectedVersion}
                     triggerClassName="as-button as-focus-controls__button"
@@ -1873,9 +1878,12 @@ function ArtifactReview({
                 </span>
               </button>
               <ReviewShareControl
+                canLower={ownsArtifact || humanAdministrator}
+                canRaise={controlsArtifact}
                 details={details}
                 key={`header-share-${details?.artifact.id ?? "empty"}`}
                 onArtifactChanged={updateArtifact}
+                organizationName={session.installation.organizationName}
                 selectedPath={selectedPath}
                 selectedVersion={selectedVersion}
                 triggerClassName="as-button as-button--secondary"
@@ -2239,6 +2247,7 @@ function DetailsInspector({
       </InspectorSection>
       <TagsInspector
         artifact={details.artifact}
+        canEdit={canManage}
         key={details.artifact.id}
         onChange={onTagsChange}
       />
@@ -2274,9 +2283,11 @@ function DetailsInspector({
 
 function TagsInspector({
   artifact,
+  canEdit,
   onChange,
 }: {
   readonly artifact: ArtifactDetails["artifact"];
+  readonly canEdit: boolean;
   readonly onChange: (tags: readonly string[]) => Promise<void>;
 }) {
   const [editing, setEditing] = useState(false);
@@ -2310,7 +2321,7 @@ function TagsInspector({
 
   return (
     <InspectorSection
-      action={editing ? null : (
+      action={editing || !canEdit ? null : (
         <button
           className="as-inspector-section__action"
           onClick={() => setEditing(true)}
@@ -2773,10 +2784,15 @@ function IconButton({
   );
 }
 
+// Mirrors `isServicePrincipalId` in src/core/identity.ts, which this bundle cannot import.
+function isServicePrincipalId(id: string): boolean {
+  return id.startsWith("service:") || id === "local-api-token";
+}
+
 function AccessPill({access}: {readonly access: ArtifactDetails["artifact"]["accessSetting"]}) {
   return (
     <span className="as-pill" data-access={access}>
-      {access === "public_link" ? "public" : "private"}
+      {accessSettingLabel(access)}
     </span>
   );
 }

@@ -10,7 +10,7 @@ import {
   type ToolAnnotations,
   type ToolCallback,
 } from "@modelcontextprotocol/server";
-import {type Effect, Redacted} from "effect";
+import {Effect, Redacted} from "effect";
 import {z} from "zod";
 
 import {AgentDispatchService} from "../application/agent-dispatch.js";
@@ -106,10 +106,12 @@ import {
   type ToolResultNudgeFacts,
 } from "./tool-result-nudges.js";
 
-const serverVersion = "0.2.1";
+const serverVersion = "0.3.0";
 const maximumListedArtifacts = 100;
 const maximumTextDiffBytes = 256 * 1_024;
-const accessSettingSchema = z.enum([
+/** Every level an artifact can hold. */
+const artifactAccessLevelSchema = z.enum([
+  accessSettings.private,
   accessSettings.accountRequired,
   accessSettings.publicLink,
 ]);
@@ -127,12 +129,13 @@ const declaredFileSchema = z.object({
   size: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
 }).strict();
 const artifactRecordSchema = z.object({
-  accessSetting: accessSettingSchema,
+  accessSetting: artifactAccessLevelSchema,
   createdAt: z.string(),
   currentVersionId: z.string(),
   deletedAt: z.string().nullable(),
   id: z.string(),
   name: z.string(),
+  ownerPrincipalId: z.string(),
   projectId: z.string(),
   reviewMode: z.enum(["annotate", "interact"]),
   tags: z.array(z.string()),
@@ -610,7 +613,10 @@ export function createArtifactMcpServer(
           omittedProjectRule: z.string(),
           scope: z.literal("project"),
         }),
-        sharing: z.object({modes: z.array(accessSettingSchema)}),
+        sharing: z.object({
+          default: artifactAccessLevelSchema,
+          modes: z.array(artifactAccessLevelSchema),
+        }),
       }),
       annotations: readOnlyAnnotations,
     },
@@ -864,12 +870,13 @@ export function createArtifactMcpServer(
       }).strict(),
       outputSchema: z.object({
         artifacts: z.array(z.object({
-          accessSetting: accessSettingSchema,
+          accessSetting: artifactAccessLevelSchema,
           browserUrl: z.url(),
           createdAt: z.string(),
           currentVersionId: z.string(),
           id: z.string(),
           name: z.string(),
+          ownerPrincipalId: z.string(),
           projectId: z.string(),
           tags: z.array(z.string()),
           versionCount: z.number().int().positive(),
@@ -900,6 +907,7 @@ export function createArtifactMcpServer(
           currentVersionId: artifact.currentVersionId,
           id: artifact.id,
           name: artifact.name,
+          ownerPrincipalId: artifact.ownerPrincipalId,
           projectId: artifact.projectId,
           tags: [...artifact.tags],
           versionCount: artifact.versionCount,
@@ -1253,8 +1261,8 @@ export function createArtifactMcpServer(
         projectId: optionalProjectIdSchema,
         target: z.discriminatedUnion("kind", [
           z.object({
-            accessSetting: accessSettingSchema.default(
-              accessSettings.accountRequired,
+            accessSetting: artifactAccessLevelSchema.default(
+              accessSettings.private,
             ),
             kind: z.literal("new_artifact"),
             name: z.string().min(1).max(200),
@@ -1298,9 +1306,9 @@ export function createArtifactMcpServer(
     {
       title: "Change artifact visibility",
       description:
-        "Change an artifact between account-required and public-link access without changing its saved files. Public copies already downloaded outside Artifact Server cannot be recalled.",
+        "Change an artifact between private, account-required and public-link access without changing its saved files. Public copies already downloaded outside Artifact Server cannot be recalled.",
       inputSchema: z.object({
-        accessSetting: accessSettingSchema,
+        accessSetting: artifactAccessLevelSchema,
         artifactId: artifactIdSchema,
         expectedCurrentVersionId: expectedVersionSchema,
         idempotencyKey: idempotencyKeySchema,
@@ -1331,8 +1339,8 @@ export function createArtifactMcpServer(
         },
         replayed: state.replayed,
         version: state.version,
-        warning: input.accessSetting === accessSettings.accountRequired
-          ? "New public requests are blocked. Copies already downloaded or cached outside Artifact Server cannot be recalled."
+        warning: input.accessSetting !== accessSettings.publicLink
+          ? "New requests that this level does not allow are blocked. Content sessions already issued keep serving their version for up to 15 minutes. Copies already downloaded or cached outside Artifact Server cannot be recalled."
           : null,
       };
     }),
@@ -2017,109 +2025,87 @@ export function createArtifactMcpServer(
       threadId: string;
     }[];
   }> => {
-    const artifacts = await collectCursorPages((cursor) =>
+    // A dispatch names its threads by id; reading each one directly keeps
+    // the bundle independent of which artifacts the agent may list.
+    const found = await Promise.all(dispatch.threadIds.map((threadId) =>
       runMcpApplicationEffect(
         dependencies,
-        ArtifactManagementService.use((management) =>
-          management.listArtifacts({
-            cursor,
-            limit: maximumListedArtifacts,
+        ArtifactCommentService.use((comments) =>
+          comments.getThreadById({
             principal: identity.principal,
             projectId: dispatch.projectId,
-            search: null,
-            tags: [],
-          })
+            threadId,
+          }).pipe(
+            Effect.catchTag(
+              ["ArtifactNotFound", "CommentNotFound"],
+              () => Effect.succeed(null),
+            ),
+          )
         ),
       )
-    );
+    ));
+    const readable = found.map((thread, index) => {
+      if (thread !== null) return thread;
+      throw new InvalidDispatch({
+        message:
+          `Thread ${dispatch.threadIds[index] ?? ""} in dispatch ${dispatch.id} is not readable, so the dispatch was reported failed. Ask the sender to dispatch the bundle again.`,
+      });
+    });
 
-    const wanted = new Set(dispatch.threadIds);
-    const found = new Map<string, CommentThreadRecord>();
-    for (const artifact of artifacts) {
-      if (found.size === wanted.size) break;
-      // eslint-disable-next-line no-await-in-loop
-      const listedThreads = await collectCursorPages((cursor) =>
-        runMcpApplicationEffect(
-          dependencies,
-          ArtifactCommentService.use((comments) =>
-            comments.listThreads({
-              artifactId: artifact.id,
-              cursor,
-              dispatched: dispatchedThreadFilters.only,
-              limit: maximumCommentPageSize,
-              principal: identity.principal,
-              projectId: dispatch.projectId,
-              since: null,
-              state: null,
-              versionId: null,
-            })
-          ),
-        )
-      );
-      for (const thread of listedThreads) {
-        if (wanted.has(thread.id)) found.set(thread.id, thread);
-      }
-    }
-
-    const artifactNames = new Map(
-      artifacts.map((artifact) => [artifact.id, artifact.name]),
-    );
-    const versionNumbers = new Map<string, ReadonlyMap<string, number>>();
-    const items: BundleItem[] = [];
-    const threads: {
-      artifactId: string;
-      path: string | null;
-      threadId: string;
-    }[] = [];
-    for (const threadId of dispatch.threadIds) {
-      const thread = found.get(threadId);
-      if (thread === undefined) {
-        throw new InvalidDispatch({
-          message:
-            `Thread ${threadId} in dispatch ${dispatch.id} is not readable, so the dispatch was reported failed. Ask the sender to dispatch the bundle again.`,
-        });
-      }
-      let numbers = versionNumbers.get(thread.artifactId);
-      if (numbers === undefined) {
-        // eslint-disable-next-line no-await-in-loop
-        const versions = await runMcpApplicationEffect(
-          dependencies,
-          ArtifactManagementService.use((management) =>
-            management.listVersions({
-              artifactId: thread.artifactId,
-              principal: identity.principal,
-              projectId: dispatch.projectId,
-            })
-          ),
-        );
-        numbers = new Map(
-          versions.map((version) => [version.id, version.number]),
-        );
-        versionNumbers.set(thread.artifactId, numbers);
-      }
+    const artifactViews = new Map(await Promise.all(
+      [...new Set(readable.map((thread) => thread.artifactId))].map(
+        async (artifactId) => {
+          const command = {
+            artifactId,
+            principal: identity.principal,
+            projectId: dispatch.projectId,
+          };
+          const [details, versions] = await Promise.all([
+            runMcpApplicationEffect(
+              dependencies,
+              ArtifactManagementService.use((management) =>
+                management.getArtifact(command)
+              ),
+            ),
+            runMcpApplicationEffect(
+              dependencies,
+              ArtifactManagementService.use((management) =>
+                management.listVersions(command)
+              ),
+            ),
+          ]);
+          return [artifactId, {
+            name: details.artifact.name,
+            versionNumbers: new Map(
+              versions.map((version) => [version.id, version.number]),
+            ),
+          }] as const;
+        },
+      ),
+    ));
+    const items: BundleItem[] = readable.map((thread) => {
+      const view = artifactViews.get(thread.artifactId);
       const anchor = mailboxAnchorSchema.safeParse(thread.anchor);
-      items.push({
-        artifactName: artifactNames.get(thread.artifactId) ??
-          thread.artifactId,
+      return {
+        artifactName: view?.name ?? thread.artifactId,
         body: thread.body,
         path: thread.path,
         quotedSelection: anchor.success ? anchor.data.originalText : null,
-        threadId,
-        versionNumber: numbers.get(thread.versionId) ?? 0,
-      });
-      threads.push({
-        artifactId: thread.artifactId,
-        path: thread.path,
-        threadId,
-      });
-    }
+        threadId: thread.id,
+        versionNumber: view?.versionNumbers.get(thread.versionId) ?? 0,
+      };
+    });
     return {
       bundle: {
         items,
         note: dispatch.note,
         senderDisplayName: dispatch.sender.displayName,
       },
-      threads,
+      threads: readable.map((thread) => ({
+        artifactId: thread.artifactId,
+        path: thread.path,
+        threadId: thread.id,
+      })),
     };
   };
 
@@ -2420,7 +2406,12 @@ function capabilities(
       scope: "project" as const,
     },
     sharing: {
-      modes: [accessSettings.accountRequired, accessSettings.publicLink],
+      default: accessSettings.private,
+      modes: [
+        accessSettings.private,
+        accessSettings.accountRequired,
+        accessSettings.publicLink,
+      ],
     },
   };
 }

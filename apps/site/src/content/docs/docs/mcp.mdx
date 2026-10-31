@@ -136,6 +136,8 @@ opens its raw immutable content. Agents give people the Review URL.
 | Review dispatch | `dispatch_inbox`: claim review bundles sent to this agent from the review UI |
 | Git history planning | `project_git_history_status`, `project_git_history_estimate` |
 
+`artifact_set_visibility` sets an artifact's sharing level to `private`, `account_required` (organization) or `public_link`. New artifacts are `private`, and `artifact_capabilities` reports `sharing.default: "private"`. Only the owner raises the level; an administrator can lower it. A caller that cannot read an artifact receives `ARTIFACT_NOT_FOUND`, and `artifact_list` returns only the caller's own artifacts.
+
 Linked-artifact tools remain in the tool list on every deployment. They return `CAPABILITY_UNAVAILABLE` when the deployment does not enable linked artifacts.
 
 `project_set_git_history` enables one project after an authorized caller approves a fresh estimate. Provider settings alone copy nothing.

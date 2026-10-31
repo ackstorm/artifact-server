@@ -6,6 +6,7 @@ import path from "node:path";
 import {afterEach, beforeEach, describe, expect, test} from "vitest";
 import {z} from "zod";
 
+import {issueApiKey, signInAdministrator} from "../support/agent-dispatch.js";
 import {
   apiHeaders,
   createTestInstallation,
@@ -261,7 +262,78 @@ describe("capturing a linked source as a new immutable version", () => {
     expect(new TextDecoder().decode(
       await deliveredBytes(linked.artifact.id, retriedBody.version.id),
     )).toBe(thirdBytes);
+
+    // Only the owner captures: a non-owning manage:any and publish:any key
+    // is refused at Organization and cannot see the artifact at Private.
+    const outsider = await issueOutsiderKey();
+    await writeFile(sourcePath, firstBytes);
+    await setLevel(
+      linked.artifact.id,
+      retriedBody.version.id,
+      "account_required",
+      "lnk-004-failure-organization",
+    );
+    const refused = await captureSource(
+      linked.artifact.id,
+      retriedBody.version.id,
+      "lnk-004-failure-outsider-org",
+      outsider,
+    );
+    expect(refused.status).toBe(403);
+    expect(failureSchema.parse(await refused.json()).error.code)
+      .toBe("AUTHORIZATION_DENIED");
+    await setLevel(
+      linked.artifact.id,
+      retriedBody.version.id,
+      "private",
+      "lnk-004-failure-private-level",
+    );
+    const hidden = await captureSource(
+      linked.artifact.id,
+      retriedBody.version.id,
+      "lnk-004-failure-outsider-private",
+      outsider,
+    );
+    expect(hidden.status).toBe(404);
+    expect(failureSchema.parse(await hidden.json()).error.code)
+      .toBe("ARTIFACT_NOT_FOUND");
+    const afterRefusals = await readJson(
+      `/api/v1/artifacts/${linked.artifact.id}/versions`,
+      versionListSchema,
+    );
+    expect(afterRefusals.versions).toHaveLength(3);
   });
+
+  async function setLevel(
+    artifactId: string,
+    expectedCurrentVersionId: string,
+    accessSetting: "account_required" | "private",
+    idempotencyKey: string,
+  ): Promise<void> {
+    const response = await fetch(
+      new URL(`/api/v1/artifacts/${artifactId}/access`, requiredServer().baseUrl),
+      {
+        body: JSON.stringify({accessSetting, expectedCurrentVersionId}),
+        headers: apiHeaders(installation, idempotencyKey),
+        method: "PATCH",
+      },
+    );
+    expect(response.status).toBe(200);
+  }
+
+  async function issueOutsiderKey(): Promise<TestInstallation> {
+    const running = requiredServer();
+    const cookies = await signInAdministrator(running, installation);
+    return {
+      ...installation,
+      apiToken: await issueApiKey(
+        running,
+        cookies,
+        ["artifact:manage:any", "artifact:publish:any", "artifact:read"],
+        "Outside manager",
+      ),
+    };
+  }
 
   function requiredServer(): RunningTestServer {
     if (server === null) throw new Error("The test server is not running.");
@@ -293,6 +365,7 @@ describe("capturing a linked source as a new immutable version", () => {
     artifactId: string,
     expectedCurrentVersionId: string,
     idempotencyKey: string,
+    caller: TestInstallation = installation,
   ): Promise<Response> {
     return fetch(
       new URL(
@@ -301,7 +374,7 @@ describe("capturing a linked source as a new immutable version", () => {
       ),
       {
         body: JSON.stringify({expectedCurrentVersionId}),
-        headers: apiHeaders(installation, idempotencyKey),
+        headers: apiHeaders(caller, idempotencyKey),
         method: "POST",
       },
     );
