@@ -1383,8 +1383,8 @@ requirements:
     owner: authorization
     source: {file: artifact-server-product-spec.html, anchor: sharing}
     acceptance:
-      behavior: {id: AUTH-006-B, description: "Disable public links and confirm that new and existing artifacts cannot be made or remain publicly readable under server policy."}
-      failure: {id: AUTH-006-F, description: "Members, agents, API keys, and Plannotator cannot bypass the administrator's public-link policy."}
+      behavior: {id: AUTH-006-B, description: "Turn public links off in Settings and confirm that no artifact can be made Public, existing Public artifacts keep their level but stop opening without sign-in, and turning public links back on restores them unchanged."}
+      failure: {id: AUTH-006-F, description: "Members, administrators, member-bound and service API keys, MCP agents and the CLI cannot make an artifact Public, read a stored-Public artifact without sign-in, or change the policy without human administrator authority while public links are off, and no administrator can change a policy the server configuration sets."}
     deployments: *all
     status: specified
     depends_on: [AUTH-003]
