@@ -71,7 +71,10 @@ const deploymentCapabilitiesSchema = z.object({
 const sessionSchema = z.object({
   authenticationMethod: z.enum(["bearer", "session"]),
   capabilities: deploymentCapabilitiesSchema,
-  installation: z.object({organizationName: z.string().nullable()}),
+  installation: z.object({
+    organizationName: z.string().nullable(),
+    publicLinksEnabled: z.boolean(),
+  }),
   principal: principalSchema,
 });
 
@@ -223,6 +226,12 @@ const publicLinkPageSchema = z.object({
   publicLinks: z.array(publicLinkItemSchema),
 });
 
+const publicLinkPolicySchema = z.object({
+  publicArtifactCount: z.number(),
+  publicLinksEnabled: z.boolean(),
+  setByConfiguration: z.boolean(),
+});
+
 const makePublicLinkPrivateItemSchema = z.object({
   artifactId: z.string(),
   expectedCurrentVersionId: z.string(),
@@ -260,6 +269,7 @@ const publicLinkMutationResponseSchema = z.object({
 
 export type PublicLinkItem = z.infer<typeof publicLinkItemSchema>;
 export type PublicLinkPage = z.infer<typeof publicLinkPageSchema>;
+export type PublicLinkPolicy = z.infer<typeof publicLinkPolicySchema>;
 export type MakePublicLinkPrivateItem = z.infer<
   typeof makePublicLinkPrivateItemSchema
 >;
@@ -890,6 +900,19 @@ export const api = {
       `/api/v1/administration/public-links?${query}`,
     );
   },
+  publicLinkPolicy: () => request(
+    publicLinkPolicySchema,
+    "/api/v1/administration/public-link-policy",
+  ),
+  changePublicLinkPolicy: (enabled: boolean) => request(
+    publicLinkPolicySchema,
+    "/api/v1/administration/public-link-policy",
+    {
+      body: JSON.stringify({ publicLinksEnabled: enabled }),
+      headers: mutationHeaders(),
+      method: "PUT",
+    },
+  ),
   makePublicLinksPrivate: (
     items: readonly MakePublicLinkPrivateItem[],
   ) => request(

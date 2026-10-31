@@ -56,6 +56,7 @@ describe("staged upload lifecycle", () => {
       interactiveIdentityProvider: null,
       localBootstrapCredential: null,
       protectBootstrapAdministrator: false,
+      publicLinksEnabled: null,
       repository,
       staging,
     }));
@@ -132,6 +133,7 @@ describe("staged upload lifecycle", () => {
           interactiveIdentityProvider: null,
           localBootstrapCredential: null,
           protectBootstrapAdministrator: false,
+          publicLinksEnabled: null,
           repository: foreignRepository,
           staging: new LocalStagingStore(path.join(dataDirectory, "foreign-staging")),
         }),

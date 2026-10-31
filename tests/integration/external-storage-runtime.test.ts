@@ -374,6 +374,7 @@ describe.sequential("external-storage Postgres and S3 runtime", () => {
           // the newest recorded one, so later rows must go with review mode.
           yield* sql.unsafe("ALTER TABLE staged_uploads DROP COLUMN grant_digest");
           yield* sql.unsafe("ALTER TABLE artifacts DROP COLUMN owner_principal_id");
+          yield* sql.unsafe("ALTER TABLE artifact_installations DROP COLUMN public_links_enabled");
           yield* sql.unsafe("DELETE FROM artifact_server_postgres_migrations WHERE migration_id >= 12");
         }));
       }));
@@ -538,6 +539,7 @@ describe.sequential("external-storage Postgres and S3 runtime", () => {
               DROP CONSTRAINT idempotency_records_access_setting_check,
               ADD CONSTRAINT idempotency_records_access_setting_check
                 CHECK (access_setting IS NULL OR access_setting IN ('account_required', 'public_link'))`,
+            "ALTER TABLE artifact_installations DROP COLUMN public_links_enabled",
             "DELETE FROM artifact_server_postgres_migrations WHERE migration_id >= 14",
           ];
           for (const statement of statements) {
@@ -553,6 +555,7 @@ describe.sequential("external-storage Postgres and S3 runtime", () => {
     opened = await openRepository();
     try {
       const {repository} = opened;
+      expect(await repository.readPublicLinksEnabled()).toBe(true);
       expect(await repository.findArtifact(defaultProjectId, "art_member")).toMatchObject({
         accessSetting: "account_required",
         currentVersionId: "ver_art_member_2",
@@ -656,6 +659,55 @@ describe.sequential("external-storage Postgres and S3 runtime", () => {
     } finally {
       Object.assign(oidcProvider.claims, previousClaims);
       await reader.stop();
+    }
+  });
+
+  test("public-link policy on Postgres: one process turns public links off and every process refuses the public link at once", async () => {
+    const identity = {
+      apiToken: managedTestKey("postgres-public-link-policy"),
+      installationId: "postgres-public-link-policy-installation",
+    };
+    const [first, second] = await Promise.all([
+      startExternalStorageProcess(environment, identity),
+      startExternalStorageProcess(environment, identity),
+    ]);
+    const published = await publishNew(first.baseUrl, identity.apiToken, {
+      content: "<h1>public link policy</h1>",
+      idempotencyKey: `public-link-policy-${randomUUID()}`,
+      name: "Public link policy proof",
+    });
+    expect(published.response.status).toBe(201);
+    const artifactId = published.body.artifact.id;
+    const anonymousStatuses = () => Promise.all([first, second].map(async ({baseUrl}) => {
+      const response = await fetch(`${baseUrl}/artifacts/${artifactId}`, {redirect: "manual"});
+      const body = response.status === 302
+        ? null
+        : z.object({error: z.object({code: z.string()})}).parse(await response.json()).error.code;
+      return {body, status: response.status};
+    }));
+    const database = await PostgresDatabase.open({
+      maxConnections: 2,
+      url: Redacted.make(environment.databaseUrl),
+    }, "validate");
+    try {
+      const repository = await PostgresArtifactRepository.open(database, identity.installationId);
+      const opened = {body: null, status: 302};
+      const refused = {body: "CONTENT_NOT_PUBLIC", status: 401};
+
+      expect(await repository.readPublicLinksEnabled()).toBe(true);
+      expect(await anonymousStatuses()).toEqual([opened, opened]);
+      expect(await repository.countPublicLinks()).toBe(1);
+
+      await repository.setPublicLinksEnabled(false);
+      expect(await repository.readPublicLinksEnabled()).toBe(false);
+      expect(await anonymousStatuses()).toEqual([refused, refused]);
+      expect(await repository.countPublicLinks()).toBe(1);
+
+      await repository.setPublicLinksEnabled(true);
+      expect(await anonymousStatuses()).toEqual([opened, opened]);
+      expect(await repository.countPublicLinks()).toBe(1);
+    } finally {
+      await database.close();
     }
   });
 
@@ -853,6 +905,7 @@ describe.sequential("external-storage Postgres and S3 runtime", () => {
           "ALTER TABLE artifacts DROP COLUMN owner_principal_id",
           "ALTER TABLE artifacts DROP COLUMN project_id CASCADE",
           "ALTER TABLE login_attempts DROP COLUMN nonce",
+          "ALTER TABLE artifact_installations DROP COLUMN public_links_enabled",
           "DROP TABLE comment_replies",
           "DROP TABLE comment_threads",
           "DROP TABLE agent_dispatches",

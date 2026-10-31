@@ -109,6 +109,7 @@ export interface LocalRuntimeConfig {
   readonly mcpOAuthResource?: McpOAuthResourceConfiguration;
   readonly observability?: boolean;
   readonly organizationName?: string | null;
+  readonly publicLinksEnabled?: boolean | null;
   readonly runtimeLifecycle?: RuntimeLifecycle;
   readonly installationId?: string;
   readonly serviceVersion?: string;
@@ -239,6 +240,7 @@ export async function createLocalRuntime(
       }),
     protectBootstrapAdministrator:
       config.browserAccess.mode === browserAccessModes.localOwner,
+    publicLinksEnabled: config.publicLinksEnabled ?? null,
     repository,
     sessionLifetimeMilliseconds: config.sessionLifetimeMilliseconds,
     staging,

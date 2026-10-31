@@ -29,6 +29,7 @@ const sessionSchema = z.object({
     }).strict(),
     linkedArtifacts: z.boolean(),
   }).strict(),
+  installation: z.object({publicLinksEnabled: z.boolean()}).loose(),
 }).loose();
 const linkedPublicationSchema = z.object({
   artifact: z.object({id: z.string().min(1)}).loose(),
@@ -88,6 +89,7 @@ describe("artifactserver start with linked files enabled", () => {
           ARTIFACT_SERVER_GIT_HISTORY_PROVIDER: "cloudflare-artifacts",
           ARTIFACT_SERVER_LINKED_FILES: "on",
           ARTIFACT_SERVER_LINK_ROOTS: linkRoot,
+          ARTIFACT_SERVER_PUBLIC_LINKS_ENABLED: "false",
           ARTIFACT_SERVER_REQUEST_LOG_SAMPLE_RATE: "0",
         },
         stdio: ["ignore", "pipe", "pipe"],
@@ -109,6 +111,7 @@ describe("artifactserver start with linked files enabled", () => {
     expect(session.status).toBe(200);
     const sessionBody = sessionSchema.parse(await session.json());
     expect(sessionBody.capabilities.linkedArtifacts).toBe(true);
+    expect(sessionBody.installation.publicLinksEnabled).toBe(false);
     expect(sessionBody.capabilities.gitHistory).toMatchObject({
       provider: "cloudflare-artifacts",
       providerState: "misconfigured",

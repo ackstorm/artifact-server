@@ -19,6 +19,7 @@ import {startLocalServer} from "../local/start-local-server.js";
 import {
   parseLinkRoots,
   parseLinkedFilesMode,
+  parsePublicLinksEnabled,
 } from "../lifecycle/runtime-configuration.js";
 import {loadNodeGitHistoryConfiguration} from
   "../git-history/node-git-history-configuration.js";
@@ -126,6 +127,9 @@ function configureDirectLocalStart(programToConfigure: Command): void {
       writeGitHistoryConfigurationWarnings(gitHistory);
       const linkedFiles = await runCliEffect(parseLinkedFilesMode(process.env));
       const linkRoots = await runCliEffect(parseLinkRoots(process.env));
+      const publicLinksEnabled = await runCliEffect(
+        parsePublicLinksEnabled(process.env),
+      );
       const developmentProxyCredential =
         process.env["ARTIFACT_SERVER_DEVELOPMENT_PROXY_CREDENTIAL"];
       const localServerConfig = {
@@ -142,6 +146,7 @@ function configureDirectLocalStart(programToConfigure: Command): void {
         linkRoots,
         localBootstrapToken: browserBootstrapToken,
         port,
+        publicLinksEnabled,
         serviceVersion: packageMetadata.version,
       };
       const server = await startLocalServer(

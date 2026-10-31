@@ -182,7 +182,7 @@ The two access settings control reading:
 1. **Account required:** every admitted member of this standalone installation may read the artifact.
 2. **Public link:** no account is required. Anyone who can reach the server and has the link may read it.
 
-A public link removes sign-in. It does not open a firewall, create a tunnel, or put a private server on the internet. An administrator can disable public links for the installation.
+A public link removes sign-in. It does not open a firewall, create a tunnel, or put a private server on the internet. An administrator can turn public links off for the installation. Public artifacts then require sign-in and keep their setting, and they open without sign-in again when public links are turned back on.
 
 Public links use unpredictable identifiers and send `X-Robots-Tag: noindex, nofollow` by default. They are unlisted, not secret: anyone who obtains the link can copy and redistribute it, and search-engine directives are not access control.
 

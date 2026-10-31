@@ -16,6 +16,7 @@ import {
   type ProjectManagementFailure,
   ProjectManagementService,
 } from "./project-management.js";
+import { PublicLinkPolicyService } from "./public-link-policy.js";
 import {
   ArtifactNotFound,
   type ArtifactMutationConflict,
@@ -25,20 +26,22 @@ import {
   type InvalidArtifactTags,
   type InvalidIdempotencyKey,
   InvalidPagination,
+  type PublicLinksDisabled,
   VersionNotFound,
 } from "../core/errors.js";
 import { isHumanAdministrator, type Principal } from "../core/identity.js";
-import type {
-  AccessSetting,
-  ArtifactActionPage,
-  ArtifactDeletion,
-  ArtifactPage,
-  ArtifactRecord,
-  ArtifactState,
-  ArtifactVersion,
-  PageCursor,
-  ReviewMode,
-  VersionRecord,
+import {
+  type AccessSetting,
+  accessSettings,
+  type ArtifactActionPage,
+  type ArtifactDeletion,
+  type ArtifactPage,
+  type ArtifactRecord,
+  type ArtifactState,
+  type ArtifactVersion,
+  type PageCursor,
+  type ReviewMode,
+  type VersionRecord,
 } from "../core/model.js";
 import type {
   ChangeArtifactAccessSetting,
@@ -223,6 +226,7 @@ export type ArtifactManagementFailure =
   | InvalidArtifactTags
   | InvalidPagination
   | AuthorizationDenied
+  | PublicLinksDisabled
   | ArtifactRepositoryFailure
   | ProjectManagementFailure;
 
@@ -273,17 +277,19 @@ export class ArtifactManagementService extends Context.Service<
   ): Layer.Layer<
     ArtifactManagementService,
     never,
-    AuthorizationService | ProjectManagementService
+    AuthorizationService | ProjectManagementService | PublicLinkPolicyService
   > =>
     Layer.effect(
       ArtifactManagementService,
       Effect.gen(function*() {
         const authorization = yield* AuthorizationService;
         const projects = yield* ProjectManagementService;
+        const publicLinks = yield* PublicLinkPolicyService;
         return makeArtifactManagementService(
           dependencies,
           authorization,
           projects,
+          publicLinks,
         );
       }),
     );
@@ -299,6 +305,7 @@ function makeArtifactManagementService(
   dependencies: ArtifactManagementDependencies,
   authorization: AuthorizationOperations,
   projects: ProjectManagementService["Service"],
+  publicLinks: PublicLinkPolicyService["Service"],
 ): ArtifactManagementOperations {
   const resolveProjectForRead = Effect.fn(
     "ArtifactManagementService.resolveProjectForRead",
@@ -550,6 +557,9 @@ function makeArtifactManagementService(
       yield* authorization.requireArtifactManagement(command.principal);
       if (levelRank[command.accessSetting] > levelRank[artifact.accessSetting]) {
         yield* authorization.requireArtifactControl(command.principal, artifact);
+        if (command.accessSetting === accessSettings.publicLink) {
+          yield* publicLinks.requireEnabled;
+        }
       } else {
         yield* authorization.requireArtifactLevelLowering(command.principal, artifact);
       }

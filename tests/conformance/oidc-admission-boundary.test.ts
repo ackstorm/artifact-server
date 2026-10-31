@@ -55,6 +55,7 @@ describe("OIDC admission provider and credential boundaries", () => {
       interactiveIdentityProvider: null,
       localBootstrapCredential: null,
       protectBootstrapAdministrator: false,
+      publicLinksEnabled: null,
       repository,
       staging: new LocalStagingStore(path.join(dataDirectory, "staging")),
     }));

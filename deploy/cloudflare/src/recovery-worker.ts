@@ -84,6 +84,7 @@ const stateQueries: readonly NamedQuery[] = [
   {name: "agent_dispatches", sql: "SELECT * FROM agent_dispatches ORDER BY id"},
   {name: "comment_threads", sql: "SELECT * FROM comment_threads ORDER BY id"},
   {name: "comment_replies", sql: "SELECT * FROM comment_replies ORDER BY id"},
+  {name: "installation_settings", sql: "SELECT * FROM installation_settings ORDER BY installation_id"},
 ];
 
 export default {
