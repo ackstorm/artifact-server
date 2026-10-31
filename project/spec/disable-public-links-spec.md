@@ -73,7 +73,8 @@ Details:
   external-storage runtime and the Cloudflare worker run several processes or
   isolates, so an in-process copy would keep serving public reads after an
   administrator turned them off. The setting is read only on the would-be-public
-  path and on a raise, so Private and Organization traffic pays nothing extra.
+  path, on a raise and on `GET /api/v1/session`, so Private and Organization
+  content reads pay nothing extra.
 
 ### Configuration lock
 
