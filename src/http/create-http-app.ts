@@ -52,6 +52,7 @@ import {
   PublicLinkAdministrationService,
   type PublicLinkInventoryPage,
 } from "../application/public-link-administration.js";
+import {PublicLinkPolicyService} from "../application/public-link-policy.js";
 import {
   type ArtifactComparison,
   CompareArtifactService,
@@ -391,6 +392,7 @@ const issueGitCloneCredentialSchema = z.object({
   ttlSeconds: z.number().int().min(1).max(maximumGitCloneCredentialTtlSeconds)
     .default(defaultGitCloneCredentialTtlSeconds),
 }).strict();
+const publicLinkPolicySchema = z.object({publicLinksEnabled: z.boolean()}).strict();
 const makePublicLinksPrivateSchema = z.object({
   items: z.array(makePublicLinkPrivateItemSchema).min(1).max(100),
 }).strict().superRefine(({items}, context) => {
@@ -1044,16 +1046,25 @@ export function createHttpApp(
     return context.redirect(completed.returnTo, 303);
   });
 
-  app.get("/api/v1/session", (context) =>
-    context.json({
+  app.get("/api/v1/session", async (context) => {
+    const publicLinksEnabled = await runHttpApplicationEffect(
+      context,
+      dependencies,
+      PublicLinkPolicyService.use((policy) => policy.enabled),
+    );
+    return context.json({
       authenticationMethod: context.get("authenticationMethod"),
       capabilities: {
         gitHistory: gitHistory.read(),
         linkedArtifacts: dependencies.linkedArtifacts === true,
       },
-      installation: {organizationName: dependencies.organizationName ?? null},
+      installation: {
+        organizationName: dependencies.organizationName ?? null,
+        publicLinksEnabled,
+      },
       principal: context.get("principal"),
-    }));
+    });
+  });
 
   app.post("/api/v1/session/logout", async (context) => {
     const sessionToken = context.get("sessionToken");
@@ -1214,6 +1225,28 @@ export function createHttpApp(
         ),
       );
       return context.json(publicLinkMutationResponse(results));
+    },
+  );
+
+  app.get("/api/v1/administration/public-link-policy", async (context) =>
+    context.json(await runHttpApplicationEffect(
+      context,
+      dependencies,
+      PublicLinkPolicyService.use((policy) => policy.read(context.get("principal"))),
+    )));
+
+  app.put(
+    "/api/v1/administration/public-link-policy",
+    boundedJsonBody,
+    async (context) => {
+      const body = publicLinkPolicySchema.parse(await context.req.json());
+      return context.json(await runHttpApplicationEffect(
+        context,
+        dependencies,
+        PublicLinkPolicyService.use((policy) =>
+          policy.change(context.get("principal"), body.publicLinksEnabled)
+        ),
+      ));
     },
   );
 

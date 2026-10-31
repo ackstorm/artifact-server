@@ -77,6 +77,10 @@ import {
   type PublicLinkInventoryPage,
 } from "../application/public-link-administration.js";
 import {
+  type PublicLinkPolicyRepository,
+  PublicLinkPolicyService,
+} from "../application/public-link-policy.js";
+import {
   AgentDispatchNotFound,
   AgentNotFound,
   ArtifactNotFound,
@@ -177,6 +181,8 @@ export interface ApplicationAdapters {
   readonly linked?: LinkedApplicationAdapters;
   readonly localBootstrapCredential: Redacted.Redacted | null;
   readonly protectBootstrapAdministrator: boolean;
+  /** The configured public-link policy; absent or null lets administrators choose in Settings. */
+  readonly publicLinksEnabled?: boolean | null;
   readonly repository: ArtifactRepository &
     CommentRepository &
     ContentSessionRepository &
@@ -202,9 +208,12 @@ export interface LinkedApplicationAdapters {
 }
 
 interface PublicLinkInventoryStore {
+  readonly countPublicLinks: () => Promise<number>;
   readonly listPublicLinks: (
     command: ListPublicLinks,
   ) => Promise<PublicLinkInventoryPage>;
+  readonly readPublicLinksEnabled: () => Promise<boolean>;
+  readonly setPublicLinksEnabled: (enabled: boolean) => Promise<void>;
 }
 
 /** Build Node application services over the selected persistence adapters. */
@@ -227,6 +236,7 @@ export function createApplicationLayer(
   | ProjectGitHistoryService
   | ProjectManagementService
   | PublicLinkAdministrationService
+  | PublicLinkPolicyService
   | StagedUploadService
 > {
   const clock = {
@@ -690,6 +700,21 @@ export function createApplicationLayer(
       Effect.tryPromise({
         try: () => adapters.repository.listPublicLinks(command),
         catch: (cause) => repositoryFailure("listPublicLinks", cause),
+      }),
+  };
+  const publicLinkPolicyRepository: PublicLinkPolicyRepository = {
+    countPublicLinks: Effect.tryPromise({
+      try: () => adapters.repository.countPublicLinks(),
+      catch: (cause) => repositoryFailure("countPublicLinks", cause),
+    }),
+    readPublicLinksEnabled: Effect.tryPromise({
+      try: () => adapters.repository.readPublicLinksEnabled(),
+      catch: (cause) => repositoryFailure("readPublicLinksEnabled", cause),
+    }),
+    setPublicLinksEnabled: (enabled) =>
+      Effect.tryPromise({
+        try: () => adapters.repository.setPublicLinksEnabled(enabled),
+        catch: (cause) => repositoryFailure("setPublicLinksEnabled", cause),
       }),
   };
   const comparisonDependencies: CompareArtifactDependencies = {
@@ -1171,6 +1196,10 @@ export function createApplicationLayer(
   ).pipe(
     Layer.provideMerge(Layer.mergeAll(authorizationLayer, managementLayer)),
   );
+  const policyLayer = PublicLinkPolicyService.layer(
+    publicLinkPolicyRepository,
+    adapters.publicLinksEnabled ?? null,
+  ).pipe(Layer.provideMerge(authorizationLayer));
   const comparisonLayer = CompareArtifactService.layer(
     comparisonDependencies,
   ).pipe(Layer.provideMerge(Layer.mergeAll(authorizationLayer, projectLayer)));
@@ -1186,6 +1215,7 @@ export function createApplicationLayer(
     linkedLayer,
     managementLayer,
     publicLinkAdministrationLayer,
+    policyLayer,
     comparisonLayer,
     gitHistoryAccessLayer,
     projectGitHistoryLayer,
