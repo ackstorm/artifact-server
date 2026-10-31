@@ -17,7 +17,7 @@ Tier 1 must not require a scanner account, license key, or source upload.
 ### Continuous integration
 
 - Run the TypeScript, lint, test, conformance, and build gate on Linux.
-- Run the portable code gate on macOS 14.
+- Run the portable code gate on macOS 15.
 - Treat warnings as errors through the repository's existing zero-warning lint command.
 - Keep `pnpm verify:iteration` as the canonical end-of-iteration proof.
 
