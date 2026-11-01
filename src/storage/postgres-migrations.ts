@@ -710,6 +710,13 @@ const addArtifactOwner = Effect.gen(function*() {
   }
 });
 
+const addPublicLinkPolicy = Effect.gen(function*() {
+  const sql = yield* SqlClient;
+  yield* sql.unsafe(
+    "ALTER TABLE artifact_installations ADD COLUMN public_links_enabled BOOLEAN NOT NULL DEFAULT TRUE",
+  );
+});
+
 const migrationLoader = Migrator.fromRecord({
   "0001_initial_shared_schema": initialSchema,
   "0002_project_scoped_artifacts": addProjectScope,
@@ -725,10 +732,11 @@ const migrationLoader = Migrator.fromRecord({
   "0012_artifact_review_mode": addArtifactReviewMode,
   "0013_staged_upload_grant": addStagedUploadGrant,
   "0014_artifact_owner": addArtifactOwner,
+  "0015_public_link_policy": addPublicLinkPolicy,
 });
 
 /** Schema revision required by this Artifact Server build. */
-export const requiredPostgresSchemaVersion = 14;
+export const requiredPostgresSchemaVersion = 15;
 
 /** Migration compatibility observed without changing Postgres. */
 export interface PostgresMigrationStatus {
@@ -825,6 +833,9 @@ export const readPostgresMigrationStatus = Effect.gen(function*() {
   }, {
     migration_id: 14,
     name: "artifact_owner",
+  }, {
+    migration_id: 15,
+    name: "public_link_policy",
   }] as const;
   const observedRequiredHistory = rows.filter(
     (row) => row.migration_id <= requiredPostgresSchemaVersion,

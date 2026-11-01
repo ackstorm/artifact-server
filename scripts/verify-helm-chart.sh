@@ -86,6 +86,33 @@ helm template artifact-server "$artifactserver_chart" \
   --kube-version 1.36.0 \
   "${artifactserver_values[@]}" | assert_organization_name unset
 
+assert_public_links_enabled() {
+  node --input-type=module -e '
+    import assert from "node:assert/strict";
+    import {readFileSync, realpathSync} from "node:fs";
+    import {createRequire} from "node:module";
+    const require = createRequire(realpathSync(`${process.argv[2]}/deploy/cloudflare/node_modules/wrangler/package.json`));
+    const {parseAllDocuments} = require("yaml");
+    const documents = parseAllDocuments(readFileSync(0, "utf8")).map((document) => document.toJS());
+    const deployment = documents.find((document) => document.kind === "Deployment");
+    const container = deployment.spec.template.spec.containers.find((entry) => entry.name === "artifact-server");
+    const entry = container.env.find((variable) => variable.name === "ARTIFACT_SERVER_PUBLIC_LINKS_ENABLED");
+    assert.equal(entry?.value, process.argv[1] === "unset" ? undefined : process.argv[1]);
+  ' "$1" "$artifactserver_repository"
+}
+
+for artifactserver_public_links in true false; do
+  helm template artifact-server "$artifactserver_chart" \
+    --kube-version 1.36.0 \
+    "${artifactserver_values[@]}" \
+    --set "configuration.publicLinksEnabled=$artifactserver_public_links" | \
+    assert_public_links_enabled "$artifactserver_public_links"
+done
+
+helm template artifact-server "$artifactserver_chart" \
+  --kube-version 1.36.0 \
+  "${artifactserver_values[@]}" | assert_public_links_enabled unset
+
 for artifactserver_kubernetes_version in 1.34.0 1.35.0 1.36.0; do
   helm template artifact-server "$artifactserver_chart" \
     --kube-version "$artifactserver_kubernetes_version" \
@@ -169,6 +196,10 @@ expect_render_failure "oidcAutoAdmit" \
 expect_render_failure "oidcAllowedEmailDomains" \
   "${artifactserver_values[@]}" \
   --set identity.oidcAllowedEmailDomains=example.test
+
+expect_render_failure "publicLinksEnabled" \
+  "${artifactserver_values[@]}" \
+  --set-string configuration.publicLinksEnabled=yes
 
 expect_render_failure "private-team deployments require exactly one browser-login provider" \
   "${artifactserver_values[@]}" \

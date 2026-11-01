@@ -20,6 +20,10 @@ export function artifactServerFailureResponse(failure: ArtifactServerFailure) {
       return {code: errorCodes.artifactMutationConflict, message: failure.message, status: 409};
     case "ArtifactPrivate":
       return {code: errorCodes.artifactPrivate, message: failure.message, status: 409};
+    case "PublicLinksDisabled":
+      return {code: errorCodes.publicLinksDisabled, message: failure.message, status: 409};
+    case "PublicLinkPolicyLocked":
+      return {code: errorCodes.publicLinkPolicyLocked, message: failure.message, status: 409};
     case "AuthenticationRequired":
       return {code: errorCodes.authenticationRequired, message: failure.message, status: 401};
     case "IdentityAdmissionDenied":

@@ -614,9 +614,12 @@ export type D1ArtifactRepository = AgentDispatchRepository & ArtifactRepository 
   CommentRepository & ContentSessionRepository & ProjectRepository &
   ProjectGitHistoryStore & GitHistoryMirrorStore & GitHistoryPurgeStore &
   StagedUploadRepository & {
+    readonly countPublicLinks: () => Promise<number>;
     readonly listPublicLinks: (
       command: ListPublicLinks,
     ) => Promise<PublicLinkInventoryPage>;
+    readonly readPublicLinksEnabled: () => Promise<boolean>;
+    readonly setPublicLinksEnabled: (enabled: boolean) => Promise<void>;
   };
 
 /**
@@ -2540,6 +2543,23 @@ export function createD1ArtifactRepository(
         command.sort === "comments" ? ({commentCount}) => commentCount : null,
       );
     },
+    readPublicLinksEnabled: async (): Promise<boolean> => {
+      const enabled = await database.prepare(`
+        SELECT public_links_enabled FROM installation_settings WHERE installation_id = ?
+      `).bind(installationId).first<number>("public_links_enabled");
+      return enabled === null || z.number().parse(enabled) === 1;
+    },
+    setPublicLinksEnabled: async (enabled: boolean): Promise<void> => {
+      await database.prepare(`
+        INSERT INTO installation_settings (installation_id, public_links_enabled) VALUES (?, ?)
+        ON CONFLICT (installation_id) DO UPDATE SET public_links_enabled = excluded.public_links_enabled
+      `).bind(installationId, enabled ? 1 : 0).run();
+    },
+    countPublicLinks: async (): Promise<number> =>
+      z.number().parse(await database.prepare(`
+        SELECT COUNT(*) AS count FROM artifacts
+        WHERE deleted_at IS NULL AND access_setting = 'public_link' AND current_version_id IS NOT NULL
+      `).first<number>("count")),
     listPublicLinks: async (
       command: ListPublicLinks,
     ): Promise<PublicLinkInventoryPage> => {

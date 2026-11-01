@@ -1761,6 +1761,7 @@ function ArtifactReview({
                     key={`focus-share-${details?.artifact.id ?? "empty"}`}
                     onArtifactChanged={updateArtifact}
                     organizationName={session.installation.organizationName}
+                    publicLinksEnabled={session.installation.publicLinksEnabled}
                     selectedPath={selectedPath}
                     selectedVersion={selectedVersion}
                     triggerClassName="as-button as-focus-controls__button"
@@ -1884,6 +1885,7 @@ function ArtifactReview({
                 key={`header-share-${details?.artifact.id ?? "empty"}`}
                 onArtifactChanged={updateArtifact}
                 organizationName={session.installation.organizationName}
+                publicLinksEnabled={session.installation.publicLinksEnabled}
                 selectedPath={selectedPath}
                 selectedVersion={selectedVersion}
                 triggerClassName="as-button as-button--secondary"

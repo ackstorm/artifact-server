@@ -168,6 +168,22 @@ describe("local Artifact Server CLI", () => {
     }
   });
 
+  test("rejects a public-link setting that is not exactly true or false", async () => {
+    const dataDirectory = await mkdtemp(path.join(tmpdir(), "artifact-server-cli-public-links-"));
+    try {
+      const result = await runCommandToExit(
+        ["start", "--data", dataDirectory, "--port", String(await availablePort())],
+        {ARTIFACT_SERVER_PUBLIC_LINKS_ENABLED: "yes"},
+      );
+      expect(result.exitCode).not.toBe(0);
+      expect(result.output).toContain(
+        "ARTIFACT_SERVER_PUBLIC_LINKS_ENABLED must be true or false, or unset so administrators choose in Settings.",
+      );
+    } finally {
+      await rm(dataDirectory, {force: true, recursive: true});
+    }
+  });
+
   test("PUB-002-B SCP-007-B: publishes a file, a large finished directory, and a second immutable version through real processes", async () => {
     const parentDirectory = await mkdtemp(path.join(tmpdir(), "artifact-server-publish-cli-"));
     const dataDirectory = path.join(parentDirectory, "data");

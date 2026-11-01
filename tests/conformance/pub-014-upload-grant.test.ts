@@ -98,6 +98,7 @@ describe("upload grants: staged upload service", () => {
       interactiveIdentityProvider: null,
       localBootstrapCredential: null,
       protectBootstrapAdministrator: false,
+      publicLinksEnabled: null,
       repository,
       staging: new LocalStagingStore(path.join(dataDirectory, "staging")),
     }));

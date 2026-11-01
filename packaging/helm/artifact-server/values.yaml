@@ -22,6 +22,9 @@ configuration:
   readinessWithdrawalMilliseconds: 1000
   sessionLifetimeHours: 12
   organizationName: ""
+  # true or false sets the public-link policy and locks it in Settings.
+  # Leave unset so administrators turn public links off or on.
+  # publicLinksEnabled: false
   shutdownDeadlineMilliseconds: 10000
   s3:
     bucket: ""

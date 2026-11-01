@@ -1521,7 +1521,8 @@ test.describe("Artifact Server frontend MVP", () => {
 
       await localLogin(fixture);
       await fixture.page.goto(`${fixture.server.baseUrl}/review/settings/public-links`);
-      await expect(fixture.page.getByRole("heading", {name: "Public links"})).toBeVisible();
+      await expect(fixture.page.getByRole("heading", {exact: true, name: "Public links"}))
+        .toBeVisible();
       const firstRow = fixture.page.getByRole("row").filter({hasText: "First public link"});
       await expect(firstRow.getByText("Default", {exact: true})).toBeVisible();
       const crossProjectRow = fixture.page.getByRole("row").filter({

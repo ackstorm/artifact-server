@@ -35,6 +35,8 @@ export const errorCodes = {
   sourceMissing: "SOURCE_MISSING",
   sourceUnreadable: "SOURCE_UNREADABLE",
   publishConflict: "PUBLISH_CONFLICT",
+  publicLinkPolicyLocked: "PUBLIC_LINK_POLICY_LOCKED",
+  publicLinksDisabled: "PUBLIC_LINKS_DISABLED",
   projectArchived: "PROJECT_ARCHIVED",
   projectConflict: "PROJECT_CONFLICT",
   projectNotFound: "PROJECT_NOT_FOUND",
@@ -67,6 +69,18 @@ export class ArtifactMutationConflict extends Schema.TaggedError<ArtifactMutatio
 /** A Private artifact cannot be sent to an agent, which connects with a service key. */
 export class ArtifactPrivate extends Schema.TaggedError<ArtifactPrivate>()(
   "ArtifactPrivate",
+  messageField,
+) {}
+
+/** The installation's public-link policy is off. */
+export class PublicLinksDisabled extends Schema.TaggedError<PublicLinksDisabled>()(
+  "PublicLinksDisabled",
+  messageField,
+) {}
+
+/** The server configuration sets the public-link policy, so Settings cannot change it. */
+export class PublicLinkPolicyLocked extends Schema.TaggedError<PublicLinkPolicyLocked>()(
+  "PublicLinkPolicyLocked",
   messageField,
 ) {}
 
@@ -371,6 +385,7 @@ export class ArtifactRepositoryFailure extends Schema.TaggedError<ArtifactReposi
       "clearCommentThreads",
       "commitNewArtifact",
       "commitVersion",
+      "countPublicLinks",
       "createAgentDispatch",
       "createCommentReply",
       "createCommentThread",
@@ -412,10 +427,12 @@ export class ArtifactRepositoryFailure extends Schema.TaggedError<ArtifactReposi
       "markAgentDispatchFailed",
       "markStagedFileUploaded",
       "observeAgentDispatchAddressed",
+      "readPublicLinksEnabled",
       "recordAgentActivity",
       "registerAgent",
       "removeExpiredStagedUpload",
       "restoreVersion",
+      "setPublicLinksEnabled",
       "updateCommentReply",
       "updateCommentThread",
       "versionContainsPath",
@@ -486,6 +503,8 @@ const artifactServerFailureSchema = Schema.Union([
   ArtifactNotFound,
   ArtifactMutationConflict,
   ArtifactPrivate,
+  PublicLinksDisabled,
+  PublicLinkPolicyLocked,
   AuthenticationRequired,
   CommentNotFound,
   CommentResolved,

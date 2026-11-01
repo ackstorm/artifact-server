@@ -77,6 +77,10 @@ import {
   type PublicLinkInventoryPage,
 } from "../application/public-link-administration.js";
 import {
+  type PublicLinkPolicyRepository,
+  PublicLinkPolicyService,
+} from "../application/public-link-policy.js";
+import {
   AgentDispatchNotFound,
   AgentNotFound,
   ArtifactNotFound,
@@ -177,6 +181,8 @@ export interface ApplicationAdapters {
   readonly linked?: LinkedApplicationAdapters;
   readonly localBootstrapCredential: Redacted.Redacted | null;
   readonly protectBootstrapAdministrator: boolean;
+  /** The configured public-link policy; null lets administrators choose in Settings. */
+  readonly publicLinksEnabled: boolean | null;
   readonly repository: ArtifactRepository &
     CommentRepository &
     ContentSessionRepository &
@@ -202,9 +208,12 @@ export interface LinkedApplicationAdapters {
 }
 
 interface PublicLinkInventoryStore {
+  readonly countPublicLinks: () => Promise<number>;
   readonly listPublicLinks: (
     command: ListPublicLinks,
   ) => Promise<PublicLinkInventoryPage>;
+  readonly readPublicLinksEnabled: () => Promise<boolean>;
+  readonly setPublicLinksEnabled: (enabled: boolean) => Promise<void>;
 }
 
 /** Build Node application services over the selected persistence adapters. */
@@ -227,6 +236,7 @@ export function createApplicationLayer(
   | ProjectGitHistoryService
   | ProjectManagementService
   | PublicLinkAdministrationService
+  | PublicLinkPolicyService
   | StagedUploadService
 > {
   const clock = {
@@ -692,6 +702,21 @@ export function createApplicationLayer(
         catch: (cause) => repositoryFailure("listPublicLinks", cause),
       }),
   };
+  const publicLinkPolicyRepository: PublicLinkPolicyRepository = {
+    countPublicLinks: Effect.tryPromise({
+      try: () => adapters.repository.countPublicLinks(),
+      catch: (cause) => repositoryFailure("countPublicLinks", cause),
+    }),
+    readPublicLinksEnabled: Effect.tryPromise({
+      try: () => adapters.repository.readPublicLinksEnabled(),
+      catch: (cause) => repositoryFailure("readPublicLinksEnabled", cause),
+    }),
+    setPublicLinksEnabled: (enabled) =>
+      Effect.tryPromise({
+        try: () => adapters.repository.setPublicLinksEnabled(enabled),
+        catch: (cause) => repositoryFailure("setPublicLinksEnabled", cause),
+      }),
+  };
   const comparisonDependencies: CompareArtifactDependencies = {
     blobs: {
       readBytes: (entry) =>
@@ -1045,6 +1070,10 @@ export function createApplicationLayer(
   const authorizationLayer = AuthorizationService.layer({
     installationId: adapters.installationId,
   });
+  const policyLayer = PublicLinkPolicyService.layer(
+    publicLinkPolicyRepository,
+    adapters.publicLinksEnabled,
+  ).pipe(Layer.provideMerge(authorizationLayer));
   const projectLayer = ProjectManagementService.layer(projectDependencies).pipe(
     Layer.provideMerge(authorizationLayer),
   );
@@ -1056,7 +1085,7 @@ export function createApplicationLayer(
   ).pipe(Layer.provideMerge(Layer.mergeAll(authorizationLayer, projectLayer)));
 
   const publishLayer = PublishArtifactService.layer(publishDependencies).pipe(
-    Layer.provideMerge(authorizationLayer),
+    Layer.provideMerge(Layer.mergeAll(authorizationLayer, policyLayer)),
   );
   const stagedLayer = StagedUploadService.layer(stagedDependencies).pipe(
     Layer.provideMerge(Layer.mergeAll(publishLayer, projectLayer)),
@@ -1072,13 +1101,13 @@ export function createApplicationLayer(
     storage: stagedDependencies.staging,
   });
   const contentLayer = ContentAccessService.layer(contentDependencies).pipe(
-    Layer.provideMerge(Layer.mergeAll(authorizationLayer, projectLayer)),
+    Layer.provideMerge(Layer.mergeAll(authorizationLayer, policyLayer, projectLayer)),
   );
   const managementLayer = ArtifactManagementService.layer(
     managementDependencies,
   ).pipe(
     Layer.provideMerge(
-      Layer.mergeAll(authorizationLayer, identityLayer, projectLayer),
+      Layer.mergeAll(authorizationLayer, identityLayer, policyLayer, projectLayer),
     ),
   );
   const linked = adapters.linked;
@@ -1186,6 +1215,7 @@ export function createApplicationLayer(
     linkedLayer,
     managementLayer,
     publicLinkAdministrationLayer,
+    policyLayer,
     comparisonLayer,
     gitHistoryAccessLayer,
     projectGitHistoryLayer,

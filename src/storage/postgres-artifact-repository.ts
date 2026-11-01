@@ -1786,6 +1786,42 @@ export class PostgresArtifactRepository implements
     }));
   }
 
+  /**
+   * The installation's stored public-link switch. It is not the effective policy: the
+   * configuration can override it in PublicLinkPolicyService.
+   */
+  async readPublicLinksEnabled(): Promise<boolean> {
+    const installationId = this.#installationId;
+    return this.#database.run(Effect.gen(function*() {
+      const sql = yield* SqlClient;
+      const rows = yield* sql`SELECT public_links_enabled AS "publicLinksEnabled"
+        FROM artifact_installations WHERE id = ${installationId}`;
+      return z.object({publicLinksEnabled: z.boolean()}).parse(rows[0]).publicLinksEnabled;
+    }));
+  }
+
+  /** Store the installation's public-link switch. */
+  async setPublicLinksEnabled(enabled: boolean): Promise<void> {
+    const installationId = this.#installationId;
+    await this.#database.run(Effect.gen(function*() {
+      const sql = yield* SqlClient;
+      yield* sql`UPDATE artifact_installations SET public_links_enabled = ${enabled}
+        WHERE id = ${installationId}`;
+    }));
+  }
+
+  /** Count the artifacts the public-link inventory lists. */
+  async countPublicLinks(): Promise<number> {
+    const installationId = this.#installationId;
+    return this.#database.run(Effect.gen(function*() {
+      const sql = yield* SqlClient;
+      const rows = yield* sql`SELECT COUNT(*)::int AS count FROM artifacts
+        WHERE installation_id = ${installationId} AND deleted_at IS NULL
+          AND access_setting = 'public_link' AND current_version_id IS NOT NULL`;
+      return z.object({count: z.number()}).parse(rows[0]).count;
+    }));
+  }
+
   /** List one bounded installation-wide page of active public-link artifacts. */
   async listPublicLinks(command: ListPublicLinks): Promise<PublicLinkInventoryPage> {
     const installationId = this.#installationId;

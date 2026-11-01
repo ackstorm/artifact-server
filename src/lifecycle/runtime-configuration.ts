@@ -100,6 +100,7 @@ export interface CompactRuntimeConfiguration {
   readonly linkRoots: readonly string[];
   readonly organizationName: string | null;
   readonly port: number;
+  readonly publicLinksEnabled: boolean | null;
   readonly readinessWithdrawalMilliseconds: number;
   readonly sessionLifetimeMilliseconds: number;
   readonly shutdownDeadlineMilliseconds: number;
@@ -126,6 +127,7 @@ export interface ExternalStorageRuntimeConfiguration {
   readonly organizationName: string | null;
   readonly port: number;
   readonly postgresMaxConnections: number;
+  readonly publicLinksEnabled: boolean | null;
   readonly readinessWithdrawalMilliseconds: number;
   readonly sessionLifetimeMilliseconds: number;
   readonly shutdownDeadlineMilliseconds: number;
@@ -257,6 +259,7 @@ export const parseCompactRuntimeConfiguration = Effect.fn(
     linkRoots: yield* parseLinkRoots(input.environment),
     organizationName: yield* parseOrganizationName(input.environment),
     port: yield* parsePort(input.port),
+    publicLinksEnabled: yield* parsePublicLinksEnabled(input.environment),
     readinessWithdrawalMilliseconds: yield* parseMilliseconds(
       input.environment,
       "ARTIFACT_SERVER_READINESS_WITHDRAWAL_MS",
@@ -337,6 +340,7 @@ export const parseExternalStorageRuntimeConfiguration = Effect.fn(
     organizationName: yield* parseOrganizationName(environment),
     port: yield* parsePort(input.port),
     postgresMaxConnections: yield* parsePostgresMaxConnections(environment),
+    publicLinksEnabled: yield* parsePublicLinksEnabled(environment),
     readinessWithdrawalMilliseconds: yield* parseMilliseconds(
       environment,
       "ARTIFACT_SERVER_READINESS_WITHDRAWAL_MS",
@@ -715,6 +719,23 @@ function parseOrganizationName(
     );
   }
   return Effect.succeed(value);
+}
+
+/**
+ * Parse `ARTIFACT_SERVER_PUBLIC_LINKS_ENABLED` for any local-server entry point.
+ * Compose passes an empty `.env` entry through as "", so empty counts as unset.
+ */
+export function parsePublicLinksEnabled(
+  environment: NodeJS.ProcessEnv,
+): Effect.Effect<boolean | null, RuntimeConfigurationError> {
+  const field = "ARTIFACT_SERVER_PUBLIC_LINKS_ENABLED";
+  const value = environment[field] ?? "";
+  if (value === "") return Effect.succeed(null);
+  if (value === "true" || value === "false") return Effect.succeed(value === "true");
+  return invalidValue(
+    field,
+    `${field} must be true or false, or unset so administrators choose in Settings.`,
+  );
 }
 
 function parseSessionLifetime(

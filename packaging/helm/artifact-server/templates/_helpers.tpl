@@ -158,6 +158,10 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 - name: ARTIFACT_SERVER_ORGANIZATION_NAME
   value: {{ . | quote }}
 {{- end }}
+{{- if kindIs "bool" .Values.configuration.publicLinksEnabled }}
+- name: ARTIFACT_SERVER_PUBLIC_LINKS_ENABLED
+  value: {{ .Values.configuration.publicLinksEnabled | quote }}
+{{- end }}
 - name: ARTIFACT_SERVER_OBJECT_STORAGE_PROVIDER
   value: "s3"
 - name: ARTIFACT_SERVER_POSTGRES_MAX_CONNECTIONS
