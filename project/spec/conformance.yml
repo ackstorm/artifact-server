@@ -1407,7 +1407,7 @@ requirements:
     owner: authorization
     source: {file: oidc-interactive-login-spec.md, anchor: conformance}
     acceptance:
-      behavior: {id: AUTH-021-B, description: "A complete OIDC configuration boots and reports the oidc interactive identity provider; an application layer constructed without either provider keeps interactive login unavailable, while private-team process startup separately obeys AUTH-025."}
+      behavior: {id: AUTH-021-B, description: "A complete OIDC configuration boots and reports the oidc interactive identity provider; an application layer constructed without an interactive identity provider keeps interactive login unavailable, while private-team process startup separately obeys AUTH-025."}
       failure: {id: AUTH-021-F, description: "Partial OIDC configuration, a non-HTTPS non-local issuer, and discovery documents with a mismatched issuer or a credentialed or fragmented endpoint URL each fail startup or login without weakening the running server."}
     deployments: *all
     status: behavior_verified
@@ -3507,7 +3507,7 @@ requirements:
     owner: deployment
     source: {file: artifact-server-product-spec.html, anchor: deployment}
     acceptance:
-      behavior: {id: DEP-002-B, description: "Create each target with its documented native command and obtain the required URLs, resource identifiers, healthy server, and support manifest."}
+      behavior: {id: DEP-002-B, description: "Create each target with its documented native command and obtain the required URLs, healthy server, and support manifest: `helm template` and `helm upgrade`, and `docker compose config` and `up`, work directly without an Artifact Server wrapper."}
       failure: {id: DEP-002-F, description: "An official path cannot require a customer to write infrastructure-framework code or manually invent required resources."}
     deployments: *all
     status: specified
@@ -3520,7 +3520,7 @@ requirements:
     owner: deployment
     source: {file: artifact-server-product-spec.html, anchor: deployment}
     acceptance:
-      behavior: {id: DEP-003-B, description: "Preview, apply, inspect, and customize each complete native project while preserving the shared deployment outputs and product behavior."}
+      behavior: {id: DEP-003-B, description: "Render, apply, inspect, and customize the Compose file and the Helm chart with their native tools while preserving the shared deployment outputs and product behavior."}
       failure: {id: DEP-003-F, description: "The Artifact Server CLI cannot proxy an infrastructure plan, hold infrastructure state, reinterpret provider errors, or require a hidden generated project."}
     deployments: *all
     status: specified

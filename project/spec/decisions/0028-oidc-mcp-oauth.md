@@ -130,8 +130,8 @@ server appears here.
   stay unset, so `/api/` keeps accepting managed API keys only. Advertising an
   authorization server for a resource that cannot accept its tokens would be a
   false promise.
-- Scope checks. The resource-bound audience grants MCP access, matching
-  rule MCP-011.
+- Scope checks. The resource-bound audience grants MCP access; no separate
+  product scope is required.
 - Dynamic client registration by Artifact Server. The issuer owns registration;
   Artifact Server only points clients at it.
 
