@@ -51,6 +51,10 @@ history.
   migrations 0001–0015 are unchanged and apply forward. SQLite schema 17 drops
   the same tables when a file opens. Mirror metadata is deleted; artifacts,
   versions, and bytes are untouched.
+- **Upgrade window.** Migration 0016 runs in the pre-upgrade migration Job,
+  before the rolling update replaces old pods. Until it does, old pods return
+  errors on publish and delete; retrying with the same idempotency key is safe.
+  Take a Postgres backup before upgrading.
 - **API.** `capabilities.gitHistory` disappears from `/api/v1/session` and
   `artifact_capabilities`; the `/api/v1/projects/:projectId/git-history` routes
   answer 404; the `project_git_history_status`, `project_git_history_estimate`,

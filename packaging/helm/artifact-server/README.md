@@ -90,6 +90,13 @@ second background loop. Configure or disable this trigger under `cleanup` in
 the values file. Disabling it is safe only when an operator runs the same
 `artifactserver maintenance cleanup-staging --once` command elsewhere.
 
+## Upgrading to 0.4
+
+Migration 0016 drops the Git-history tables in the pre-upgrade migration Job.
+Until the rolling update replaces the old pods, they return errors on publish
+and delete; retrying with the same idempotency key is safe. Take a Postgres
+backup before upgrading.
+
 ## Routing
 
 The Service is private `ClusterIP`. Choose one routing path:
