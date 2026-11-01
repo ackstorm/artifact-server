@@ -9,8 +9,8 @@
     "node": ">=24.12.0"
   },
   "schemaVersion": 1,
-  "sha256": "5fd86450e7a42e5378e23032c933125154da4f078da91b798fdaa2389c9cee6d",
-  "sizeBytes": 35144998,
+  "sha256": "510b81ca95c57c62a9a707d032cdc37aeea59b6d47cc62f958660dacde0a022e",
+  "sizeBytes": 31438453,
   "verification": {
     "node": "v24.15.0",
     "platform": "linux",
