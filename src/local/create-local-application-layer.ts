@@ -1147,9 +1147,6 @@ export function createApplicationLayer(
   );
 }
 
-/** Local composition name. */
-export const createLocalApplicationLayer = createApplicationLayer;
-
 function combineAbortSignals(
   fiberSignal: AbortSignal,
   deadlineSignal: AbortSignal | undefined,

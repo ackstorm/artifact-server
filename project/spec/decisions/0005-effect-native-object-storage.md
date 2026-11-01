@@ -47,7 +47,7 @@ The existing adapters and application services were reviewed:
 - `LocalStagingStore` already verifies uncommitted local uploads;
 - `PublishArtifactService`, `CompareArtifactService`, and content delivery
   already depend on narrow storage capabilities; and
-- `createLocalApplicationLayer` already converts outbound Promise failures into
+- `createApplicationLayer` already converts outbound Promise failures into
   typed Effect failures.
 
 The local adapters remain unchanged as the supported local implementation.

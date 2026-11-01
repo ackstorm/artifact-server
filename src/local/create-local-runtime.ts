@@ -29,7 +29,7 @@ import { LocalStagingStore } from "../storage/local-staging-store.js";
 import { SqliteArtifactRepository } from "../storage/sqlite-artifact-repository.js";
 import { SqliteIdentityRepository } from "../storage/sqlite-identity-repository.js";
 import {
-  createLocalApplicationLayer,
+  createApplicationLayer,
   type LinkedApplicationAdapters,
 } from "./create-local-application-layer.js";
 import {
@@ -164,7 +164,7 @@ export async function createLocalRuntime(
       }),
     ),
   );
-  let applicationAdapters: Parameters<typeof createLocalApplicationLayer>[0] = {
+  let applicationAdapters: Parameters<typeof createApplicationLayer>[0] = {
     apiToken: config.browserAccess.mode === browserAccessModes.localOwner
       ? apiToken
       : null,
@@ -199,7 +199,7 @@ export async function createLocalRuntime(
   if (linkedAdapters !== undefined) {
     applicationAdapters = {...applicationAdapters, linked: linkedAdapters};
   }
-  const applicationLayer = createLocalApplicationLayer(applicationAdapters);
+  const applicationLayer = createApplicationLayer(applicationAdapters);
   const telemetryLayer = config.observability === true
     ? otlpLayer({
       deploymentMode: "local",

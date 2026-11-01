@@ -18,7 +18,7 @@ import {
 } from "../../src/core/identity.js";
 import type {Clock} from "../../src/core/ports.js";
 import {SystemIdGenerator} from "../../src/core/system.js";
-import {createLocalApplicationLayer} from "../../src/local/create-local-application-layer.js";
+import {createApplicationLayer} from "../../src/local/create-local-application-layer.js";
 import {LocalBlobStore} from "../../src/storage/local-blob-store.js";
 import {LocalStagingStore} from "../../src/storage/local-staging-store.js";
 import {SqliteArtifactRepository} from "../../src/storage/sqlite-artifact-repository.js";
@@ -41,7 +41,7 @@ describe("staged upload lifecycle", () => {
     repository = new SqliteArtifactRepository(databasePath);
     identityRepository = new SqliteIdentityRepository(databasePath);
     staging = new LocalStagingStore(path.join(dataDirectory, "staging"));
-    runtime = ManagedRuntime.make(createLocalApplicationLayer({
+    runtime = ManagedRuntime.make(createApplicationLayer({
       apiToken: Redacted.make("test-api-token"),
       blobs,
       bootstrapAdministratorEmail: "admin@example.test",
@@ -118,7 +118,7 @@ describe("staged upload lifecycle", () => {
     );
     try {
       const foreignRuntime: ApplicationRuntime = ManagedRuntime.make(
-        createLocalApplicationLayer({
+        createApplicationLayer({
           apiToken: Redacted.make("foreign-api-token"),
           blobs: new LocalBlobStore(path.join(dataDirectory, "foreign-blobs")),
           bootstrapAdministratorEmail: "foreign-admin@example.test",
