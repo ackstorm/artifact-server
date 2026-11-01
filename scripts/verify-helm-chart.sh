@@ -127,6 +127,17 @@ helm template artifact-server "$artifactserver_chart" \
   --set ingress.applicationTlsSecretName=artifact-server-application-tls \
   --set ingress.contentTlsSecretName=artifact-server-content-tls >/dev/null
 
+# The Service named artifact-server makes Kubernetes inject
+# ARTIFACT_SERVER_PORT=tcp://<ip>:80 into every pod that keeps service links,
+# and the server reads that variable as its listening port.
+artifactserver_service_links=$(helm template artifact-server "$artifactserver_chart" \
+  --kube-version 1.36.0 "${artifactserver_values[@]}" | \
+  grep -c '^ *enableServiceLinks: false$' || true)
+if [[ "$artifactserver_service_links" != 3 ]]; then
+  echo "Deployment, migration Job, and cleanup CronJob must disable service links; found $artifactserver_service_links." >&2
+  exit 1
+fi
+
 expect_render_failure() {
   local artifactserver_expected=$1
   shift
