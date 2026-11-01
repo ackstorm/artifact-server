@@ -1557,7 +1557,7 @@
           <div class="hero-meta">
             <span>August 15, 2026</span>
             <span>Product proposal</span>
-            <span>Local, server, Kubernetes, Cloudflare, AWS, GCP</span>
+            <span>Local, server, Kubernetes</span>
           </div>
         </div>
       </div>
@@ -1597,7 +1597,7 @@
           </article>
           <article class="answer">
             <span class="answer-label">Deployment</span>
-            <p class="answer-value">The same product rules run locally, on one server, on Kubernetes, or on Cloudflare. AWS and GCP have direct installers. Azure teams use the Kubernetes release on AKS; there is no separate Azure installer.</p>
+            <p class="answer-value">The same product rules run locally, on one server, or on Kubernetes. Azure teams use the Kubernetes release on AKS; there is no separate Azure installer.</p>
           </article>
           <article class="answer">
             <span class="answer-label">Not included</span>
@@ -2319,7 +2319,7 @@
               <h3>Private servers require a route</h3>
               <div class="feature-copy">
                 <p>
-                  Hosted and publicly reachable servers connect from the approval screen. A server
+                  Publicly reachable servers connect from the approval screen. A server
                   inside a private network also needs a customer-provided route or an outbound-only
                   connector limited to Artifact Server. The connection does not change firewall
                   rules or provide general access to the private network.
@@ -2419,7 +2419,7 @@
                     <rect class="svg-node-store" x="260" y="236" width="190" height="100" rx="8"></rect>
                     <text class="svg-title" x="280" y="268">Records</text>
                     <text class="svg-copy" x="280" y="292">Artifacts, versions, access</text>
-                    <text class="svg-small" x="280" y="316">SQLite · Postgres · D1</text>
+                    <text class="svg-small" x="280" y="316">SQLite · Postgres</text>
 
                     <rect class="svg-node-store" x="498" y="236" width="202" height="100" rx="8"></rect>
                     <text class="svg-title" x="518" y="268">Published files</text>
@@ -2677,7 +2677,7 @@ ARTIFACT_SERVER_GIT_HISTORY_PROVIDER=cloudflare-artifacts</code></pre>
             <details>
               <summary>How isolated version addresses and private delivery work</summary>
               <div class="detail-body">
-                <p>Hosted deployments use an application address plus a unique content host for each saved version:</p>
+                <p>Deployments use an application address plus a unique content host for each saved version:</p>
                 <pre><code>app.example.com
 v12-7f3a.content.example.net</code></pre>
                 <p>
@@ -2776,7 +2776,7 @@ v12-7f3a.content.example.net</code></pre>
               </thead>
               <tbody>
                 <tr><td>Local laptop</td><td>Install Artifact Server and run <code>artifactserver connect</code>. No browser, Docker, visible token, copied key, or startup-log step.</td></tr>
-                <tr><td>Hosted or team server with compatible MCP OAuth</td><td>Add the server's <code>/mcp</code> address, approve sign-in in the browser, then return to the AI client.</td></tr>
+                <tr><td>Team server with compatible MCP OAuth</td><td>Add the server's <code>/mcp</code> address, approve sign-in in the browser, then return to the AI client.</td></tr>
                 <tr><td>Private-network server with compatible MCP OAuth</td><td>Connect to the company network or VPN first, then use the same address and browser approval. Sign-in does not change network access.</td></tr>
                 <tr><td>Self-hosted server without compatible MCP OAuth</td><td>An administrator creates a scoped API key in an administration interface or CLI. Keys never come from startup logs.</td></tr>
                 <tr><td>CI or unattended agents</td><td>An administrator creates a scoped service key and puts it in the deployment's secret manager. No browser is involved.</td></tr>
@@ -2799,8 +2799,8 @@ v12-7f3a.content.example.net</code></pre>
             <div class="architecture-top">
               <strong class="architecture-title" id="mcp-auth-diagram-title">Remote connection and browser sign-in</strong>
               <p class="architecture-caption">
-                Artifact Server tells the client where to sign in. WorkOS is the proposed hosted
-                service. A private installation can use another compatible authorization service.
+                Artifact Server tells the client where to sign in. A private installation uses a
+                compatible authorization service.
               </p>
             </div>
             <div class="diagram-shell">
@@ -2854,8 +2854,8 @@ v12-7f3a.content.example.net</code></pre>
                   <rect class="svg-boundary-optional" x="758" y="54" width="254" height="304" rx="12"></rect>
                   <rect class="svg-node-auth" x="782" y="84" width="206" height="92" rx="8"></rect>
                   <text class="svg-title" x="802" y="116">Browser sign-in</text>
-                  <text class="svg-copy" x="802" y="140">WorkOS for hosted service</text>
-                  <text class="svg-small" x="802" y="159">or a compatible private service</text>
+                  <text class="svg-copy" x="802" y="140">A compatible authorization service</text>
+                  <text class="svg-small" x="802" y="159">such as a company OIDC issuer</text>
                   <rect class="svg-node-auth" x="782" y="216" width="206" height="92" rx="8"></rect>
                   <text class="svg-title" x="802" y="248">Issue credential</text>
                   <text class="svg-copy" x="802" y="272">Only for this /mcp address</text>
@@ -2970,7 +2970,7 @@ v12-7f3a.content.example.net</code></pre>
                 target's native tool for infrastructure.
               </p>
               <ul>
-                <li>Read only the instructions for the selected target: laptop, server, Kubernetes, Cloudflare, AWS, or GCP. Azure uses the Kubernetes instructions for AKS.</li>
+                <li>Read only the instructions for the selected target: laptop, server, or Kubernetes. Azure uses the Kubernetes instructions for AKS.</li>
                 <li>Show the proposed change before applying it and verify health after it finishes.</li>
                 <li>Require administrator access. It does not gain infrastructure access through the publishing MCP connection.</li>
                 <li>Load only for an explicit request because its actions can change running infrastructure.</li>
@@ -2994,7 +2994,7 @@ v12-7f3a.content.example.net</code></pre>
               <div class="diagram-scroll">
                 <svg class="architecture-diagram skill-diagram" viewBox="0 0 1040 430" role="img" aria-labelledby="skill-flow-title skill-flow-desc">
                   <title id="skill-flow-title">Agent Skill workflow</title>
-                  <desc id="skill-flow-desc">A routine artifact request activates the artifact-server skill and its artifact reference. The skill finds the intended local or team server. It uses the Artifact Server command-line program for files on the user's computer and MCP or the command-line program for information already on the server. An explicit administrator request activates the same skill and its server-operation reference, which uses Compose, Helm, Alchemy, or Pulumi directly.</desc>
+                  <desc id="skill-flow-desc">A routine artifact request activates the artifact-server skill and its artifact reference. The skill finds the intended local or team server. It uses the Artifact Server command-line program for files on the user's computer and MCP or the command-line program for information already on the server. An explicit administrator request activates the same skill and its server-operation reference, which uses Compose or Helm directly.</desc>
                   <defs>
                     <marker id="skill-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="strokeWidth">
                       <path d="M0,0 L8,4 L0,8 Z" style="fill: var(--code-ink)"></path>
@@ -3026,16 +3026,16 @@ v12-7f3a.content.example.net</code></pre>
                   <rect class="svg-boundary-optional" x="28" y="258" width="984" height="132" rx="12"></rect>
                   <rect class="svg-node" x="52" y="286" width="156" height="76" rx="8"></rect>
                   <text class="svg-title" x="72" y="316">Admin request</text>
-                  <text class="svg-copy" x="72" y="339">“Deploy to GCP”</text>
+                  <text class="svg-copy" x="72" y="339">“Deploy to Kubernetes”</text>
                   <rect class="svg-node-auth" x="260" y="286" width="188" height="76" rx="8"></rect>
                   <text class="svg-title" x="280" y="316">artifact-server</text>
                   <text class="svg-copy" x="280" y="339">Loads operation reference</text>
                   <rect class="svg-node" x="500" y="286" width="188" height="76" rx="8"></rect>
                   <text class="svg-title" x="520" y="316">Native tool</text>
-                  <text class="svg-copy" x="520" y="339">Compose · Helm · Alchemy · Pulumi</text>
+                  <text class="svg-copy" x="520" y="339">Compose · Helm</text>
                   <rect class="svg-node-store" x="740" y="286" width="248" height="76" rx="8"></rect>
                   <text class="svg-title" x="760" y="316">Target infrastructure</text>
-                  <text class="svg-copy" x="760" y="339">Server · Kubernetes · cloud</text>
+                  <text class="svg-copy" x="760" y="339">Server · Kubernetes</text>
                   <path class="svg-line-optional" d="M208 324 H260" marker-end="url(#skill-arrow-optional)"></path>
                   <path class="svg-line-optional" d="M448 324 H500" marker-end="url(#skill-arrow-optional)"></path>
                   <path class="svg-line-optional" d="M688 324 H740" marker-end="url(#skill-arrow-optional)"></path>
@@ -3132,7 +3132,7 @@ v12-7f3a.content.example.net</code></pre>
                   user's computer, and calls <code>artifact_capabilities</code> before choosing a
                   server-supported upload path. Operations that only need information already on
                   the server may use MCP or the command-line program. The same installed skill therefore works with
-                  a laptop, private server, Kubernetes, or hosted service.
+                  a laptop, private server, or Kubernetes.
                 </p>
                 <p>
                   The command-line program owns its authenticated server profile and hides the
@@ -3168,11 +3168,6 @@ v12-7f3a.content.example.net</code></pre>
                       </tr>
                     </thead>
                     <tbody>
-                      <tr>
-                        <td>Hosted Artifact Server</td>
-                        <td>WorkOS AuthKit</td>
-                        <td>Add the server address, sign in and approve in the browser, then return to the AI client.</td>
-                      </tr>
                       <tr>
                         <td>Private or self-hosted server</td>
                         <td>Server API key</td>
@@ -3212,35 +3207,6 @@ v12-7f3a.content.example.net</code></pre>
                   <li>Modern <code>GET /mcp</code> and <code>DELETE /mcp</code> return 405. Older MCP behavior is an isolated, optional compatibility path.</li>
                   <li>Every durable change has an application idempotency key. A change to an existing artifact also includes the version the caller started from. A broken connection cannot silently publish twice or overwrite newer work.</li>
                 </ul>
-              </div>
-            </details>
-            <details>
-              <summary>Hosted OAuth and Artifact Server's responsibility</summary>
-              <div class="detail-body">
-                <p>
-                  In the hosted service, WorkOS owns the authorization page, approval screen,
-                  authorization codes, client registration, access credentials, renewal, and revoke
-                  behavior. Artifact Server remains the protected service. It publishes the standard
-                  metadata that tells clients where to sign in and verifies every credential before an MCP request reaches product code.
-                </p>
-                <p>
-                  The credential must name the exact Artifact Server MCP address as its audience.
-                  WorkOS identity scopes do not grant artifact permissions. Artifact Server also verifies the issuer,
-                  signature, expiry, and user, then maps that user to an account admitted to this
-                  installation. Artifact Server does not copy WorkOS organizations into a second
-                  organization system. The same membership and service-capability checks used by the
-                  browser still apply.
-                </p>
-                <p>
-                  The hosted authorization service enables Client ID Metadata Documents first and
-                  keeps Dynamic Client Registration temporarily for clients that still require it.
-                  Authorization uses the browser authorization-code flow with S256 PKCE. WorkOS
-                  credentials never pass to file storage, background workers, or published websites.
-                </p>
-                <p>
-                  The exact wire behavior, metadata, token checks, self-hosted modes, and release
-                  test matrix are recorded in the <a href="artifact-server-mcp-baseline.md">Artifact Server MCP engineering baseline</a>.
-                </p>
               </div>
             </details>
             <details>
@@ -3329,120 +3295,9 @@ artifact_delete</code></pre>
             </article>
             <article class="deployment-item">
               <h3>First release: private team</h3>
-              <p>Compact Compose runs one container with SQLite and attached disk. External-storage Compose uses the same image with existing Postgres and object storage, and it can run multiple application processes. Each teammate signs in through the installation's configured OpenID Connect or WorkOS provider.</p>
-            </article>
-            <article class="deployment-item">
-              <h3>Cloudflare</h3>
-              <p>Cloudflare Workers, D1 records, R2 files, nearby copies of public files, and off-by-default Cloudflare Artifacts handoff.</p>
-            </article>
-            <article class="deployment-item">
-              <h3>AWS, GCP, and Azure</h3>
-              <p>AWS uses ECS Fargate, RDS PostgreSQL, and S3. GCP uses Cloud Run, Cloud SQL PostgreSQL, and Google Cloud Storage. Azure teams use the Helm chart on AKS.</p>
+              <p>Compact Compose runs one container with SQLite and attached disk. External-storage Compose uses the same image with existing Postgres and object storage, and it can run multiple application processes. Each teammate signs in through the installation's configured OpenID Connect or WorkOS provider. Azure teams use the Helm chart on AKS.</p>
             </article>
           </div>
-
-          <p class="section-note">
-            Each standalone deployment is one installation for one person or team. The hosted
-            artifactserver.com service may run many isolated installations on shared Cloudflare
-            infrastructure. The installation identity comes from trusted authentication and routing,
-            never from a caller-supplied filter. Tenant-scoped storage APIs, composite keys, cache
-            keys, signed links, background jobs, backups, and restore tests enforce the boundary.
-          </p>
-
-          <figure class="architecture" aria-labelledby="deployment-diagram-title">
-            <div class="architecture-top">
-              <strong class="architecture-title" id="deployment-diagram-title">One product, four runtime shapes</strong>
-              <p class="architecture-caption">
-                Product rules, artifact IDs, version behavior, comparisons, links, and permissions
-                stay the same. Only the runtime and storage adapters change.
-              </p>
-            </div>
-            <div class="diagram-shell">
-              <div class="diagram-heading">
-                <strong>Deployment map</strong>
-                <span>Git handoff is off by default in every column.</span>
-              </div>
-              <div class="diagram-scroll">
-                <svg class="architecture-diagram" viewBox="0 0 1040 520" role="img" aria-labelledby="deployment-map-title deployment-map-desc">
-                  <title id="deployment-map-title">Deployment architecture map</title>
-                  <desc id="deployment-map-desc">The same Artifact Server product rules connect to different application runtimes, databases, file stores, and optional Git providers on a laptop, one server, Kubernetes, and Cloudflare. AWS and GCP use direct managed-cloud packages. Azure uses the Kubernetes shape on AKS.</desc>
-                  <defs>
-                    <marker id="deployment-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="strokeWidth">
-                      <path d="M0,0 L8,4 L0,8 Z" fill="currentColor"></path>
-                    </marker>
-                  </defs>
-
-                  <rect class="svg-node-primary" x="300" y="24" width="440" height="84" rx="10"></rect>
-                  <text class="svg-label" x="324" y="49">SHARED CORE</text>
-                  <text class="svg-title" x="324" y="76">Publish · versions · compare · share · permissions · MCP</text>
-                  <text class="svg-copy" x="324" y="96">The same tests and visible behavior run in every deployment.</text>
-
-                  <path class="svg-line" d="M520 108 V142 H142 V174" marker-end="url(#deployment-arrow)"></path>
-                  <path class="svg-line" d="M520 108 V142 H394 V174" marker-end="url(#deployment-arrow)"></path>
-                  <path class="svg-line" d="M520 108 V142 H646 V174" marker-end="url(#deployment-arrow)"></path>
-                  <path class="svg-line" d="M520 108 V142 H898 V174" marker-end="url(#deployment-arrow)"></path>
-
-                  <rect class="svg-boundary" x="22" y="174" width="240" height="318" rx="12"></rect>
-                  <text class="svg-label" x="44" y="204">LAPTOP</text>
-                  <rect class="svg-node" x="44" y="226" width="196" height="56" rx="7"></rect>
-                  <text class="svg-title" x="62" y="251">Direct host process</text>
-                  <text class="svg-copy" x="62" y="269">Docker optional</text>
-                  <rect class="svg-node-store" x="44" y="300" width="196" height="68" rx="7"></rect>
-                  <text class="svg-title" x="62" y="328">SQLite</text>
-                  <text class="svg-copy" x="62" y="349">Artifact records</text>
-                  <rect class="svg-node-store" x="44" y="386" width="196" height="68" rx="7"></rect>
-                  <text class="svg-title" x="62" y="414">Local disk</text>
-                  <text class="svg-copy" x="62" y="435">Published files</text>
-                  <path class="svg-line" d="M112 282 V300" marker-end="url(#deployment-arrow)"></path>
-                  <path class="svg-line" d="M172 282 H248 V420 H240" marker-end="url(#deployment-arrow)"></path>
-
-                  <rect class="svg-boundary" x="274" y="174" width="240" height="318" rx="12"></rect>
-                  <text class="svg-label" x="296" y="204">ONE SERVER</text>
-                  <rect class="svg-node" x="296" y="226" width="196" height="56" rx="7"></rect>
-                  <text class="svg-title" x="314" y="259">Artifact Server container</text>
-                  <rect class="svg-node-store" x="296" y="300" width="196" height="68" rx="7"></rect>
-                  <text class="svg-title" x="314" y="328">Compact profile</text>
-                  <text class="svg-copy" x="314" y="349">SQLite + persistent disk</text>
-                  <rect class="svg-node-store" x="296" y="386" width="196" height="68" rx="7"></rect>
-                  <text class="svg-title" x="314" y="414">External storage</text>
-                  <text class="svg-copy" x="314" y="435">Postgres + S3-compatible</text>
-                  <path class="svg-line" d="M364 282 V300" marker-end="url(#deployment-arrow)"></path>
-                  <path class="svg-line" d="M424 282 H500 V420 H492" marker-end="url(#deployment-arrow)"></path>
-
-                  <rect class="svg-boundary" x="526" y="174" width="240" height="318" rx="12"></rect>
-                  <text class="svg-label" x="548" y="204">KUBERNETES</text>
-                  <rect class="svg-node" x="548" y="226" width="196" height="56" rx="7"></rect>
-                  <text class="svg-title" x="566" y="251">Stateless application</text>
-                  <text class="svg-copy" x="566" y="269">Multiple containers</text>
-                  <rect class="svg-node-store" x="548" y="300" width="196" height="68" rx="7"></rect>
-                  <text class="svg-title" x="566" y="328">Postgres + S3-compatible</text>
-                  <text class="svg-copy" x="566" y="349">External records and files</text>
-                  <rect class="svg-boundary-optional" x="548" y="386" width="196" height="68" rx="7"></rect>
-                  <text class="svg-title" x="566" y="414">Cloudflare Artifacts</text>
-                  <text class="svg-copy" x="566" y="435">Optional through REST</text>
-                  <path class="svg-line" d="M616 282 V300" marker-end="url(#deployment-arrow)"></path>
-                  <path class="svg-line-optional" d="M676 282 H752 V420 H744" marker-end="url(#deployment-arrow)"></path>
-
-                  <rect class="svg-boundary" x="778" y="174" width="240" height="318" rx="12"></rect>
-                  <text class="svg-label" x="800" y="204">CLOUDFLARE</text>
-                  <rect class="svg-node" x="800" y="226" width="196" height="56" rx="7"></rect>
-                  <text class="svg-title" x="818" y="259">Cloudflare Workers</text>
-                  <rect class="svg-node-store" x="800" y="300" width="196" height="68" rx="7"></rect>
-                  <text class="svg-title" x="818" y="328">D1 + R2</text>
-                  <text class="svg-copy" x="818" y="349">Records and published files</text>
-                  <rect class="svg-boundary-optional" x="800" y="386" width="196" height="68" rx="7"></rect>
-                  <text class="svg-title" x="818" y="414">Cloudflare Artifacts</text>
-                  <text class="svg-copy" x="818" y="435">Optional Workers binding</text>
-                  <path class="svg-line" d="M868 282 V300" marker-end="url(#deployment-arrow)"></path>
-                  <path class="svg-line-optional" d="M928 282 H1004 V420 H996" marker-end="url(#deployment-arrow)"></path>
-                </svg>
-              </div>
-              <div class="diagram-legend" aria-label="Deployment diagram legend">
-                <span><i class="diagram-key" aria-hidden="true"></i>Required component</span>
-                <span><i class="diagram-key optional" aria-hidden="true"></i>Off-by-default Git handoff</span>
-              </div>
-            </div>
-          </figure>
 
           <div class="table-wrap" role="region" aria-label="Deployment comparison" tabindex="0">
             <table class="deployment-table">
@@ -3489,30 +3344,6 @@ artifact_delete</code></pre>
                   <td>Off by default; Cloudflare Artifacts through REST when explicitly configured</td>
                   <td>Normally no</td>
                 </tr>
-                <tr>
-                  <td>Cloudflare</td>
-                  <td>Cloudflare Workers</td>
-                  <td>D1</td>
-                  <td>Cloudflare R2</td>
-                  <td>Off by default; Cloudflare Artifacts through the Workers binding when explicitly configured</td>
-                  <td>No</td>
-                </tr>
-                <tr>
-                  <td>AWS</td>
-                  <td>ECS Fargate</td>
-                  <td>RDS PostgreSQL</td>
-                  <td>Amazon S3</td>
-                  <td>Off by default; Cloudflare Artifacts through REST when explicitly configured</td>
-                  <td>No</td>
-                </tr>
-                <tr>
-                  <td>GCP</td>
-                  <td>Cloud Run</td>
-                  <td>Cloud SQL PostgreSQL</td>
-                  <td>Google Cloud Storage</td>
-                  <td>Off by default; Cloudflare Artifacts through REST when explicitly configured</td>
-                  <td>No</td>
-                </tr>
               </tbody>
             </table>
           </div>
@@ -3524,19 +3355,14 @@ artifact_delete</code></pre>
                 <p>
                   The product ships as a downloadable local package that does not require Docker,
                   one optional container image, Compact Compose and External-storage Compose for one server,
-                  a Helm chart for Kubernetes, a pinned Alchemy project for Cloudflare,
-                  and pinned Pulumi projects for AWS and GCP. Operators use Compose,
-                  Helm, Alchemy, or Pulumi directly. Artifact Server does not hide their plans
-                  behind another deployment command. Each package emits the same required URLs,
-                  resource IDs, and secret-free support information.
+                  and a Helm chart for Kubernetes. Operators use Compose or Helm directly.
+                  Artifact Server does not hide their plans behind another deployment command.
                 </p>
                 <p>
                   Teams that already run Kubernetes use the Helm chart on EKS, GKE, AKS, or their
                   own cluster. The chart installs only Artifact Server and connects to the team's
-                  existing Postgres, file storage, secrets, DNS, TLS, and Ingress or Gateway. The
-                  AWS and GCP Pulumi projects are turnkey alternatives for teams that do not
-                  want to operate Kubernetes. Azure teams use the same Helm chart on AKS. The AWS
-                  default uses ECS Fargate; it does not create or replace an existing EKS cluster.
+                  existing Postgres, file storage, secrets, DNS, TLS, and Ingress or Gateway. Azure
+                  teams use the same Helm chart on AKS.
                 </p>
                 <p>
                   Browser login and MCP authorization are separate protocols even when they use the
@@ -3564,50 +3390,20 @@ artifact_delete</code></pre>
                   <li><strong>One server, compact:</strong> one process, SQLite in write-ahead logging mode, and one persistent data directory. Cloudflare Artifacts may be configured through REST. This profile does not support multiple application writers or claim failover.</li>
                   <li><strong>One server, external storage:</strong> the same image connected to existing Postgres and object storage through a supported adapter. The Compose package does not bundle those providers.</li>
                   <li><strong>Kubernetes:</strong> Postgres plus S3, Google Cloud Storage, R2, a tested compatible object store, or the preview Azure Blob adapter. Cloudflare Artifacts may be configured through REST. This is the official Azure path on AKS.</li>
-                  <li><strong>Cloudflare:</strong> Workers for the application, D1 for records, R2 for files, and off-by-default Cloudflare Artifacts handoff through a configured Workers binding. External Postgres is supported through a separate adapter but is not the default.</li>
-                  <li><strong>AWS:</strong> ECS Fargate, RDS PostgreSQL, and S3 through the AWS Pulumi project.</li>
-                  <li><strong>GCP:</strong> Cloud Run, Cloud SQL PostgreSQL, and native Google Cloud Storage through the GCP Pulumi project.</li>
                 </ul>
                 <p>
                   The storage boundary uses product operations such as “publish this version only
                   if the current version has not changed,” not a generic function that sends raw SQL
-                  to any database. SQLite/D1 and Postgres keep their own migrations, indexes,
+                  to any database. SQLite and Postgres keep their own migrations, indexes,
                   transactions, and optimized queries. External-storage tests prove that publishing, access,
                   versions, and cleanup behave the same.
                 </p>
                 <p>
-                  The first external-storage package supports AWS S3 and Cloudflare R2 through its S3 adapter.
+                  The first external-storage package supports AWS S3 and S3-compatible stores such as R2 through its S3 adapter.
                   Another S3-compatible service is supported only after it passes the same storage
-                  contract tests. Native Google Cloud Storage ships with the GCP package. The Azure
+                  contract tests. Native Google Cloud Storage is a first-party adapter. The Azure
                   Blob adapter is preview-only until a live Azure qualification passes. Adding an
                   adapter does not change artifact or version rules.
-                </p>
-              </div>
-            </details>
-            <details>
-              <summary>What every cloud package receives and returns</summary>
-              <div class="detail-body">
-                <p>
-                  Every package receives the installation name, environment, region, pinned
-                  application image, application domain, separate content domain, initial
-                  administrator email, public or private ingress choice, replica limits, CPU,
-                  memory, database size, backup retention, deletion protection, network choice,
-                  and optional WorkOS and telemetry references. Secret inputs are references to
-                  the provider secret manager, not secret values in ordinary configuration.
-                </p>
-                <p>
-                  Every successful deployment returns the installation ID, application, MCP,
-                  health, and readiness addresses, content domain, deployed image digest, runtime,
-                  database, file-store, workload-identity, network, and secret resource IDs, log
-                  destination, infrastructure-state location, and support-manifest location. It
-                  never returns a password, API key, access token, signed file address, or cloud
-                  credential.
-                </p>
-                <p>
-                  Pulumi projects require an existing state backend or Pulumi Cloud and a selected
-                  secrets provider. The Cloudflare project uses Alchemy's Cloudflare state store
-                  for team and automated deployments. The main application stack does not create
-                  the bucket that contains its own infrastructure state.
                 </p>
               </div>
             </details>
@@ -3624,124 +3420,7 @@ artifact_delete</code></pre>
                   application address and the wildcard content address. Caddy is the documented
                   example only when the team has no existing reverse proxy. Nginx, Traefik, HAProxy,
                   or a company gateway can be used when it passes the same routing, upload, and TLS
-                  tests. Kubernetes uses its Ingress or Gateway. Cloudflare and managed-cloud
-                  packages use their provider edge. Those deployments do not run Caddy.
-                </p>
-              </div>
-            </details>
-            <details>
-              <summary>Why D1 is the Cloudflare launch default and what must be proven before it grows</summary>
-              <div class="detail-body">
-                <p>
-                  D1 stores small relational records: installations, accounts, artifacts, saved
-                  versions, file paths, fingerprints, access settings, credentials, and cleanup
-                  state. R2 stores the artifact files. An artifact file never goes into D1.
-                </p>
-                <p>
-                  The hosted service starts with one production D1 database. The authenticated
-                  installation identity is bound before product code reaches storage. Composite
-                  database keys, R2 prefixes, cache keys, signed links, jobs, backups, and restore
-                  paths all include that trusted identity through a tenant-scoped storage API.
-                  Remembering to add an <code>installation_id</code> filter is not an adequate boundary.
-                </p>
-
-                <div class="diagram-shell">
-                  <div class="diagram-heading">
-                    <strong>Hosted storage growth</strong>
-                    <span>Start with one D1 database. Choose and test a control plane before adding another.</span>
-                  </div>
-                  <div class="diagram-scroll">
-                    <svg class="architecture-diagram" viewBox="0 0 1040 430" role="img" aria-labelledby="hosted-growth-title hosted-growth-desc">
-                      <title id="hosted-growth-title">The hosted Artifact Server launch shape and possible D1 growth path</title>
-                      <desc id="hosted-growth-desc">People and agents call one Cloudflare Worker. Trusted routing binds an installation to one D1 database and tenant-scoped R2 prefix. The service starts with D1 database zero. A tested directory and binding rollout or external Postgres decision is required before adding another database.</desc>
-                      <defs>
-                        <marker id="hosted-shard-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="strokeWidth">
-                          <path d="M0,0 L8,4 L0,8 Z" fill="currentColor"></path>
-                        </marker>
-                      </defs>
-
-                      <text class="svg-label" x="28" y="42">CALLERS</text>
-                      <rect class="svg-node" x="28" y="70" width="170" height="96" rx="8"></rect>
-                      <text class="svg-title" x="48" y="104">People and agents</text>
-                      <text class="svg-copy" x="48" y="128">Browser · MCP · HTTP</text>
-                      <text class="svg-small" x="48" y="148">One installation ID per request</text>
-
-                      <rect class="svg-boundary" x="244" y="38" width="250" height="322" rx="14"></rect>
-                      <text class="svg-label" x="268" y="68">CLOUDFLARE WORKER</text>
-                      <rect class="svg-node-primary" x="268" y="94" width="202" height="88" rx="8"></rect>
-                      <text class="svg-title" x="288" y="126">Artifact Server</text>
-                      <text class="svg-copy" x="288" y="150">Authenticate and apply</text>
-                      <text class="svg-copy" x="288" y="168">product rules</text>
-                      <rect class="svg-node" x="268" y="220" width="202" height="96" rx="8"></rect>
-                      <text class="svg-title" x="288" y="252">Select storage</text>
-                      <text class="svg-copy" x="288" y="276">Bind trusted installation to</text>
-                      <text class="svg-copy" x="288" y="296">a database and R2 prefix</text>
-
-                      <rect class="svg-boundary" x="550" y="38" width="214" height="142" rx="12"></rect>
-                      <text class="svg-label" x="574" y="68">START HERE</text>
-                      <rect class="svg-node-store" x="574" y="92" width="166" height="64" rx="8"></rect>
-                      <text class="svg-title" x="594" y="120">D1 database 0</text>
-                      <text class="svg-copy" x="594" y="142">Installation records</text>
-
-                      <rect class="svg-boundary-optional" x="550" y="218" width="214" height="142" rx="12"></rect>
-                      <text class="svg-label" x="574" y="248">REQUIRES A CONTROL PLANE</text>
-                      <rect class="svg-node-store" x="574" y="272" width="166" height="64" rx="8"></rect>
-                      <text class="svg-title" x="594" y="300">D1 database 1+</text>
-                      <text class="svg-copy" x="594" y="322">Possible new installations</text>
-
-                      <rect class="svg-boundary" x="812" y="98" width="200" height="202" rx="12"></rect>
-                      <text class="svg-label" x="836" y="128">ARTIFACT FILES</text>
-                      <rect class="svg-node-store" x="836" y="152" width="152" height="112" rx="8"></rect>
-                      <text class="svg-title" x="856" y="184">R2 bucket</text>
-                      <text class="svg-copy" x="856" y="208">Immutable files</text>
-                      <text class="svg-small" x="856" y="232">Key begins with</text>
-                      <text class="svg-small" x="856" y="248">installations/{id}/</text>
-
-                      <path class="svg-line" d="M198 118 H244" marker-end="url(#hosted-shard-arrow)"></path>
-                      <path class="svg-line" d="M470 252 H520 V124 H574" marker-end="url(#hosted-shard-arrow)"></path>
-                      <path class="svg-line-optional" d="M470 276 H520 V304 H574" marker-end="url(#hosted-shard-arrow)"></path>
-                      <path class="svg-line" d="M470 292 H788 V208 H836" marker-end="url(#hosted-shard-arrow)"></path>
-                    </svg>
-                  </div>
-                  <div class="diagram-legend" aria-label="Hosted growth diagram legend">
-                    <span><i class="diagram-key" aria-hidden="true"></i>Used at launch</span>
-                    <span><i class="diagram-key optional" aria-hidden="true"></i>Added after measured need</span>
-                  </div>
-                </div>
-
-                <p>
-                  The proposal does not claim that adding D1 databases is automatic. Before a
-                  second database, the team must choose and load-test either a D1 directory plus
-                  safe binding rollout or an external Postgres control plane. That decision must
-                  cover provisioning, tenant moves, retries, backups, restore, and rollback.
-                </p>
-                <p>
-                  D1 has a hard 10 GB limit per paid database and processes writes through one
-                  primary database. Global read replicas can reduce read latency when the Sessions
-                  API is used, but they do not scale writes. Artifact metadata remains much smaller
-                  than the files in R2. Measurements decide whether D1 sharding or external Postgres
-                  is the safer growth path.
-                </p>
-                <p>
-                  D1 scales to zero and includes substantial monthly reads and writes on Workers
-                  Paid. R2 stores Standard files for $0.015 per GB-month beyond the included
-                  allowance and does not charge for internet data transfer. External Postgres would
-                  add another provider, region, connection pool, credentials, backups, and another
-                  network failure path.
-                </p>
-                <p>Publishing across D1 and R2 follows this order:</p>
-                <ol>
-                  <li>Upload each file to a unique staging key.</li>
-                  <li>Verify size and fingerprint, then create the final blob without overwriting an existing object.</li>
-                  <li>Commit the manifest and version in D1 only if the current version is still the expected version.</li>
-                  <li>Return the recorded result when the same idempotency key is retried.</li>
-                  <li>Delete only expired staging uploads in the first release. Keep committed and orphaned blobs until a concurrency-safe garbage collector exists.</li>
-                </ol>
-                <p>
-                  Current platform references: <a href="https://developers.cloudflare.com/d1/platform/limits/">D1 limits</a>,
-                  <a href="https://developers.cloudflare.com/d1/platform/pricing/">D1 pricing</a>,
-                  <a href="https://developers.cloudflare.com/d1/best-practices/read-replication/">D1 global read replication</a>,
-                  and <a href="https://developers.cloudflare.com/r2/pricing/">R2 pricing</a>.
+                  tests. Kubernetes uses its Ingress or Gateway and does not run Caddy.
                 </p>
               </div>
             </details>
@@ -3804,7 +3483,7 @@ artifact_delete</code></pre>
             <article class="feature-row">
               <h3>Server policy</h3>
               <div class="feature-copy">
-                <p>Administrators control login, whether public links are allowed, file limits, retention, network rules, and accepted file types. A future hosted-service operator may separately define abuse reports, phishing and malware response, quotas, egress limits, and content-domain reputation; those policies are not core OSS release requirements.</p>
+                <p>Administrators control login, whether public links are allowed, file limits, retention, network rules, and accepted file types.</p>
               </div>
             </article>
           </div>
@@ -3833,7 +3512,7 @@ artifact_delete</code></pre>
                 <li>An optional connection from one Artifact Server installation to one Plannotator organization, including signed operation requests and temporary browser sessions.</li>
                 <li>An explicit Plannotator review response that may add a credential-free review bridge without changing the stored artifact.</li>
                 <li>One portable <code>artifact-server</code> skill with separate artifact and explicit server-operation references.</li>
-                <li>Local, one-server, Kubernetes, Cloudflare, AWS, and GCP deployment packages delivered in stages. AKS uses the Kubernetes package.</li>
+                <li>Local, one-server, and Kubernetes deployment packages delivered in stages. AKS uses the Kubernetes package.</li>
               </ul>
             </article>
             <article class="scope-panel no-panel">
@@ -3929,32 +3608,6 @@ artifact_delete</code></pre>
                 </p>
               </div>
             </article>
-            <article class="roadmap-item">
-              <span class="roadmap-stage">Then</span>
-              <div class="roadmap-copy">
-                <h3>The optional Cloudflare deployment</h3>
-                <p>
-                  Add Cloudflare Workers, D1 records, R2 file storage, and the optional Cloudflare
-                  Artifacts provider. Enforce tenant-scoped storage from trusted routing. Start the
-                  hosted service with one D1 database. Before a second database, select and test a
-                  D1 directory and binding rollout or external Postgres control plane. Copy to Git only after the normal
-                  saved version is complete, and retry temporary failures. Verify file delivery with
-                  and without an account, upload limits, complete website behavior, comparisons, and signed-in MCP access over the web.
-                </p>
-              </div>
-            </article>
-            <article class="roadmap-item">
-              <span class="roadmap-stage">After</span>
-              <div class="roadmap-copy">
-                <h3>Official AWS and GCP packages</h3>
-                <p>
-                  Ship direct, pinned Pulumi projects for ECS Fargate on AWS and Cloud Run on GCP,
-                  with managed PostgreSQL and each provider's native object store. Test install,
-                  upgrade, rollback, backup, restore, private networking, and removal independently
-                  for each provider. Do not claim a provider is supported until those tests pass.
-                </p>
-              </div>
-            </article>
           </div>
 
           <div class="disclosure-stack">
@@ -3964,9 +3617,7 @@ artifact_delete</code></pre>
                 <ul>
                   <li><strong>Local:</strong> <code>artifactserver connect</code> works in every advertised local client without browser sign-in, Docker, a visible key, copied secret, or log inspection; one service then publishes one file and a complete static site, opens the unique version host, compares versions without Git, retries safely, and survives a restart.</li>
                   <li><strong>Private team:</strong> account-required subresources load, forbidden mutations fail, backup and restore preserve IDs, and cross-tenant and hostile-path tests pass on one server and Kubernetes.</li>
-                  <li><strong>Optional Cloudflare package:</strong> WorkOS MCP sign-in, R2 staged uploads, D1 transactions, public cache purge, private no-cache delivery, tenant isolation, and a restore drill pass. Service-operator policy is separate from core OSS conformance.</li>
                   <li><strong>Plannotator connection:</strong> one-click approval, cross-organization rejection, signed-request scope, one-use browser links, disconnect, key rotation, exact-version comments, hostile review-page tests, and private-route failure and recovery all pass.</li>
-                  <li><strong>Major clouds:</strong> every provider package passes install, upgrade, rollback, backup, restore, private-network, and removal tests before support is advertised.</li>
                   <li><strong>All releases:</strong> browsers open native file types without a conversion service; arbitrary URL fetch is absent; optional Git failure never blocks or loses the primary saved version.</li>
                 </ul>
               </div>
@@ -4005,9 +3656,9 @@ artifact_delete</code></pre>
             <article class="decision-item"><p>Browser, normal software requests, the command-line program, and MCP share the same product and authorization rules. Local MCP uses <code>artifactserver connect</code> without a human-visible secret. Hosted MCP uses browser approval through WorkOS AuthKit. Self-hosted MCP uses compatible browser authorization when configured and administration-issued scoped API keys otherwise. Startup logs never distribute keys.</p></article>
             <article class="decision-item"><p>MCP and the command-line program intentionally overlap. Files on the user's computer use the command-line program. Work that only needs information already on Artifact Server may use either. <code>artifactserver auth login</code> gives the command-line program its own secure server profile. A remote MCP server never reads a user's local path.</p></article>
             <article class="decision-item"><p>Artifact Server ships one router skill with separate artifact and server-operation references. The artifact route uses the command-line program for local files and MCP or the command-line program for information already on the server. The server-operation route loads only for explicit administrator work. Stored references include the server and artifact, so agents open local or team artifacts at the correct address.</p></article>
-            <article class="decision-item"><p>The product core uses narrow database, file-storage, login, background-work, and optional Git interfaces. Operators use Compose for one server, Helm for Kubernetes, Alchemy directly for Cloudflare, and Pulumi directly for AWS and GCP. Artifact Server does not add an infrastructure wrapper.</p></article>
+            <article class="decision-item"><p>The product core uses narrow database, file-storage, login, background-work, and optional Git interfaces. Operators use Compose for one server and Helm for Kubernetes. Artifact Server does not add an infrastructure wrapper.</p></article>
             <article class="decision-item"><p>Azure has no separate installer or release claim. Azure teams use Helm on AKS. The Azure Blob adapter remains preview until it passes a real Azure storage test.</p></article>
-            <article class="decision-item"><p>Support is phased: the simple local OSS tool first, then private team and Kubernetes packages, optional Cloudflare, and direct AWS and GCP packages. A target is not supported until its install, upgrade, rollback, backup, restore, and isolation tests pass. Optional artifactserver.com operating policy is not a core OSS release gate.</p></article>
+            <article class="decision-item"><p>Support is phased: the simple local OSS tool first, then private team and Kubernetes packages. A target is not supported until its install, upgrade, rollback, backup, restore, and isolation tests pass.</p></article>
             <article class="decision-item"><p>Committed versions cannot be edited or deleted individually. Deleting an artifact creates a tombstone and stops access; physical reclamation waits for a proven retention and garbage-collection design.</p></article>
           </div>
 
@@ -4015,12 +3666,10 @@ artifact_delete</code></pre>
             <h3>Known unknowns and required failure probes</h3>
             <ol>
               <li><strong>Private site delivery:</strong> current tests exercise the bootstrap token and version-scoped content cookie, but the complete supported-browser and per-deployment matrix remains open.</li>
-              <li><strong>Version origins:</strong> local <code>*.localhost</code> behavior and a real Cloudflare wildcard TLS probe have evidence. Equivalent DNS, certificate, proxy, and hostile-host proof remains open for each deployment before support is advertised.</li>
+              <li><strong>Version origins:</strong> local <code>*.localhost</code> behavior has evidence. Equivalent DNS, certificate, proxy, and hostile-host proof remains open for each deployment before support is advertised.</li>
               <li><strong>Cloudflare Artifacts:</strong> complete bounded live binding, REST, smart-HTTP, token, project-switch, estimate, budget, namespace-isolation, run-manifest cleanup, backfill, disable, deletion, recovery, limits, jurisdiction, and cost probes before advertising the off-by-default provider. The product must remain complete without access, and tests must not touch another namespace.</li>
               <li><strong>WorkOS MCP:</strong> browser approval, resource-bound tokens, refresh, revocation, reconnect, DCR, and CIMD pass for Codex and Claude Code. Visual Studio Code and claude.ai are deferred client qualifications, not first-release gates.</li>
               <li><strong>Embedded self-hosted OAuth:</strong> decide whether Better Auth's beta MCP path is mature enough; API keys and compatible external issuers remain the default until it passes the same hostile tests.</li>
-              <li><strong>Cross-cloud packages:</strong> selected live AWS, GCP, and Cloudflare lifecycle probes have evidence, but no direct-cloud package has complete signed conformance proof. The AWS private-ingress variant remains unqualified.</li>
-              <li><strong>Optional hosted-service policy:</strong> quotas, egress limits, abuse response, phishing and malware handling, reporting, suspension, and domain reputation belong to a future artifactserver.com operator, not the core OSS first release.</li>
               <li><strong>Capacity claims:</strong> the OSS release need not advertise universal capacity or cost envelopes. Any target-specific claim must be backed by measured evidence.</li>
               <li><strong>Recovery:</strong> define retention, tombstone duration, backup schedule, restore procedure, recovery-point and recovery-time promises, and an operator-visible integrity check.</li>
               <li><strong>Optional enterprise policy:</strong> encryption keys, regional placement, audit export, legal hold, deletion proof, data residency, and regulated-content boundaries are outside the simple first release.</li>

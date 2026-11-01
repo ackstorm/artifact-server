@@ -168,4 +168,4 @@ capacity is advertised.
 - `pnpm verify:external-storage-performance` runs the real compiled two-process Postgres and S3-compatible path and records provider startup separately from application latency.
 - Aggregate workload limits prevent command-line flags from accidentally creating a stress test.
 - Set tighter regression budgets only after repeated runs on a controlled runner establish normal variance.
-- Run the same behavior on local disk, every blob driver, Postgres, Kubernetes, and Cloudflare as those adapters are implemented.
+- Run the same behavior on local disk, every blob driver, Postgres, and Kubernetes as those adapters are implemented.

@@ -8,9 +8,8 @@ const compressWithBrotli = promisify(brotliCompress);
  * Media types worth compressing at the Node origin. Routes that serve raw
  * blob bytes advertise `Accept-Ranges: bytes` and are excluded wholesale so
  * encoded lengths never disagree with range arithmetic; a fronting proxy may
- * compress those streams. The Cloudflare Workers deployment receives edge
- * compression instead of this wrapper, which is why it wraps the Node request
- * listener rather than living inside the shared HTTP app.
+ * compress those streams. This wrapper wraps the Node request listener
+ * rather than living inside the shared HTTP app.
  */
 const compressibleMediaTypes = new Set([
   "application/javascript",

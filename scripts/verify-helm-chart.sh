@@ -24,9 +24,9 @@ helm lint "$artifactserver_chart" --strict "${artifactserver_values[@]}"
 assert_admission_environment() {
   node --input-type=module -e '
     import assert from "node:assert/strict";
-    import {readFileSync, realpathSync} from "node:fs";
+    import {readFileSync} from "node:fs";
     import {createRequire} from "node:module";
-    const require = createRequire(realpathSync(`${process.argv[2]}/deploy/cloudflare/node_modules/wrangler/package.json`));
+    const require = createRequire(`${process.argv[2]}/package.json`);
     const {parseAllDocuments} = require("yaml");
     const documents = parseAllDocuments(readFileSync(0, "utf8")).map((document) => document.toJS());
     const deployment = documents.find((document) => document.kind === "Deployment");
@@ -65,9 +65,9 @@ helm template artifact-server "$artifactserver_chart" \
 assert_organization_name() {
   node --input-type=module -e '
     import assert from "node:assert/strict";
-    import {readFileSync, realpathSync} from "node:fs";
+    import {readFileSync} from "node:fs";
     import {createRequire} from "node:module";
-    const require = createRequire(realpathSync(`${process.argv[2]}/deploy/cloudflare/node_modules/wrangler/package.json`));
+    const require = createRequire(`${process.argv[2]}/package.json`);
     const {parseAllDocuments} = require("yaml");
     const documents = parseAllDocuments(readFileSync(0, "utf8")).map((document) => document.toJS());
     const deployment = documents.find((document) => document.kind === "Deployment");
@@ -89,9 +89,9 @@ helm template artifact-server "$artifactserver_chart" \
 assert_public_links_enabled() {
   node --input-type=module -e '
     import assert from "node:assert/strict";
-    import {readFileSync, realpathSync} from "node:fs";
+    import {readFileSync} from "node:fs";
     import {createRequire} from "node:module";
-    const require = createRequire(realpathSync(`${process.argv[2]}/deploy/cloudflare/node_modules/wrangler/package.json`));
+    const require = createRequire(`${process.argv[2]}/package.json`);
     const {parseAllDocuments} = require("yaml");
     const documents = parseAllDocuments(readFileSync(0, "utf8")).map((document) => document.toJS());
     const deployment = documents.find((document) => document.kind === "Deployment");
