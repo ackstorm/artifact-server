@@ -254,9 +254,6 @@ select:focus-visible {
 
 .as-home-resources__link:nth-child(3) {
   animation-delay: 940ms;
-}
-
-.as-home-resources__link:nth-child(3) {
   grid-column: 1 / -1;
 }
 
