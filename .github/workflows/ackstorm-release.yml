@@ -1,7 +1,8 @@
 name: Ackstorm Release
 
-# A vX.Y.Z tag publishes ghcr.io/ackstorm/artifact-server:vX.Y.Z and its GitHub
-# release. The gate runs ci.yml's release tier, which installs without the pnpm
+# A vX.Y.Z tag publishes ghcr.io/ackstorm/artifact-server:vX.Y.Z, Helm chart
+# oci://ghcr.io/ackstorm/charts/artifact-server:X.Y.Z pinned to that image's
+# digest, and the GitHub release. The gate runs ci.yml's release tier, which installs without the pnpm
 # cache, so nothing a pull request can write reaches the published image.
 
 on:
@@ -33,6 +34,8 @@ jobs:
       packages: write
     env:
       ARTIFACTSERVER_IMAGE: ghcr.io/ackstorm/artifact-server:${{ github.ref_name }}
+      ARTIFACTSERVER_CHART_REPOSITORY: oci://ghcr.io/ackstorm/charts
+      ARTIFACTSERVER_TAG: ${{ github.ref_name }}
     steps:
       - name: Checkout verified source
         uses: actions/checkout@v7.0.1 # zizmor: ignore[unpinned-uses] Fork policy pins actions to version tags.
@@ -70,6 +73,22 @@ jobs:
             printf 'Refusing to overwrite published image %s.\n' "$ARTIFACTSERVER_IMAGE" >&2
             exit 1
           fi
+      - name: Require an unused chart version
+        env:
+          ARTIFACTSERVER_GITHUB_ACTOR: ${{ github.actor }}
+          ARTIFACTSERVER_GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          helm() { scripts/with-kubernetes-test-tools.sh helm "$@"; }
+          helm registry login ghcr.io --username "$ARTIFACTSERVER_GITHUB_ACTOR" \
+            --password-stdin <<< "$ARTIFACTSERVER_GITHUB_TOKEN"
+          if helm show chart "$ARTIFACTSERVER_CHART_REPOSITORY/artifact-server" \
+            --version "${ARTIFACTSERVER_TAG#v}" >/dev/null 2>&1; then
+            printf 'Refusing to overwrite published chart artifact-server %s.\n' \
+              "${ARTIFACTSERVER_TAG#v}" >&2
+            exit 1
+          fi
       - name: Build and publish verified fork image
         env:
           ARTIFACT_SERVER_IMAGE_PUSH: "true"
@@ -93,6 +112,31 @@ jobs:
             printf 'Source commit: `%s`\n\n' "$GITHUB_SHA"
             printf 'Verified image index: `%s`\n' "$actual"
           } >> "$GITHUB_STEP_SUMMARY"
+      - name: Publish the Helm chart pinned to the verified image
+        shell: bash
+        run: |
+          set -euo pipefail
+          helm() { scripts/with-kubernetes-test-tools.sh helm "$@"; }
+          version="${ARTIFACTSERVER_TAG#v}"
+          # The previous step proved the registry serves exactly this index digest.
+          digest=$(jq --exit-status --raw-output '.imageIndexDigest' \
+            release/fork-image/*.oci.tar.manifest.json)
+          stage=release/chart
+          mkdir -p "$stage"
+          cp -R packaging/helm/artifact-server "$stage/"
+          ARTIFACTSERVER_IMAGE_DIGEST="$digest" \
+            yq --inplace '.image.digest = strenv(ARTIFACTSERVER_IMAGE_DIGEST)' \
+              "$stage/artifact-server/values.yaml"
+          helm package "$stage/artifact-server" --version "$version" \
+            --app-version "$version" --destination "$stage"
+          packaged="$stage/artifact-server-$version.tgz"
+          if [[ "$(helm show values "$packaged" | yq '.image.digest')" != "$digest" ]]; then
+            printf 'Packaged chart does not pin %s.\n' "$digest" >&2
+            exit 1
+          fi
+          helm push "$packaged" "$ARTIFACTSERVER_CHART_REPOSITORY"
+          printf '\nHelm chart: `%s/artifact-server:%s`\n' \
+            "$ARTIFACTSERVER_CHART_REPOSITORY" "$version" >> "$GITHUB_STEP_SUMMARY"
       - name: Upload verified fork image
         uses: actions/upload-artifact@v7.0.1 # zizmor: ignore[unpinned-uses] Fork policy pins actions to version tags.
         with:
@@ -104,7 +148,6 @@ jobs:
           retention-days: 7
       - name: Create the GitHub release
         env:
-          ARTIFACTSERVER_TAG: ${{ github.ref_name }}
           GH_TOKEN: ${{ github.token }}
         run: >-
           gh release create "$ARTIFACTSERVER_TAG"
@@ -112,4 +155,4 @@ jobs:
           --verify-tag
           --generate-notes
           --title "Artifact Server $ARTIFACTSERVER_TAG"
-          --notes "Image: \`$ARTIFACTSERVER_IMAGE\`"
+          --notes "Image: \`$ARTIFACTSERVER_IMAGE\`. Helm chart: \`$ARTIFACTSERVER_CHART_REPOSITORY/artifact-server:${ARTIFACTSERVER_TAG#v}\`"
