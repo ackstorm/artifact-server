@@ -55,7 +55,7 @@ access settings, current pointers, installation ID, and file bytes.
 The failure test runs the broken configurations. It removes durable storage,
 requests two replicas, starts without initialization, removes a generated
 secret, denies volume access, violates the domain boundary, supplies incomplete
-WorkOS configuration, corrupts a backup, marks a backup incomplete, targets a
+OIDC configuration, corrupts a backup, marks a backup incomplete, targets a
 running service, and targets a nonempty volume. It also interrupts restore by
 removing a referenced blob and proves the partial target cannot start. None may
 report ready.

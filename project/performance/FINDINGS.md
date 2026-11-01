@@ -106,7 +106,7 @@ without an investigation warning.
 
 These numbers prove that no obvious Postgres, S3-adapter, or process-boundary
 bottleneck appears in this bounded local-container workload. They do not
-predict managed Postgres, AWS S3, Cloudflare R2, cross-region, Kubernetes, or
+predict managed Postgres, AWS S3, R2, cross-region, Kubernetes, or
 public-network capacity.
 
 ## What the pre-phase review changed
@@ -156,7 +156,7 @@ The external-storage baseline now measures multiple processes against pinned Pos
 MinIO, but it is deliberately short and bounded. It does not establish a
 sustained connection-pool limit, managed-provider tail latency, provider request
 cost, multi-node network behavior, or failure behavior under dependency
-throttling. AWS S3, Cloudflare R2, managed Postgres, Kubernetes, Windows, and
+throttling. AWS S3, R2, managed Postgres, Kubernetes, Windows, and
 network filesystems still require their own provider evidence before their
 capacity is advertised.
 

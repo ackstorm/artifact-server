@@ -31,7 +31,7 @@ profile.
 
 The packages will not bundle a production object-storage server. Storage is
 replaceable through a narrow adapter contract. The first external-storage package includes
-the S3 adapter used for AWS S3 and Cloudflare R2. Another S3-compatible service
+the S3 adapter used for AWS S3 and R2. Another S3-compatible service
 is supported only after it passes the same contract tests; an S3-compatible
 label by itself is not a support guarantee. Native Google Cloud Storage ships
 with the GCP package. The Azure Blob adapter is preview-only and is configured
@@ -199,8 +199,7 @@ proxy or ingress that can provide the same host routing, TLS, streaming,
 forwarded-header, upload-limit, and timeout behavior. An installation may use
 Nginx, Traefik, HAProxy, a company gateway, or another conforming proxy instead.
 
-Kubernetes uses its configured Ingress or Gateway. Cloudflare and managed-cloud
-packages use their provider edge. Those deployments do not run Caddy. Public
+Kubernetes uses its configured Ingress or Gateway and does not run Caddy. Public
 wildcard certificates require DNS-challenge access. A private-network
 installation may use an administrator-supplied wildcard certificate or a
 private certificate authority trusted by every client device; Artifact Server
@@ -237,7 +236,7 @@ the Ingress template disabled.
 
 NetworkPolicy is disabled by default and accepts explicit native rules when an
 operator enables it. Standard Kubernetes NetworkPolicy cannot allow managed
-Postgres, S3, R2, WorkOS, or OTLP services by DNS name. The chart therefore does
+Postgres, S3, an OIDC provider, or OTLP services by DNS name. The chart therefore does
 not invent changing IP ranges or ship a policy that silently blocks required
 dependencies. A provider installer can generate exact rules when it owns the
 network addresses. Autoscaling remains disabled until measured capacity and
@@ -503,14 +502,13 @@ phase.
 
 ## Not included
 
-- Cloudflare Workers, D1, R2, Alchemy, Pulumi, or cloud-account provisioning.
+- Cloud-account provisioning.
 - A bundled production Postgres or object-storage service.
 - An ingress controller, DNS server, certificate authority, public tunnel, or
   firewall automation.
 - Horizontal autoscaling, multi-region failover, or a capacity claim.
 - A Kubernetes operator or custom resource.
-- The choice and implementation of a new self-hosted browser identity provider,
-  optional Git history, comments, annotations, or Plannotator review features.
+- Comments, annotations, or Plannotator review features.
 - Provider-native storage qualification beyond the current GCS path. Azure Blob
   remains preview until it passes the storage contract against real Azure.
 
@@ -521,7 +519,7 @@ phase.
    public server, then record the requirements for equivalent proxies.
 3. Define the minimum S3-compatible operation and consistency matrix required
    for a provider to be supported.
-4. Choose the self-hosted browser-login baseline when WorkOS is not configured.
+4. Choose the self-hosted browser-login baseline when no OIDC provider is configured.
 5. Define recovery-point and recovery-time targets after the backup procedures
    have measured evidence.
 6. Choose and publish the source and binary distribution license before a

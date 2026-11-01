@@ -67,7 +67,7 @@ Evidence: `project/evidence/external-storage-performance-baseline.json`.
 
 ## Still unproved
 
-The baseline does not qualify AWS S3, Cloudflare R2, managed Postgres,
+The baseline does not qualify AWS S3, R2, managed Postgres,
 Kubernetes, a public network, sustained load, provider throttling, connection
 pool exhaustion, hosting cost, or a published service limit. Those remain
 separate release evidence under `GATE-009`.

@@ -3,7 +3,7 @@
 **Status:** Accepted (ADR 0021); implemented — DSP-001 through DSP-013 behavior-verified on the local deployment; the live-host proofs stay outside the ledger as owner-run adapter verification and live suites that are not part of `verify:iteration` (August 26, 2026)
 **Date:** August 18, 2026
 **Owner:** Artifact Server product engineering
-**Companion documents:** [Artifact comments](./artifact-comments-spec.md), [Conformance ledger](./conformance.yml), research synthesis (`project/research/alignment-study.md`), consultant packet (`project/research/`)
+**Companion documents:** [Artifact comments](./artifact-comments-spec.md), [Conformance ledger](./conformance.yml)
 
 ## 1. What this adds and why
 
@@ -11,7 +11,7 @@ A human annotates an artifact, sends one annotation or all open annotations to a
 
 This is the bi-directional loop the comment system was missing: Artifact Server already has the pull half (comment reads with `?since=` polling, at-least-once semantics, idempotent writes), and nothing today can tell an agent anything (no push of any kind exists in the codebase — verified: zero SSE/WebSocket/webhook primitives, MCP subscriptions disabled). This spec adds the push half as two small, transport-neutral concepts — a **registered agent** and a **dispatch mailbox** — plus one Pi extension that connects them to a live Pi session.
 
-Owner decisions this spec is built on (recorded in `project/research/alignment-study.md` §6):
+Owner decisions this spec is built on:
 
 1. **The bundle is the atomic unit.** One send = one bundle = one message to the agent. Separately sent bundles form a strict FIFO; they are never merged. Bundle B is delivered only after the agent finishes the work bundle A started. This maps exactly onto Pi's default follow-up queue (`deliverAs: "followUp"`, `followUpMode: "one-at-a-time"`), so Pi provides the FIFO and this system never changes Pi's queue settings.
 2. **Explicit agent registry with targeted send.** Multiple Pi sessions connect concurrently, each registers itself and appears in the UI, and the human picks the target at send time. The shapes must survive a hosted deployment (many machines, agents connecting outward) without redesign.
@@ -93,7 +93,7 @@ Why no new action-ledger kinds: the `actions` table is artifact-and-version-scop
 
 `AgentDispatchRepository` port in `src/core/ports.ts` (Promise-based, like `CommentRepository`): `registerAgent` (upsert on `(installation_id, principal_id, connection_key)` — the key is scoped to the registering principal, so one principal never reclaims another's row and the dispatches queued for it), `disconnectAgent`, `listAgents`, `findAgent`, `createDispatch` (transactional with marker set + validation), `claimNextDispatch(agentId, now, bumpHeartbeat)` (atomic oldest-queued claim honoring the one-active-claim rule and lease reclaim; `bumpHeartbeat` marks the first attempt of one held poll request — a re-check attempt with it false stays a pure read while nothing is claimable), `markDelivered`, `markFailed`, `cancelDispatch`, `listDispatches` (keyset paging), `findDispatch`, `observeAddressed(dispatchId, now)`. `IdGenerator` gains `registeredAgentId()` and `agentDispatchId()`.
 
-Tables (SQLite dialect; Postgres and D1 mirror, same shapes as the comment tables' conventions):
+Tables (SQLite dialect; Postgres mirrors it, same shapes as the comment tables' conventions):
 
 ```sql
 CREATE TABLE registered_agents (
@@ -137,7 +137,7 @@ CREATE INDEX agent_dispatches_claim ON agent_dispatches (agent_id, state, create
 CREATE INDEX comment_threads_dispatch ON comment_threads (dispatch_id);
 ```
 
-Schema versions bump by one on each backend **from whatever the tree holds when implementation starts** — the comments feature took SQLite to 5 / Postgres to 4 / D1 to 3, and the in-flight OIDC work may claim the next numbers first; the implementer verifies at build time and follows each backend's migration mechanics (probe + version, `Migrator.fromRecord` + `expectedHistory`, `upgradeFromVersionN` batch). Claim atomicity uses each backend's existing idiom: SQLite `#transaction`, Postgres `sql.withTransaction` + advisory lock, D1 `batch` with a `mutation_checks` guard (`state='queued'` predicate).
+Each backend follows its own migration mechanics (SQLite probe + version, Postgres `Migrator.fromRecord` + `expectedHistory`). Claim atomicity uses each backend's existing idiom: SQLite `#transaction`, Postgres `sql.withTransaction` + advisory lock.
 
 ## 5. Access
 
@@ -177,7 +177,7 @@ All under `/api/v1`, existing conventions (`?projectId=` where project-scoped, `
 
 ## 8. The Pi bridge extension
 
-Ships as a **distributable npm package and standard Pi extension**: workspace package **`integrations/pi/`** (added to `pnpm-workspace.yaml`, which today lists `.`, `apps/*`, `deploy/cloudflare`, `deploy/pulumi/*`), package name **`@artifact-server/pi-extension`** (matching `@artifact-server/web`).
+Ships as a **distributable npm package and standard Pi extension**: workspace package **`integrations/pi/`** (a `pnpm-workspace.yaml` member), package name **`@artifact-server/pi-extension`** (matching `@artifact-server/web`).
 
 - **Contents:** `index.ts` (the thin Pi-facing entry; `package.json` declares it under the `pi.extensions` key, the convention Pi's loader resolves for package extensions), `bridge-core.ts` (all logic, a pure library — the split serves both testing and packaging), `README.md`, `LICENSE`. The tarball ships TypeScript source — Pi loads extensions through jiti with no build step, the same raw-source precedent `@plannotator/ui` uses.
 - **Install (standard Pi mechanisms only):** `pi install npm:@artifact-server/pi-extension` or settings.json `packages: ["npm:@artifact-server/pi-extension"]`; local development uses `pi -e integrations/pi/index.ts`. Nothing bespoke.
@@ -245,7 +245,7 @@ New module `agent-dispatch` in `allowed_modules`; requirements `DSP-001…DSP-01
 **Testing seam, per repo rules (no module mocks):** DSP-001..010 are conformance tests over the real HTTP app with a plain fetch "fake agent" client — the same real-boundary style as the CMT suite. DSP-011..013 test the published bridge package through an injected `HostPort` against the real HTTP server. OpenCode also runs through a structurally accurate fake plugin context against that server, including a target session deleted while `promptAsync` is pending. These are constructor-injected ports, not module interception. What only a live host proves stays in its adapter verification layer:
 
 1. **`integrations/pi/VERIFY.md`** — the scripted manual pass, kept because the owner runs it personally; recorded as manual evidence, never claimed by the ledger.
-2. **`test:pi-live`** — an automated end-to-end suite (separate script like `test:oidc`, NOT part of `verify:iteration` until proven stable) built on the owner's `@plannotator/webtui` (github.com/plannotator/webtui): it runs a real coding agent in a PTY via node-pty with programmatic session control (`createAgentTerminalSession`, `session.sendAgentMessage`, WebSocket-readable output). The suite boots a real Artifact Server on a temp data dir, spawns a REAL `pi` process with the bridge loaded (`pi -e integrations/pi/artifact-server.ts`), and asserts the live-only behaviors: (a) the full round trip — publish, comment, send a bundle while Pi is mid-task, Pi receives it only after its current work finishes, the `artifact_comments` tool replies and resolves, the dispatch reads `addressed`; (b) one-bundle-per-work-boundary drain order across three queued bundles; (c) the compaction hold; (d) `/resume` re-registration reclaiming the same agent id. Honest caveats: webtui is early-stage (a young repo, ~17 commits) and may need a Pi agent-config contribution before it can drive `pi`; PTY-driven agents are timing-sensitive, which is exactly why this suite stays out of the required gate until it has a flake-free track record.
+2. **`test:pi-live`** — an automated end-to-end suite (separate script like `test:oidc`, NOT part of `verify:iteration` until proven stable) built on the owner's `@plannotator/webtui` (plannotator/webtui): it runs a real coding agent in a PTY via node-pty with programmatic session control (`createAgentTerminalSession`, `session.sendAgentMessage`, WebSocket-readable output). The suite boots a real Artifact Server on a temp data dir, spawns a REAL `pi` process with the bridge loaded (`pi -e integrations/pi/artifact-server.ts`), and asserts the live-only behaviors: (a) the full round trip — publish, comment, send a bundle while Pi is mid-task, Pi receives it only after its current work finishes, the `artifact_comments` tool replies and resolves, the dispatch reads `addressed`; (b) one-bundle-per-work-boundary drain order across three queued bundles; (c) the compaction hold; (d) `/resume` re-registration reclaiming the same agent id. Honest caveats: webtui is early-stage (a young repo, ~17 commits) and may need a Pi agent-config contribution before it can drive `pi`; PTY-driven agents are timing-sensitive, which is exactly why this suite stays out of the required gate until it has a flake-free track record.
 
 ## 11. Scope fences
 
@@ -264,9 +264,9 @@ No transcript mirroring into Artifact Server. No WebSockets or SSE (the mailbox 
 
 Verified (citations in `scratchpad/pi-maps/*` and the current tree): every Pi behavior relied on — `sendUserMessage` signature and idle/streaming semantics, `followUp` drain point and one-at-a-time default, the streaming-without-`deliverAs` throw, fire-and-forget wrapper, background-work lifecycle rules, stale-handle invalidation on `/reload`/`/new`/`/resume`/`/fork`, per-handler exception containment, slash-command input interception, `session_start`/`session_shutdown` contract, `registerTool`/`ctx.ui` surfaces, and the shipped `git-merge-and-resolve.ts` example that injects `followUp` from an external condition. On the Artifact Server side: comment route shapes and filters, the closed capability enums and their five addition sites, idempotency mechanics, no existing push primitives, local discovery files (`local-service.json`, `local-api-token`), CSP forbidding browser-to-bridge connections, and the three backends' transaction idioms.
 
-Additionally verified for the owner's amendments: `github.com/plannotator/webtui` exists and is active ("agent tui in a web gui", pushed 2026-08-18), and this repo's workspace layout (`pnpm-workspace.yaml`: `.`, `apps/*`, `deploy/cloudflare`, `deploy/pulumi/*`) plus Pi's package-extension loading convention (`package.json` `pi.extensions[]`, settings.json `packages[]`, `pi install npm:…`) support `integrations/pi/` as a publishable workspace member.
+Additionally verified for the owner's amendments: `plannotator/webtui` exists and is active ("agent tui in a web gui", pushed 2026-08-18), and this repo's workspace layout (`pnpm-workspace.yaml`) plus Pi's package-extension loading convention (`package.json` `pi.extensions[]`, settings.json `packages[]`, `pi install npm:…`) support `integrations/pi/` as a publishable workspace member.
 
-Assumed, to confirm at build time: exact schema version numbers after the in-flight OIDC work lands; Pi's `registerTool` schema convention (TypeBox/zod specifics — read `types.ts` at implementation); that a 25 s held request is acceptable on the Cloudflare worker (the contract already permits early return, so the fallback is a shorter server-side wait); empirical `/resume` re-registration order (source-verified, not yet executed — VERIFY.md and `test:pi-live` prove it); webtui's actual API surface and whether driving `pi` needs an upstream agent-config addition (repo not vendored locally; verified existence only).
+Assumed, to confirm at build time: Pi's `registerTool` schema convention (TypeBox/zod specifics — read `types.ts` at implementation); empirical `/resume` re-registration order (source-verified, not yet executed — VERIFY.md and `test:pi-live` prove it); webtui's actual API surface and whether driving `pi` needs an upstream agent-config addition (repo not vendored locally; verified existence only).
 
 ## 14. Decisions recorded (owner, August 18, 2026)
 

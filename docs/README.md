@@ -20,6 +20,6 @@ Use these guides to install, connect, operate, and extend Artifact Server.
 
 ## Project records
 
-The [`project`](../project) directory contains product contracts, evidence, performance records, prototypes, and research.
+The [`project`](../project) directory contains product contracts, evidence, performance records, and prototypes.
 
 These records describe how Artifact Server is built and qualified. They are not operator guides.

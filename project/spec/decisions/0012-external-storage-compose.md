@@ -12,8 +12,8 @@ and object storage. It does not install either provider.
 
 The package uses mounted files for the required Artifact Server API token and
 Postgres URL. AWS deployments normally use the AWS SDK workload-identity chain.
-An additional example overlay mounts a static S3 access-key pair for Cloudflare
-R2 or another tested provider. Every application container remains non-root,
+An additional example overlay mounts a static S3 access-key pair for R2
+or another tested provider. Every application container remains non-root,
 read-only, capability-free, and disposable.
 
 The default scalable shape publishes no host port. An existing reverse proxy,
@@ -86,6 +86,6 @@ offer.
 This decision does not claim online backup, automatic proxy configuration,
 autoscaling, multi-region failover, native GCS support, preview Azure Blob qualification,
 cross-version rollback, or compact-to-external-storage transfer. The current
-official external adapter supports AWS S3 and Cloudflare R2. Another
+official external adapter supports AWS S3 and R2. Another
 S3-compatible provider becomes supported only after it passes the adapter
 contract tests.

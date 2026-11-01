@@ -202,7 +202,7 @@ GENERAL ACCESS
 
 ## 8. Migration
 
-- **Schema:** each backend (SQLite, Postgres, Cloudflare D1) adds
+- **Schema:** each backend (SQLite, Postgres) adds
   `artifacts.owner_principal_id`, filled from the version 1 publisher. It also
   widens the `access_setting` CHECK on `artifacts` and `idempotency_records` to
   allow `private`, and indexes `(project_id, owner_principal_id)`. Postgres
@@ -234,7 +234,7 @@ These requirements are new:
 | AUTH-033 | **B:** The owner reads a Private artifact on every surface in §3. Any member, member-bound key or read-capable service key reads an Organization artifact by id. **F:** Another member, a member-bound key of another member, a service key and an administrator each receive 404 on every read surface of a Private artifact, including content bootstrap, comments, comparisons and the Git clone token. An anonymous request receives the same sign-in requirement for a Private artifact as for an Organization one. |
 | AUTH-034 | **B:** Lists return the reader's own artifacts; an administrator's lists also contain service-owned ones. **F:** Another member's Organization and Public artifacts never appear in lists or search results. |
 | AUTH-035 | **B:** The owner publishes, tags, restores, changes review mode and raises the level. An administrator lowers any level and manages service-owned artifacts. **F:** Another member, and a non-owning key with `manage:any` or `publish:any`, receive 403 on Organization or Public artifacts and 404 on Private ones. An administrator cannot raise a member's level or publish to it. |
-| AUTH-036 | **B:** The migration fills the owner from version 1 on SQLite, Postgres and D1 and keeps every level and idempotency replay unchanged. **F:** A migrated artifact whose version 1 publisher is another member is unlisted for the reader but readable by link at Organization. |
+| AUTH-036 | **B:** The migration fills the owner from version 1 on SQLite and Postgres and keeps every level and idempotency replay unchanged. **F:** A migrated artifact whose version 1 publisher is another member is unlisted for the reader but readable by link at Organization. |
 | AUTH-037 | **B:** In the Share modal the owner moves between the three levels, confirming in place before Public, and the note and links follow. **F:** A non-owner sees the selector disabled; a failed save returns to the saved level with the message. |
 | DSP-014 | **B:** Dispatching threads of an Organization artifact works as before. **F:** Dispatching threads of a Private artifact returns 409 `ARTIFACT_PRIVATE` and creates no dispatch. |
 

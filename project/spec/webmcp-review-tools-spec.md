@@ -58,7 +58,7 @@ dispatches surface through `get_view`'s `activeDispatches` instead.)
 - Publishing and uploads (staged-upload ceremony, near-zero copilot value).
 - Anything destructive: bulk clear, deletes, tombstoning.
 - All administration: members, API keys, public links, project settings.
-- Git history, linked-artifact, and tag operations.
+- Linked-artifact and tag operations.
 - Any autonomous behavior: tools are inert until a human's agent calls
   them; nothing monitors, nothing wakes.
 - `send_to_agent` (owner decision, August 26): dispatching work to a

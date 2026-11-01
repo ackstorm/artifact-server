@@ -149,7 +149,7 @@ pnpm verify:iteration
 
 Repository engineering rules live in [AGENTS.md](./AGENTS.md).
 
-The [`project`](./project) directory contains specifications, conformance evidence, performance records, prototypes, and research. Start with:
+The [`project`](./project) directory contains specifications, conformance evidence, performance records, and prototypes. Start with:
 
 - [Product specification](./project/spec/artifact-server-product-spec.html)
 - [Conformance ledger](./project/spec/conformance.yml)

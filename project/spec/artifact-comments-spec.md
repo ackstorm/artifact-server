@@ -118,10 +118,9 @@ Three implementations, one per existing SQL backend, each behind the same confor
 | Backend | File | Migration |
 | --- | --- | --- |
 | SQLite (local, compact Compose) | `src/storage/sqlite-artifact-repository.ts` (or a sibling `sqlite-comment-repository.ts` sharing the `DatabaseSync`) | `requiredSqliteSchemaVersion` 4 → 5 |
-| Postgres (single server, Kubernetes, AWS, GCP) | `src/storage/postgres-comment-repository.ts` | `requiredPostgresSchemaVersion` 3 → 4 |
-| D1 (Cloudflare) | `deploy/cloudflare/src/d1-comment-repository.ts` | next entry in `d1-migrations.ts` |
+| Postgres (single server, Kubernetes) | `src/storage/postgres-comment-repository.ts` | `requiredPostgresSchemaVersion` 3 → 4 |
 
-Tables (SQLite dialect; Postgres and D1 are the same shape):
+Tables (SQLite dialect; Postgres is the same shape):
 
 ```sql
 CREATE TABLE comment_threads (
@@ -393,7 +392,7 @@ app shell (strict CSP, unchanged)
     └── iframe srcdoc, sandbox="allow-scripts"   the artifact + bridge (opaque origin)
 ```
 
-- `/review-frame` is a second Vite entry in `apps/web`, served by both the Node asset handler and the Cloudflare worker with its own headers: a content-permissive CSP (inline scripts and styles allowed, wide `img-src`/`font-src`/`media-src` — the content domain serves artifacts with no CSP at all today, so this grants the sandbox nothing new) and `frame-ancestors 'self'`. The app shell's own strict CSP is untouched; `default-src 'self'` already permits framing a same-origin document.
+- `/review-frame` is a second Vite entry in `apps/web`, served by the Node asset handler with its own headers: a content-permissive CSP (inline scripts and styles allowed, wide `img-src`/`font-src`/`media-src` — the content domain serves artifacts with no CSP at all today, so this grants the sandbox nothing new) and `frame-ancestors 'self'`. The app shell's own strict CSP is untouched; `default-src 'self'` already permits framing a same-origin document.
 - The app fetches HTML over the section-7 file route and hands the bytes to `/review-frame` by `postMessage`; `/review-frame` renders `HtmlViewer`, which builds the injected `srcdoc`.
 - Public current versions use their immutable version origin as the injected base. Private and historical versions use a short-lived preview lease. The lease token is an opaque content-host label, is bound to one exact immutable version and principal, permits only `GET` and `HEAD`, and can return only paths in that version's manifest. The base includes the selected HTML entry's directory so both relative and root-relative references stay on the leased version origin.
 - Preview leases are persisted as exact-version content sessions but are resolved by their own host-label route. They are never set as cookies, never appear in the Review URL, do not authorize application APIs or another version, expire after the bounded preview lifetime, and return private `no-store` responses. The raw exact-version bootstrap and host-only `SameSite=Strict` content cookie remain unchanged for top-level raw navigation.
@@ -409,7 +408,7 @@ Slicing is decided iteratively by the implementer, each slice verifiable end to 
 
 1. Model, `CommentRepository` on SQLite, `ArtifactCommentService`, HTTP routes, conformance tests `CMT-001…011` on SQLite. Whole-file anchors only.
 2. MCP tools and `artifact_capabilities` update; the Agent Skill paragraph; `CMT-012`.
-3. Postgres and D1 repositories through the existing external-storage and Cloudflare harnesses.
+3. The Postgres repository through the existing external-storage harness.
 4. Web application Comments tab (section 9).
 5. In-page anchoring: rendering and placing anchors on the served content (click an element, select text). This is the "review bridge" already specified as `PLN-009/010`; it needs an isolated review origin, no reusable credential in the page, and hostile-JavaScript tests (`SEC-001`). It sits on top of this model without changing it: it starts emitting and rendering `htmlAnchor` / `startMeta` anchors instead of `{kind:"page"}`.
 
@@ -440,7 +439,7 @@ Module `artifact-comments` (new entry in `allowed_modules`). Deployments `*all`.
 
 `SCP-003` is edited to keep notifications and workspace collaboration excluded. `PLN-003` moves comments and replies to Artifact Server's column and its acceptance tests are rewritten. `AUD-001` gains the six comment action kinds in its behavior test.
 
-Tests are named by requirement ID as the ledger requires (`tests/conformance/cmt-001-exact-version-thread.test.ts` and so on), run against the SQLite repository directly and through the HTTP app; the Postgres and D1 repositories run the same repository suite through the existing external-storage and Cloudflare test harnesses. New requirements enter the ledger as `specified` with empty evidence; statuses move only on real recorded runs (the validator rejects hand-written evidence). Browser requirements use the same IDs in Playwright test titles, and the browser evidence writer records those passing runs in `project/evidence/browser.json`.
+Tests are named by requirement ID as the ledger requires (`tests/conformance/cmt-001-exact-version-thread.test.ts` and so on), run against the SQLite repository directly and through the HTTP app; the Postgres repository runs the same repository suite through the existing external-storage test harness. New requirements enter the ledger as `specified` with empty evidence; statuses move only on real recorded runs (the validator rejects hand-written evidence). Browser requirements use the same IDs in Playwright test titles, and the browser evidence writer records those passing runs in `project/evidence/browser.json`.
 
 ## 12. Acceptance walk-through (what "done" looks like for the API and MCP)
 
@@ -462,7 +461,7 @@ Verified in the current checkout (`main` at `4c72ff4`):
 
 - `Principal` has no display name (`src/core/identity.ts:37-44`); members list is administrator-only (`installation-access.ts:537-542`); so denormalizing `displayName` on the row and adding it to `Principal` is required, not optional. Principal is serialized in `src/mcp/create-mcp-http-adapter.ts:35-48` and `src/cli/cli-profile-credential.ts:53-66`; both need the optional field.
 - Authorization policy is one service with named requirements (`authorization.ts`); adding two requirements and one capability fits the pattern; capabilities are a closed set in `identity.ts:23-30`.
-- Repository ports are Promise-based interfaces in `src/core/ports.ts`; the application wraps them in Effect (`artifact-management.ts:112-170`); three backends exist (`sqlite-artifact-repository.ts`, `postgres-artifact-repository.ts`, `deploy/cloudflare/src/d1-artifact-repository.ts`) with schema versions 4 / 3 / migrations list. `manifest_entries (version_id, path)` is the primary key, so path validation is a point lookup.
+- Repository ports are Promise-based interfaces in `src/core/ports.ts`; the application wraps them in Effect (`artifact-management.ts:112-170`); two backends exist (`sqlite-artifact-repository.ts`, `postgres-artifact-repository.ts`). `manifest_entries (version_id, path)` is the primary key, so path validation is a point lookup.
 - The `actions` table already carries `version_id`, `principal_id`, `authorized_by_principal_id`, `idempotency_key` (`sqlite-artifact-repository.ts:1969-1979`), so comment audit rows fit without a schema change; `ArtifactActionKind` is a closed set in `model.ts:10-16` that the web UI labels.
 - HTTP mutations use `Idempotency-Key` header + zod bodies + `runHttpApplicationEffect` (`create-http-app.ts:1094-1179`); MCP tools use `noun_verb` names, `idempotencyKeySchema` 16..200, and `toolResult` (`artifact-mcp-server.ts:769-800`).
 - Archived projects reject new work through `resolveActiveProject` (`project-management.ts:160-170`); tombstoned artifacts are hidden by `findArtifact` and visible through `findArtifactForAdministration`.
@@ -472,7 +471,7 @@ Verified in the current checkout (`main` at `4c72ff4`):
 Assumed, to confirm during implementation:
 
 - `node_modules/effect/AGENTS.md` conventions for the new service (must be read completely before writing the service; the shape above copies `ArtifactManagementService`).
-- Whether D1's transaction primitive (`batch`) is enough for the resolve-versus-reply race in CMT-004 without an extra state check on the reply insert (`INSERT … SELECT … WHERE state = 'open'` works on all three backends and is the plan).
+- Whether the resolve-versus-reply race in CMT-004 needs an extra state check on the reply insert (`INSERT … SELECT … WHERE state = 'open'` works on both backends and is the plan).
 - The web UI's `ActionHistory` will need a label per new action kind; trivial but not yet checked line by line.
 
 ## 14. Decisions recorded (owner, August 17, 2026)

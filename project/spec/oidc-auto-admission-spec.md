@@ -29,8 +29,8 @@ email domain: `example.com` accepts `person@EXAMPLE.COM`, but does not accept
 `person@sub.example.com` or `person@otherexample.com`.
 
 The environment variables belong to the OIDC configuration family. Setting either
-requires a complete OIDC issuer/client configuration and remains mutually exclusive
-with WorkOS, even when the switch is `false`. Malformed domain values fail startup
+requires a complete OIDC issuer/client configuration, even when the switch is
+`false`. Malformed domain values fail startup
 even when automatic admission is disabled. These settings are not credentials.
 
 ## Admission behavior
@@ -58,8 +58,7 @@ list is empty or contains the complete email domain. Repeated or simultaneous
 logins must converge on the same member and binding. Successful admission issues
 the ordinary application session; denial creates no new member or session.
 
-The policy does not extend WorkOS admission, local-owner bootstrap, or MCP bearer
-admission. A bearer identity cannot automatically register a normal member through
+The policy does not extend local-owner bootstrap or MCP bearer admission. A bearer identity cannot automatically register a normal member through
 this setting. No schema migration, group mapping, administrator promotion, or
 directory synchronization is introduced.
 
@@ -80,12 +79,10 @@ storage adapters:
   loaded policy through a real browser login.
 - `tests/conformance/auth-029-identity-repository.test.ts` covers status-inclusive
   lookups and installation/issuer scope with SQLite.
-- `tests/conformance/oidc-admission-boundary.test.ts` covers bearer-only and WorkOS
-  admission boundaries through real services and SQLite.
+- `tests/conformance/oidc-admission-boundary.test.ts` covers the bearer-only
+  admission boundary through real services and SQLite.
 - `tests/integration/external-storage-runtime.test.ts` covers compiled and
   in-process PostgreSQL replicas, simultaneous logins, and inactive-subject refusal.
-- `deploy/cloudflare/tests/oidc-login-runtime.test.ts` covers Worker configuration
-  and a signed browser callback using D1.
 
 The ledger records passing local behavior evidence in `project/evidence/local-foundation.json`.
 Helm rendering and the complete packaged deployment matrix also require their

@@ -164,12 +164,12 @@ The current revision does not define the same header requirements for notificati
 
 ### Canonical values
 
-- Protected resource and token audience: `https://artifactserver.com/mcp`
+- Protected resource and token audience: the installation's exact public origin plus `/mcp`
 - Product authorization: exact resource-bound audience for the `/mcp` URL
 - Issuer: the exact issuer configured for the installation
 - Each installation has its own issuer, resource, grants, and tests
 
-The canonical resource has no trailing slash, query, or fragment. Another installation uses the exact public origin of that installation plus `/mcp`.
+The canonical resource has no trailing slash, query, or fragment. The examples below write that origin as `ORIGIN`.
 
 ### Artifact Server metadata
 
@@ -184,7 +184,7 @@ The document names:
 
 ```json
 {
-  "resource": "https://artifactserver.com/mcp",
+  "resource": "https://ORIGIN/mcp",
   "authorization_servers": ["https://ISSUER_ORIGIN"],
   "bearer_methods_supported": ["header"]
 }
@@ -193,7 +193,7 @@ The document names:
 An unauthenticated or invalid request returns `401` with a challenge equivalent to:
 
 ```http
-WWW-Authenticate: Bearer resource_metadata="https://artifactserver.com/.well-known/oauth-protected-resource/mcp"
+WWW-Authenticate: Bearer resource_metadata="https://ORIGIN/.well-known/oauth-protected-resource/mcp"
 ```
 
 Identity scopes such as `openid`, `profile`, `email`, and
@@ -404,7 +404,6 @@ If subscriptions are later justified:
 
 - one local process may use an in-memory event bus;
 - Kubernetes needs shared pub/sub such as Postgres, Redis, or NATS;
-- Cloudflare needs a shared Durable Object or equivalent fan-out component;
 - every implementation needs bounded capacity, authorization filters, cancellation, reconnect, and multi-instance tests.
 
 Status polling remains the compatibility fallback. An open event stream with no reliable event source is not support.
@@ -418,7 +417,7 @@ Status polling remains the compatibility fallback. An open event stream with no 
 | Installation safety | user not admitted to the installation, upload handle from another principal, removed member, changed role, list filtering |
 | Publishing | expired upload, hash mismatch, multipart retry, traversal, encoded separators, `.git` paths, symlink escape, case and Unicode collisions, oversized manifest, idempotent replay, intentional identical publish, lost response after commit, concurrent current-version update, and cleanup racing a commit |
 | Hosts | fresh and stale-state tests in Codex, Claude Code, Claude.ai, and one DCR-only client |
-| Deployments | loopback for release 1; one server and multi-container Kubernetes, including AKS, for release 2; Cloudflare for release 3; AWS and GCP packages for release 4 |
+| Deployments | loopback; one server and multi-container Kubernetes, including AKS |
 | Required compatibility | exact `2025-06-18` initialization and a real 2025-era tool call tested separately without adding sessions, GET/DELETE operations, replay, or old behavior to the modern request family |
 
 ## MCP release critical path

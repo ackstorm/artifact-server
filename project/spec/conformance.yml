@@ -858,7 +858,7 @@ requirements:
 
   - id: CNT-003
     kind: security
-    behavior: The application origin and published content use separate registrable domains on hosted and external-storage deployments.
+    behavior: The application origin and published content use separate registrable domains on external-storage deployments.
     owner: content-delivery
     source: {file: artifact-server-product-spec.html, anchor: architecture}
     acceptance:
@@ -978,12 +978,12 @@ requirements:
 
   - id: DIF-001
     kind: behavior
-    behavior: Comparisons use canonical manifests and do not require Git.
+    behavior: Comparisons use canonical manifests and stored blobs.
     owner: comparison
     source: {file: artifact-server-product-spec.html, anchor: experience}
     acceptance:
-      behavior: {id: DIF-001-B, description: "Disable Git and compare two versions from primary records and blobs."}
-      failure: {id: DIF-001-F, description: "A missing or failed Git provider does not remove, change, or block comparison results."}
+      behavior: {id: DIF-001-B, description: "Compare two versions from primary records and blobs."}
+      failure: {id: DIF-001-F, description: "Comparison input is limited to the two versions' canonical manifests and blobs; nothing else removes, changes, or blocks the result."}
     deployments: *all
     status: behavior_verified
     depends_on: [MAN-001, VER-001]
@@ -1904,7 +1904,7 @@ requirements:
     owner: mcp
     source: {file: artifact-server-product-spec.html, anchor: decisions}
     acceptance:
-      behavior: {id: MCP-014-B, description: "Pass the full hosted hostile and client matrix using the embedded provider before advertising it."}
+      behavior: {id: MCP-014-B, description: "Pass the full hostile and client matrix using the embedded provider before advertising it."}
       failure: {id: MCP-014-F, description: "Self-hosted deployments remain usable through API keys and compatible external issuers when embedded OAuth is absent."}
     deployments: [single_server, kubernetes]
     status: specified
@@ -3209,7 +3209,7 @@ requirements:
     source: {file: artifact-server-product-spec.html, anchor: plannotator}
     acceptance:
       behavior: {id: PLN-002-B, description: "Trace pairing and managed operations and observe only connection identity and short-lived signed requests at Artifact Server."}
-      failure: {id: PLN-002-F, description: "Credential scanning finds no Plannotator or WorkOS user credential in Artifact Server records, logs, storage, content, or Git."}
+      failure: {id: PLN-002-F, description: "Credential scanning finds no Plannotator or WorkOS user credential in Artifact Server records, logs, storage, or content."}
     deployments: *plannotator_capable
     status: specified
     depends_on: [PLN-001]
@@ -4105,7 +4105,7 @@ requirements:
     owner: mcp
     source: {file: artifact-server-product-spec.html, anchor: decisions}
     acceptance:
-      behavior: {id: GATE-006-B, description: "Run the complete hosted OAuth matrix against the embedded provider and document operational responsibility and upgrade behavior."}
+      behavior: {id: GATE-006-B, description: "Run the complete OAuth matrix against the embedded provider and document operational responsibility and upgrade behavior."}
       failure: {id: GATE-006-F, description: "Beta incompatibility, lost client or consent state, weak audience binding, refresh replay, failed migration, or missing revocation keeps the option disabled."}
     deployments: *external_storage
     status: specified
@@ -4128,7 +4128,7 @@ requirements:
 
   - id: GATE-010
     kind: release_gate
-    behavior: Availability, backup frequency, restore-time target, acceptable data-loss window, and support tiers must be explicit and proven before team and hosted reliability promises are published.
+    behavior: Availability, backup frequency, restore-time target, acceptable data-loss window, and support tiers must be explicit and proven before team reliability promises are published.
     owner: operations
     source: {file: artifact-server-product-spec.html, anchor: decisions}
     acceptance:
@@ -4591,7 +4591,7 @@ requirements:
       failure: {id: MDV-001-F, description: "Raw HTML and unsafe URLs cannot execute, oversized input settles explicitly, and unknown MIME files are not sniffed into Markdown."}
     deployments: *all
     status: implementing
-    proof_gap: Native Markdown tests are being qualified locally; hosted deployment and full iteration evidence remain incomplete.
+    proof_gap: Native Markdown tests are being qualified locally; team deployment and full iteration evidence remain incomplete.
     depends_on: [PRV-004, PRV-005]
     evidence: []
 
@@ -4605,7 +4605,7 @@ requirements:
       failure: {id: MDV-002-F, description: "Invalid diagrams show readable fallback; hostile directives cannot relax security, inject active SVG or execute document scripts."}
     deployments: *all
     status: implementing
-    proof_gap: Native Markdown tests are being qualified locally; hosted deployment and full iteration evidence remain incomplete.
+    proof_gap: Native Markdown tests are being qualified locally; team deployment and full iteration evidence remain incomplete.
     depends_on: [PRV-004, PRV-005]
     evidence: []
 
@@ -4619,6 +4619,6 @@ requirements:
       failure: {id: MDV-003-F, description: "Escaping or absent resource paths stay inert and abandoned renders cannot replace the current selection."}
     deployments: *all
     status: implementing
-    proof_gap: Native Markdown tests are being qualified locally; hosted deployment and full iteration evidence remain incomplete.
+    proof_gap: Native Markdown tests are being qualified locally; team deployment and full iteration evidence remain incomplete.
     depends_on: [PRV-004, PRV-005]
     evidence: []

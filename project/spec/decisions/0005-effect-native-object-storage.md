@@ -11,15 +11,10 @@ domain, HTTP, MCP, or persistence types.
 The supported storage profiles are built incrementally:
 
 - local disk remains the default for the local process;
-- one S3-compatible adapter covers Amazon S3, MinIO, Cloudflare R2, Tigris,
+- one S3-compatible adapter covers Amazon S3, MinIO, R2, Tigris,
   and services that implement the required S3 behavior;
 - native Google Cloud Storage is a supported target, while the implemented
-  Azure Blob Storage adapter remains preview until proved against real Azure;
-  and
-- Cloudflare may use the S3-compatible adapter in Node-based tests, but the
-  Workers deployment will receive an R2-binding adapter so it does not carry an
-  unnecessary Node AWS client.
-
+  Azure Blob Storage adapter remains preview until proved against real Azure.
 Application services continue to sequence storage through typed Effect ports.
 Concrete adapters may use Promise-based provider clients internally, but they
 must classify every expected provider failure before it crosses the Effect
