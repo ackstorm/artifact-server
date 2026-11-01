@@ -144,7 +144,6 @@ function SettingsContent({
       return (
         <SettingsProjects
           canManage={canManageProjects}
-          gitHistory={session.capabilities.gitHistory}
           onProjectsChanged={onProjectsChanged}
           projects={projects}
         />
@@ -153,7 +152,6 @@ function SettingsContent({
     return (
       <SettingsProject
         canManage={canManageProjects}
-        gitHistory={session.capabilities.gitHistory}
         onProjectsChanged={onProjectsChanged}
         projectId={route.projectId}
         projects={projects}

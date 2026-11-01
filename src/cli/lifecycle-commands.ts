@@ -47,8 +47,6 @@ import {
   loadOidcConfiguration,
   type OidcConfiguration,
 } from "./oidc-configuration.js";
-import {writeGitHistoryConfigurationWarnings} from
-  "./git-history-configuration-warnings.js";
 import {
   browserLoginKinds,
   privateTeamBrowserAccess,
@@ -297,7 +295,6 @@ function configureExternalStorageStart(
     .addOption(portOption())
     .action(async (options: StartExternalStorageOptions) => {
       const parsed = await parseExternalConfiguration(options.host, options.port);
-      writeGitHistoryConfigurationWarnings(parsed.gitHistory);
       const oidc = await loadOidcConfiguration(process.env);
       if (oidc === null) missingPrivateTeamIdentityProvider();
       const server = await startExternalStorageServer({
@@ -308,7 +305,6 @@ function configureExternalStorageStart(
         completedRequestLogSampleRate: parsed.completedRequestLogSampleRate,
         contentDomain: parsed.contentDomain,
         databaseUrl: parsed.databaseUrl,
-        gitHistory: parsed.gitHistory,
         hostname: parsed.hostname,
         installationId: parsed.installationId,
         objectStorage: parsed.objectStorage,
@@ -337,7 +333,6 @@ async function startCompactServer(
   configuration: CompactRuntimeConfiguration,
   productVersion: string,
 ) {
-  writeGitHistoryConfigurationWarnings(configuration.gitHistory);
   const oidc = await loadOidcConfiguration({
     ...process.env,
     ARTIFACT_SERVER_BOOTSTRAP_ADMIN_EMAIL:
@@ -353,7 +348,6 @@ async function startCompactServer(
     completedRequestLogSampleRate: configuration.completedRequestLogSampleRate,
     contentDomain: configuration.contentDomain,
     dataDirectory: configuration.dataDirectory,
-    gitHistory: configuration.gitHistory,
     hostname: configuration.hostname,
     installationId: configuration.installation.installationId,
     linkedFiles: configuration.linkedFiles,
@@ -421,7 +415,6 @@ function compactMaintenanceConfig(
     completedRequestLogSampleRate: 0,
     contentDomain: configuration.contentDomain,
     dataDirectory: configuration.dataDirectory,
-    gitHistory: configuration.gitHistory,
     installationId: configuration.installation.installationId,
     observability: true,
     stagingCleanupPolicy: {
@@ -442,7 +435,6 @@ function externalMaintenanceConfig(
     completedRequestLogSampleRate: 0,
     contentDomain: configuration.contentDomain,
     databaseUrl: configuration.databaseUrl,
-    gitHistory: configuration.gitHistory,
     installationId: configuration.installationId,
     objectStorage: configuration.objectStorage,
     postgresMaxConnections: configuration.postgresMaxConnections,

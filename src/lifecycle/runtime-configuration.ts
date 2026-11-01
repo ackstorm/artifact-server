@@ -11,14 +11,6 @@ import {
 } from "../core/session-lifetime.js";
 import {managedApiKeyCredentialPattern} from
   "../core/installation-identity.js";
-import {
-  loadNodeGitHistoryConfiguration,
-  type NodeGitHistoryConfiguration,
-} from "../git-history/node-git-history-configuration.js";
-import type {
-  GitHistoryProvider,
-  GitHistoryProviderState,
-} from "../git-history/git-history-capability.js";
 
 import type {
   ObjectStorageProviderFactory,
@@ -94,7 +86,6 @@ export interface CompactRuntimeConfiguration {
   readonly dataDirectory: string;
   readonly deploymentMode: "compact";
   readonly hostname: string;
-  readonly gitHistory: NodeGitHistoryConfiguration;
   readonly installation: CompactInstallationMetadata;
   readonly linkedFiles: "off" | "on";
   readonly linkRoots: readonly string[];
@@ -121,7 +112,6 @@ export interface ExternalStorageRuntimeConfiguration {
   readonly databaseUrl: Redacted.Redacted;
   readonly deploymentMode: "external-storage";
   readonly hostname: string;
-  readonly gitHistory: NodeGitHistoryConfiguration;
   readonly installationId: string;
   readonly objectStorage: ObjectStorageProviderFactory;
   readonly organizationName: string | null;
@@ -149,15 +139,6 @@ export interface RuntimeConfigurationSummary {
   readonly dataDirectory: string | null;
   readonly deploymentMode: DeploymentMode;
   readonly hostname: string;
-  readonly gitHistory: {
-    readonly issues: readonly {
-      readonly field: string;
-      readonly message: string;
-      readonly reason: string;
-    }[];
-    readonly provider: GitHistoryProvider | null;
-    readonly providerState: GitHistoryProviderState;
-  };
   readonly installationId: string;
   readonly interactiveIdentityProvider: "local" | "oidc";
   readonly objectStorageProvider: "filesystem" | ObjectStorageProviderKind;
@@ -252,7 +233,6 @@ export const parseCompactRuntimeConfiguration = Effect.fn(
     contentDomain,
     dataDirectory: layout.dataDirectory,
     deploymentMode: "compact",
-    gitHistory: yield* loadNodeGitHistoryConfiguration(input.environment),
     hostname: yield* parseHostname(input.hostname),
     installation,
     linkedFiles: yield* parseLinkedFilesMode(input.environment),
@@ -329,7 +309,6 @@ export const parseExternalStorageRuntimeConfiguration = Effect.fn(
     },
     databaseUrl: databaseUrl.value,
     deploymentMode: "external-storage",
-    gitHistory: yield* loadNodeGitHistoryConfiguration(environment),
     hostname: yield* parseHostname(input.hostname),
     installationId: yield* parseRequiredEnvironment(
       "ARTIFACT_SERVER_INSTALLATION_ID",
@@ -520,7 +499,6 @@ export function summarizeRuntimeConfiguration(
       },
       dataDirectory: configuration.dataDirectory,
       deploymentMode: configuration.deploymentMode,
-      gitHistory: gitHistorySummary(configuration.gitHistory),
       hostname: configuration.hostname,
       installationId: configuration.installation.installationId,
       interactiveIdentityProvider,
@@ -541,7 +519,6 @@ export function summarizeRuntimeConfiguration(
     },
     dataDirectory: null,
     deploymentMode: configuration.deploymentMode,
-    gitHistory: gitHistorySummary(configuration.gitHistory),
     hostname: configuration.hostname,
     installationId: configuration.installationId,
     interactiveIdentityProvider,
@@ -552,16 +529,6 @@ export function summarizeRuntimeConfiguration(
     shutdownDeadlineMilliseconds: configuration.shutdownDeadlineMilliseconds,
     stagingCleanup: configuration.stagingCleanupPolicy,
     status: "valid",
-  };
-}
-
-function gitHistorySummary(
-  configuration: NodeGitHistoryConfiguration,
-): RuntimeConfigurationSummary["gitHistory"] {
-  return {
-    issues: configuration.issues,
-    provider: configuration.capability.provider,
-    providerState: configuration.capability.providerState,
   };
 }
 

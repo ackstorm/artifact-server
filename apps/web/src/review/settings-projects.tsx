@@ -2,10 +2,7 @@ import {useEffect, useState} from "react";
 
 import {
   api,
-  type DeploymentCapabilities,
   type Project,
-  type ProjectGitHistoryEstimate,
-  type ProjectGitHistorySetting,
 } from "@/api/client";
 import {ErrorPanel, PageHeader, StatePanel, StatusBadge} from "@/components/product";
 import {Button, ButtonLink} from "@/components/ui/button";
@@ -20,12 +17,11 @@ import {
 } from "@/components/ui/dialog";
 import {Input} from "@/components/ui/input";
 import {Label} from "@/components/ui/label";
-import {formatBytes, formatTimestamp} from "@/lib/presentation";
+import {formatTimestamp} from "@/lib/presentation";
 import {projectSettingsHref} from "./review-routes.ts";
 
 interface ProjectSettingsSharedProps {
   readonly canManage: boolean;
-  readonly gitHistory: DeploymentCapabilities["gitHistory"];
   readonly onProjectsChanged: () => Promise<readonly Project[]>;
   readonly projects: readonly Project[];
 }
@@ -171,10 +167,9 @@ export function SettingsProjects({
   );
 }
 
-/** Manage one project's identity, lifecycle, and optional Git history. */
+/** Manage one project's identity and lifecycle. */
 export function SettingsProject({
   canManage,
-  gitHistory,
   onProjectsChanged,
   projectId,
   projects,
@@ -184,35 +179,10 @@ export function SettingsProject({
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<Error | null>(null);
-  const [gitSetting, setGitSetting] = useState<ProjectGitHistorySetting | null>(null);
-  const [gitEstimate, setGitEstimate] = useState<ProjectGitHistoryEstimate | null>(null);
 
   useEffect(() => {
     setName(project?.name ?? "");
   }, [project?.name]);
-
-  useEffect(() => {
-    if (project === null || gitHistory.provider === null) {
-      setGitSetting(null);
-      return undefined;
-    }
-    let current = true;
-    void (async (): Promise<void> => {
-      try {
-        const setting = await api.projectGitHistory(project.id);
-        if (current) setGitSetting(setting);
-      } catch (caught) {
-        if (current) {
-          setError(caught instanceof Error
-            ? caught
-            : new Error("Git history status could not be loaded."));
-        }
-      }
-    })();
-    return () => {
-      current = false;
-    };
-  }, [gitHistory.provider, project]);
 
   if (project === null) {
     return (
@@ -258,29 +228,6 @@ export function SettingsProject({
       setPending(false);
     }
   };
-  const estimateGitHistory = async (): Promise<void> => {
-    setPending(true);
-    setError(null);
-    try {
-      setGitEstimate(await api.estimateProjectGitHistory(project.id));
-    } catch (caught) {
-      setError(caught instanceof Error ? caught : new Error("Git history estimate failed."));
-    } finally {
-      setPending(false);
-    }
-  };
-  const changeGitHistory = async (enabled: boolean): Promise<void> => {
-    setPending(true);
-    setError(null);
-    try {
-      setGitSetting(await api.setProjectGitHistory(project.id, enabled));
-      setGitEstimate(null);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught : new Error("Git history update failed."));
-    } finally {
-      setPending(false);
-    }
-  };
 
   return (
     <div className="flex flex-col gap-8">
@@ -294,7 +241,7 @@ export function SettingsProject({
           </ButtonLink>
         )}
         description={project.archivedAt === null
-          ? "Manage this project's name, lifecycle, and optional history."
+          ? "Manage this project's name and lifecycle."
           : "This project is archived. Existing artifacts and immutable versions remain readable."}
         title={project.name}
       />
@@ -331,44 +278,6 @@ export function SettingsProject({
           <dd>{formatTimestamp(project.createdAt)}</dd>
         </dl>
       </section>
-
-      {gitHistory.provider === null ? null : (
-        <section className="grid gap-5 border p-5 sm:p-6" aria-labelledby="project-git-heading">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <h2 className="font-heading text-lg font-semibold" id="project-git-heading">Git history</h2>
-              <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
-                Cloudflare Artifacts keeps a derived Git repository for each artifact. Artifact Server remains the source of truth.
-              </p>
-            </div>
-            <StatusBadge tone={gitSetting?.enabled === true ? "primary" : "neutral"}>
-              {gitSetting === null ? "Loading" : gitSetting.state.replaceAll("-", " ")}
-            </StatusBadge>
-          </div>
-          <div>
-            <Button
-              disabled={!canManage
-                || pending
-                || gitSetting === null
-                || (!gitSetting.enabled && gitHistory.providerState !== "available")}
-              onClick={() => void (gitSetting?.enabled === true
-                ? changeGitHistory(false)
-                : estimateGitHistory())}
-              type="button"
-              variant="outline"
-            >
-              {pending
-                ? "Working…"
-                : gitSetting?.enabled === true ? "Disable Git history" : "Enable Git history"}
-            </Button>
-            {gitHistory.providerState === "available" ? null : (
-              <p className="mt-2 text-sm text-muted-foreground">
-                Git history is currently {gitHistory.providerState.replaceAll("-", " ")} for this deployment.
-              </p>
-            )}
-          </div>
-        </section>
-      )}
 
       <section className="grid gap-5 border border-destructive/40 p-5 sm:p-6" aria-labelledby="project-lifecycle-heading">
         <div>
@@ -410,33 +319,6 @@ export function SettingsProject({
           </Dialog>
         ) : null}
       </section>
-
-      <Dialog onOpenChange={(open) => { if (!open) setGitEstimate(null); }} open={gitEstimate !== null}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Enable Git history?</DialogTitle>
-            <DialogDescription>
-              Existing and future versions will be copied to derived Cloudflare Artifacts repositories.
-            </DialogDescription>
-          </DialogHeader>
-          {gitEstimate === null ? null : (
-            <dl className="grid grid-cols-2 gap-3 border-y py-4 text-sm">
-              <dt className="text-muted-foreground">Repositories</dt>
-              <dd>{gitEstimate.repositories}</dd>
-              <dt className="text-muted-foreground">Versions</dt>
-              <dd>{gitEstimate.versions}</dd>
-              <dt className="text-muted-foreground">Estimated copy</dt>
-              <dd>{formatBytes(gitEstimate.estimatedCopiedBytes)}</dd>
-            </dl>
-          )}
-          <DialogFooter>
-            <Button disabled={pending} onClick={() => setGitEstimate(null)} type="button" variant="outline">Cancel</Button>
-            <Button disabled={pending} onClick={() => void changeGitHistory(true)} type="button">
-              {pending ? "Enabling…" : "Enable Git history"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

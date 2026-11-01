@@ -11,7 +11,6 @@ Use these guides to install, connect, operate, and extend Artifact Server.
 - [Claude Code channel bridge](../integrations/claude-channel/README.md)
 - [Agent bridge protocol](./agent-bridge-protocol.md)
 - [Command-line interface](./cli.md)
-- [Cloudflare Artifacts integration status](./cloudflare-artifacts.md)
 - [Security](../SECURITY.md)
 
 ## Deployment guides

@@ -1650,7 +1650,6 @@ test.describe("Artifact Server frontend MVP", () => {
       const defaultProjectRow = fixture.page.getByRole("row").filter({hasText: "Default"});
       await defaultProjectRow.getByRole("link", {name: "Settings"}).click();
       await expect(fixture.page.getByRole("heading", {name: "Project identity"})).toBeVisible();
-      await expect(fixture.page.getByRole("heading", {name: "Git history"})).toHaveCount(0);
       await expect(fixture.page.getByRole("link", {name: "Artifact Server"})).toContainText("Settings");
       const settingsHeaderBox = await fixture.page.locator(".as-settings__header-inner").boundingBox();
       const settingsMarkBox = await fixture.page.locator(".as-settings__brand-mark").boundingBox();

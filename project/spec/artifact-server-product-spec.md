@@ -202,83 +202,15 @@ The mutation policy is separate from the two read settings:
 
 An interactive agent acts as the signed-in person. An API key belongs to one named user or service principal, one installation, an expiry and revoke state, and explicit capabilities. Rotating a key replaces its credential record and secret without changing that principal or the administrator who authorized it. A key with artifact access can use any project in that installation; projects do not add a second access-control list. Every mutation records the effective principal and, when present, the human who authorized the agent connection.
 
-## Versions, comparisons, and optional Git handoff
+## Versions and comparisons
 
-Comparisons use the primary version manifests, not Git.
+Comparisons use the primary version manifests.
 
 - Compare normalized manifest paths to report files added, removed, or changed.
 - Detect a rename only when an added path and removed path have the same fingerprint.
 - For bounded text files, show a line comparison.
 - For binary files, report the old and new size and fingerprint and provide links to both versions.
 - The first release has no image comparison interface, PDF comparison, media analysis, or archive inspection.
-
-Git handoff is an optional private copy. Deployment configuration makes a
-provider available; it does not select data. The provider is off by default on
-every deployment, there is no automatic provider choice, and Git never supplies
-the files used to render an artifact.
-
-| Configuration | Behavior |
-| --- | --- |
-| `off` or absent | Normal Artifact Server behavior with no Git implementation, credential, binding, or provider request. This is the default. |
-| `cloudflare-artifacts` | Makes one exclusive, pre-created Cloudflare Artifacts namespace available through a Workers binding or the REST API. It creates no repository until an administrator enables a project. |
-
-Every project has one durable Git-history switch, and it starts off. A project
-administrator can review a current-inventory estimate and explicitly turn the
-switch on for that project. There is no installation-wide selection mode,
-inheritance rule, or automatic enablement for future projects. Browser, HTTP,
-and MCP use the same authorized and naturally idempotent project operation.
-Provider account, namespace, credentials, copy limits, and optional logical
-copied-byte budget remain deployment configuration.
-
-Each artifact, including a single-document artifact, receives its own private
-repository only when its first history job runs. Each saved version maps to at
-most one Git commit. Enabling a project after versions exist backfills every
-unmapped version in that project asynchronously and resumes after failure. A
-project checkout command may clone those independent repositories as sibling
-folders; it does not turn the project into a repository or source of truth.
-
-Disabling a project or provider stops applicable mirror work without deleting
-repositories or durable mappings; re-enabling the same project and provider
-resumes. Changing the persisted provider account or namespace after repositories
-exist requires an explicit migration rather than interpreting configuration as
-permission to move or delete data.
-
-Permanent removal uses an operator-only `artifactserver history purge`
-plan/apply command with exact installation-ID confirmation. It is resumable,
-does not delete primary artifact data or the provider namespace, and is not
-available through HTTP, MCP, or the member application.
-
-Authenticated HTTP and MCP capability discovery separately reports provider
-state (`disabled`, `checking`, `available`, `degraded`, `misconfigured`, or
-`migration-required`) and project state (`disabled`, `waiting`, `backfilling`,
-`ready`, `degraded`, or `budget-limited`). It exposes no credentials or
-repository coordinates, and optional Git health never makes application
-readiness fail.
-
-An estimate shows repositories, versions, operations, copied bytes, pointer
-bytes, and a dated public rate card before project or all-project enablement.
-Deterministic per-file and per-version copy limits leave excluded bytes in
-primary storage with path, media type, size, and fingerprint pointers. An
-optional logical copied-byte budget atomically pauses new provider writes in
-`budget-limited` before overshoot. Estimates are guidance, not invoice
-guarantees; Cloudflare bills aggregate operations and storage and has no
-per-repository fee.
-
-One Artifact Server installation environment uses one exclusive, persisted
-Cloudflare account/namespace identity. The adapter has no account-wide or
-namespace-delete operation. The live provider suite uses its own
-`artifact-server-test-` namespace, unique run-prefixed repositories, a separate
-revocable token, hard operation/storage bounds, and cleanup restricted to a
-durable run manifest. This keeps an existing namespace such as `workspaces`
-outside the integration's route and cleanup boundary, although Cloudflare's
-control-plane token and billing remain account-wide.
-
-A Git failure never blocks or deletes the saved version. Cloudflare Artifacts
-remains optional while access is not universal. Current documented limits
-include 10 GB per repository, and current pricing requires Workers Paid. The
-product does not depend on Git LFS. Additional local, code.storage, or
-private-remote adapters are future options, not day-one claims. The full
-implementation contract is [the Git history specification](./git-history-spec.md).
 
 ## Storage commit and lifecycle
 
@@ -289,7 +221,6 @@ Publishing uses this order:
 3. Verify size, fingerprint, canonical path, manifest, and entry file.
 4. Make immutable blobs available under their fingerprints.
 5. In one database transaction, create the version, its manifest entries, the idempotency result, and the conditional current-version update.
-6. When the configured provider is non-off and this project's durable Git-history switch is on, queue its optional copy after the version is committed.
 
 The initial release deletes only expired staging uploads that were never committed. It does not automatically delete committed blobs or blobs left by a publish race. This may waste storage, but it cannot delete bytes referenced by an immutable version. A later garbage collector requires a durable lease or mark-and-sweep design with a concurrency and crash-recovery test before it is enabled.
 
@@ -475,7 +406,6 @@ A requirement is complete only when both tests pass on every applicable deployme
 - Immutable versions, canonical manifests, text comparison, restore, and two read settings.
 - `artifactserver connect`, the credential-hidden local stdio bridge, HTTP API, modern MCP, and `artifact-server` skill.
 - Unique `*.localhost` version origins and the browser security tests.
-- Git handoff disabled by default; an independently configured Cloudflare Artifacts provider is optional.
 - No automatic committed-blob garbage collection.
 
 ### Private team
@@ -508,7 +438,6 @@ Every applicable release must prove:
 - unsafe manifest paths, symlinks, hash mismatches, oversized uploads, and stale publishes are rejected;
 - retrying the same idempotency key returns the original result;
 - an intentional identical publish with a new key creates a new version;
-- Git-off comparison works and Git failure does not affect the saved version;
 - public-to-private changes stop new origin access and attempt the configured CDN purge;
 - backup and restore preserve IDs before a deployment is called team-ready;
 - local/team target resolution never guesses between configured servers.
@@ -523,16 +452,15 @@ These items can change implementation cost or hosting viability and must be reso
 
 1. **Private multi-file delivery:** top-level bootstrap tokens and version-scoped content cookies have focused tests. Exact-version Review leases and the complete supported-browser and per-deployment `GATE-001` matrix remain open until their recorded qualification completes.
 2. **Wildcard content hosts:** local `*.localhost` behavior has evidence. Equivalent DNS, certificate, proxy, and hostile-host proof remains open for each deployment before support is advertised.
-3. **Cloudflare Artifacts:** complete the live binding, REST, smart-HTTP, token, backfill, disable, deletion, recovery, limits, and cost probes before advertising the off-by-default provider. The core product remains supported without access.
-4. **Embedded self-hosted OAuth:** ship Better Auth only after its beta MCP path passes the security, compatibility, migration, and recovery matrix.
-5. **Azure:** Azure has no direct target; the Azure Blob adapter remains preview until it passes a real provider test.
-6. **Capacity claims:** the OSS release need not advertise universal capacity or cost envelopes. Any target-specific claim must be backed by measured evidence; enforced input bounds remain part of core safety.
-7. **Recovery promises:** choose support tiers, availability target, backup frequency, restore-time target, and acceptable data-loss window for hosted and self-hosted team deployments.
-8. **Optional enterprise policy:** encryption-key ownership, regional placement, audit export, legal hold, and contractual deletion are outside the simple first release and should be specified only if an enterprise offering is proposed.
-9. **Custom domains:** decide whether customer-owned content domains are supported and how certificates, cookies, abuse handling, and version origins work.
-10. **Plannotator review bridge:** test the isolated review response against hostile artifact JavaScript, strict content policies, multi-page sites, single-page routes, service workers, anchor stability, session expiry, and browsers without third-party cookies. Use a browser extension if the injected bridge cannot pass without exposing a reusable credential.
-11. **Existing project binding:** decide how an existing Artifact Server project pairs with a Plannotator project, including name conflicts, existing artifacts, unlinking, rollback, archival, and reconnect behavior. Pairing must not silently move artifacts or change IDs.
-12. **Private Plannotator route:** choose the first supported path among customer-provided networking, Cloudflare Tunnel, or a product-owned connector. Define health, upgrades, replicas, egress addresses, and failure behavior before advertising one-click private connection.
+3. **Embedded self-hosted OAuth:** ship Better Auth only after its beta MCP path passes the security, compatibility, migration, and recovery matrix.
+4. **Azure:** Azure has no direct target; the Azure Blob adapter remains preview until it passes a real provider test.
+5. **Capacity claims:** the OSS release need not advertise universal capacity or cost envelopes. Any target-specific claim must be backed by measured evidence; enforced input bounds remain part of core safety.
+6. **Recovery promises:** choose support tiers, availability target, backup frequency, restore-time target, and acceptable data-loss window for hosted and self-hosted team deployments.
+7. **Optional enterprise policy:** encryption-key ownership, regional placement, audit export, legal hold, and contractual deletion are outside the simple first release and should be specified only if an enterprise offering is proposed.
+8. **Custom domains:** decide whether customer-owned content domains are supported and how certificates, cookies, abuse handling, and version origins work.
+9. **Plannotator review bridge:** test the isolated review response against hostile artifact JavaScript, strict content policies, multi-page sites, single-page routes, service workers, anchor stability, session expiry, and browsers without third-party cookies. Use a browser extension if the injected bridge cannot pass without exposing a reusable credential.
+10. **Existing project binding:** decide how an existing Artifact Server project pairs with a Plannotator project, including name conflicts, existing artifacts, unlinking, rollback, archival, and reconnect behavior. Pairing must not silently move artifacts or change IDs.
+11. **Private Plannotator route:** choose the first supported path among customer-provided networking, Cloudflare Tunnel, or a product-owned connector. Define health, upgrades, replicas, egress addresses, and failure behavior before advertising one-click private connection.
 
 ## Deliberately not included
 

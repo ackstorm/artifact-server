@@ -21,8 +21,6 @@ import {
   parseLinkedFilesMode,
   parsePublicLinksEnabled,
 } from "../lifecycle/runtime-configuration.js";
-import {loadNodeGitHistoryConfiguration} from
-  "../git-history/node-git-history-configuration.js";
 import {defaultCompletedRequestLogSampleRate} from
   "../observability/application-observability.js";
 import {runCliEffect} from "./run-cli-effect.js";
@@ -32,11 +30,8 @@ import {configureCliAuthCommands} from "./cli-auth-commands.js";
 import {configureLinkCommand} from "./link-command.js";
 import {configureMcpOnboardingCommands} from "./mcp-onboarding-commands.js";
 import {configurePublishCommand} from "./publish-command.js";
-import {configureGitHistoryCommands} from "./git-history-commands.js";
 import {waitForProcessSignal} from "./wait-for-process-signal.js";
 import {configureOpenManagementCommand} from "./open-management-command.js";
-import {writeGitHistoryConfigurationWarnings} from
-  "./git-history-configuration-warnings.js";
 
 interface StartOptions {
   readonly data: string;
@@ -71,9 +66,6 @@ configureCliAuthCommands(program, {
   defaultProfileDirectory: defaultUserDataDirectory,
 });
 configurePublishCommand(program, {
-  defaultProfileDirectory: defaultUserDataDirectory,
-});
-configureGitHistoryCommands(program, {
   defaultProfileDirectory: defaultUserDataDirectory,
 });
 configureLinkCommand(program, {
@@ -121,10 +113,6 @@ function configureDirectLocalStart(programToConfigure: Command): void {
       );
       requireLocalOwnerEnvironment(process.env);
       const observability = observabilityEnvironmentSchema.parse(process.env);
-      const gitHistory = await runCliEffect(
-        loadNodeGitHistoryConfiguration(process.env),
-      );
-      writeGitHistoryConfigurationWarnings(gitHistory);
       const linkedFiles = await runCliEffect(parseLinkedFilesMode(process.env));
       const linkRoots = await runCliEffect(parseLinkRoots(process.env));
       const publicLinksEnabled = await runCliEffect(
@@ -141,7 +129,6 @@ function configureDirectLocalStart(programToConfigure: Command): void {
         completedRequestLogSampleRate:
           observability.ARTIFACT_SERVER_REQUEST_LOG_SAMPLE_RATE,
         dataDirectory,
-        gitHistory,
         linkedFiles,
         linkRoots,
         localBootstrapToken: browserBootstrapToken,
