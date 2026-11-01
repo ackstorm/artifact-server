@@ -1320,9 +1320,9 @@ describe.sequential("external-storage Postgres and S3 runtime", () => {
         createdAt: "2026-08-18T12:00:00.000Z",
         expiresAt: "2126-08-18T12:00:00.000Z",
         nonce: null,
-        provider: "workos",
+        provider: "other-provider",
         returnTo: "/",
-        stateDigest: "postgres-login-attempt-workos-state",
+        stateDigest: "postgres-login-attempt-other-state",
       });
       const oidcAttempt = await repository.consumeLoginAttempt(
         "postgres-login-attempt-oidc-state",
@@ -1334,12 +1334,12 @@ describe.sequential("external-storage Postgres and S3 runtime", () => {
         nonce: "postgres-login-attempt-nonce",
         provider: "oidc",
       });
-      const workOsAttempt = await repository.consumeLoginAttempt(
-        "postgres-login-attempt-workos-state",
-        "workos",
+      const otherProviderAttempt = await repository.consumeLoginAttempt(
+        "postgres-login-attempt-other-state",
+        "other-provider",
         "2026-08-18T12:00:05.000Z",
       );
-      expect(workOsAttempt.nonce).toBeNull();
+      expect(otherProviderAttempt.nonce).toBeNull();
       await expect(repository.consumeLoginAttempt(
         "postgres-login-attempt-oidc-state",
         "oidc",

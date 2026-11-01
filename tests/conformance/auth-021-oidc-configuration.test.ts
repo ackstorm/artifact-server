@@ -174,44 +174,6 @@ describe("generic OIDC configuration", () => {
     expect(partial.output).toContain("Generic OIDC authentication requires");
     expect(partial.output).toContain("ARTIFACT_SERVER_OIDC_CLIENT_ID");
 
-    const doubled = await runCli([
-      "config",
-      "check",
-      "--mode",
-      "compact",
-      "--data",
-      dataDirectory,
-    ], {
-      ARTIFACT_SERVER_OIDC_CLIENT_ID: provider.clientId,
-      ARTIFACT_SERVER_OIDC_ISSUER: provider.issuer,
-      ARTIFACT_SERVER_WORKOS_API_KEY: "sk_test_workos_secret_value",
-      ARTIFACT_SERVER_WORKOS_CLIENT_ID: "client_workos",
-      ARTIFACT_SERVER_WORKOS_ISSUER: "https://workos.example.test",
-    });
-    expect(doubled.exitCode).not.toBe(0);
-    expect(doubled.output).toContain(
-      "One installation has one browser-login provider",
-    );
-    expect(doubled.output).not.toContain("sk_test_workos_secret_value");
-
-    // A single leftover WorkOS variable is still two configured providers.
-    const leftover = await runCli([
-      "config",
-      "check",
-      "--mode",
-      "compact",
-      "--data",
-      dataDirectory,
-    ], {
-      ARTIFACT_SERVER_OIDC_CLIENT_ID: provider.clientId,
-      ARTIFACT_SERVER_OIDC_ISSUER: provider.issuer,
-      ARTIFACT_SERVER_WORKOS_ISSUER: "https://workos.example.test",
-    });
-    expect(leftover.exitCode).not.toBe(0);
-    expect(leftover.output).toContain(
-      "One installation has one browser-login provider",
-    );
-
     await expect(loadOidcConfiguration({
       ARTIFACT_SERVER_BOOTSTRAP_ADMIN_EMAIL: administratorEmail,
       ARTIFACT_SERVER_OIDC_CLIENT_ID: provider.clientId,

@@ -514,7 +514,7 @@ export interface ApiOAuthResourceConfiguration {
   readonly resource: string;
 }
 
-/** WorkOS metadata and exact audience for the hosted MCP protected resource. */
+/** Authorization-server metadata and exact audience for the MCP protected resource. */
 export interface McpOAuthResourceConfiguration {
   readonly authorizationServerMetadata: OAuthMetadata;
   readonly resource: string;

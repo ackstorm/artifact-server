@@ -48,9 +48,6 @@ importers:
       '@modelcontextprotocol/server':
         specifier: 2.3.1
         version: 2.3.1
-      '@workos-inc/node':
-        specifier: 10.9.0
-        version: 10.9.0
       commander:
         specifier: 15.0.0
         version: 15.0.0
@@ -2014,10 +2011,6 @@ packages:
 
   '@viz-js/viz@3.30.0':
     resolution: {integrity: sha512-2zmcP55QY44uQfZ+GvgNHmGd8S6KUD+2eMur9AbYybSzrOd/m8nMUg0ZircJNiJRKGgVBKAE8kh0hAwpUFUFQQ==}
-
-  '@workos-inc/node@10.9.0':
-    resolution: {integrity: sha512-Voxhxocg7Q9lpi1gJ6qyPCjgcjh7fZmxU0gR7BQRnv+ozCJ9Xj4jZulVt38tGMukniDI1uwTiXm+G2vdogpD4Q==}
-    engines: {node: '>=22.11.0'}
 
   abort-controller@3.0.0:
     resolution: {integrity: sha512-h8lQ8tacZYnR3vNQTgibj+tODHI5/+l06Au2Pcriv/Gmet0eaj4TwWH41sO9wnHDiQsEj19q0drzdWdeAHtweg==}
@@ -6252,8 +6245,6 @@ snapshots:
       tinyrainbow: 3.1.1
 
   '@viz-js/viz@3.30.0': {}
-
-  '@workos-inc/node@10.9.0': {}
 
   abort-controller@3.0.0:
     dependencies:

@@ -69,7 +69,7 @@ The backend already supports:
 - immutable versions, canonical manifests, text comparisons, and restore;
 - public links and account-required content sessions;
 - browser-native HTML, static sites, SPAs, images, PDFs, audio, and video;
-- local browser sessions and hosted WorkOS browser login;
+- local browser sessions and OIDC browser login;
 - installation members and managed API keys;
 - CLI, HTTP, and MCP access through the same application services;
 - local packages, OCI images, Compose, Helm, Cloudflare, AWS, and GCP release
@@ -245,7 +245,7 @@ application. Update the associated behavior tests.
 ## Browser authentication and request rules
 
 The UI uses Artifact Server application sessions. It does not use MCP tokens,
-WorkOS access tokens, or API keys directly.
+identity-provider access tokens, or API keys directly.
 
 On startup, call:
 
@@ -263,7 +263,7 @@ For a hosted deployment, an unauthenticated screen sends the person to:
 GET /auth/login?returnTo=<safe application path>
 ```
 
-WorkOS completes login, but the UI never receives or stores a WorkOS token.
+The provider completes login, but the UI never receives or stores a provider token.
 Artifact Server exchanges the verified identity for its own opaque session.
 
 Every browser request must use same-origin credentials. For `POST`, `PATCH`,
@@ -546,8 +546,8 @@ The assignment is complete when:
 - the final source retains the exact QA Miner theme and component foundation;
 - one management application works locally and in every packaged runtime;
 - a local person can open it without reading or copying a credential;
-- hosted login uses Artifact Server's WorkOS-backed application session;
-- no browser code stores an API key, WorkOS token, MCP token, or session secret;
+- team login uses Artifact Server's OIDC-backed application session;
+- no browser code stores an API key, provider token, MCP token, or session secret;
 - every MVP workflow above works against the real backend;
 - untrusted artifact content cannot reach the management UI or its credentials;
 - root lint includes anti-slop at error level and passes without suppressions;

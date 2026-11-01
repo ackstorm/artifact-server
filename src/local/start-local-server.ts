@@ -40,7 +40,7 @@ export async function startLocalServer(
     && config.interactiveIdentityProvider === undefined
   ) {
     throw new Error(
-      "A private-team server requires exactly one OIDC or WorkOS browser-login provider.",
+      "A private-team server requires an OIDC browser-login provider.",
     );
   }
   if (

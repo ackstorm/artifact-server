@@ -8,7 +8,6 @@ export const browserAccessModes = {
 export const browserLoginKinds = {
   localOwner: "local_owner",
   oidc: "oidc",
-  workOs: "workos",
 } as const;
 
 /**
@@ -24,9 +23,7 @@ export type BrowserAccess =
     readonly mode: typeof browserAccessModes.localOwner;
   }
   | {
-    readonly loginKind:
-      | typeof browserLoginKinds.oidc
-      | typeof browserLoginKinds.workOs;
+    readonly loginKind: typeof browserLoginKinds.oidc;
     readonly mode: typeof browserAccessModes.privateTeam;
   };
 
@@ -38,9 +35,7 @@ export const localOwnerBrowserAccess: BrowserAccess = {
 
 /** Create the browser access policy for a remotely deployed private team. */
 export function privateTeamBrowserAccess(
-  loginKind:
-    | typeof browserLoginKinds.oidc
-    | typeof browserLoginKinds.workOs,
+  loginKind: typeof browserLoginKinds.oidc,
 ): Extract<BrowserAccess, {readonly mode: "private_team"}> {
   return {loginKind, mode: browserAccessModes.privateTeam};
 }

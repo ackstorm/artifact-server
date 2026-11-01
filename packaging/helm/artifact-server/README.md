@@ -112,18 +112,10 @@ names empty, add the provider annotations under `serviceAccount.annotations`,
 and set `serviceAccount.automountServiceAccountToken` only when that identity
 mechanism requires the projected Kubernetes token.
 
-## WorkOS authentication
-
-Private-team deployments require exactly one browser identity provider. To use
-WorkOS, set `identity.workosClientId`, `identity.workosIssuer`, and
-`secret.keys.workosApiKey`. `identity.workosIssuer` is the exact HTTPS AuthKit
-origin for this environment, and `secret.keys.workosApiKey` names a key in the
-existing Kubernetes Secret. The chart rejects a partial WorkOS configuration.
-
 ## OIDC authentication
 
 An installation that already runs its own OpenID Connect provider can use it for
-browser login instead of WorkOS. Set `identity.oidcIssuer` to the exact issuer
+browser login. Set `identity.oidcIssuer` to the exact issuer
 URL and `identity.oidcClientId` to the registered client. The issuer must be an
 HTTPS URL with no query or fragment. The redirect URI to register with the
 provider is `configuration.applicationOrigin` followed by `/auth/callback`.
@@ -160,7 +152,7 @@ Bootstrap the configured first administrator before other users sign in. Existin
 members keep their roles and may sign in outside the registration domain list;
 deactivated identities stay denied even when their provider email changes.
 Automatic admission applies only to OIDC browser login and grants no administrator
-role. MCP bearer authentication and WorkOS admission keep their existing rules.
+role. MCP bearer authentication keeps its existing rules.
 
 The same issuer also protects the MCP endpoint: agents may present an end-user
 access token instead of an API key, and the server binds each call to the person
@@ -168,14 +160,13 @@ who obtained it. Such a token must name `configuration.applicationOrigin`
 followed by `/mcp` in `aud`, which the provider produces from an audience mapper
 or an RFC 8707 resource indicator.
 
-One installation has one browser-login provider. The chart rejects values that
-configure neither provider or configure WorkOS and OIDC together.
+The chart rejects values that configure no provider.
 
 ## NetworkPolicy
 
 NetworkPolicy is disabled by default. Standard Kubernetes policies cannot allow
 external services by DNS name, so the chart cannot safely invent rules for a
-managed database, bucket, WorkOS, or an OTLP collector. Operators can enable the
+managed database, bucket, or an OTLP collector. Operators can enable the
 template and provide exact native `ingress` and `egress` rules for their CNI and
 network. An empty enabled rule set is default-deny.
 

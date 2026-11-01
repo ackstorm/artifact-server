@@ -34,10 +34,8 @@ assert_admission_environment() {
     const variables = new Map(container.env.map((entry) => [entry.name, entry.value]));
     const names = ["ARTIFACT_SERVER_OIDC_AUTO_ADMIT", "ARTIFACT_SERVER_OIDC_ALLOWED_EMAIL_DOMAINS"];
     const mode = process.argv[1];
-    const expected = mode === "enabled" ? ["true", "example.test,ackstorm.com"] :
-      mode === "disabled" ? ["false", ""] : [undefined, undefined];
+    const expected = mode === "enabled" ? ["true", "example.test,ackstorm.com"] : ["false", ""];
     assert.deepEqual(names.map((name) => variables.get(name)), expected);
-    if (mode === "workos") assert.ok(names.every((name) => !variables.has(name)));
   ' "$1" "$artifactserver_repository"
 }
 
@@ -51,16 +49,6 @@ helm template artifact-server "$artifactserver_chart" \
 helm template artifact-server "$artifactserver_chart" \
   --kube-version 1.36.0 \
   "${artifactserver_values[@]}" | assert_admission_environment disabled
-
-helm template artifact-server "$artifactserver_chart" \
-  --kube-version 1.36.0 \
-  "${artifactserver_values[@]}" \
-  --set identity.oidcClientId= \
-  --set identity.oidcIssuer= \
-  --set identity.workosClientId=client_workos \
-  --set identity.workosIssuer=https://auth.example.test \
-  --set secret.keys.workosApiKey=workos-api-key | \
-  assert_admission_environment workos
 
 assert_organization_name() {
   node --input-type=module -e '
@@ -178,12 +166,6 @@ expect_render_failure "identity.oidcScopes and secret.keys.oidcClientSecret requ
   --set identity.oidcIssuer= \
   --set identity.oidcScopes="openid email profile"
 
-expect_render_failure "one installation has one browser-login provider" \
-  "${artifactserver_values[@]}" \
-  --set identity.workosClientId=client_workos \
-  --set identity.workosIssuer=https://auth.example.test \
-  --set secret.keys.workosApiKey=workos-api-key
-
 expect_render_failure "identity.oidcAutoAdmit and identity.oidcAllowedEmailDomains require" \
   "${artifactserver_values[@]}" \
   --set identity.oidcClientId= \
@@ -212,7 +194,7 @@ expect_render_failure "publicLinksEnabled" \
   "${artifactserver_values[@]}" \
   --set-string configuration.publicLinksEnabled=yes
 
-expect_render_failure "private-team deployments require exactly one browser-login provider" \
+expect_render_failure "private-team deployments require identity.oidcIssuer" \
   "${artifactserver_values[@]}" \
   --set identity.oidcClientId= \
   --set identity.oidcIssuer=

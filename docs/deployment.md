@@ -16,7 +16,7 @@ Each remote deployment needs these boundaries:
 
 1. Configure one HTTPS application origin.
 2. Configure a separate wildcard content domain.
-3. Configure WorkOS or one generic OIDC provider.
+3. Configure one generic OIDC provider.
 4. Admit team members through Artifact Server, or enable OIDC automatic admission.
 5. Store service credentials outside source control.
 6. Back up the database and artifact files.
@@ -34,7 +34,7 @@ External-storage deployments use PostgreSQL and object storage. These deployment
 
 Local-owner access works only on an exact loopback origin. Do not use it for remote access.
 
-Remote deployments use WorkOS or a generic OIDC provider. Network access and application authorization remain separate controls.
+Remote deployments use a generic OIDC provider. Network access and application authorization remain separate controls.
 
 ### Admit members through OIDC browser login
 
@@ -55,7 +55,7 @@ members keep their roles and can sign in outside that list. A deactivated member
 cannot regain access by changing the email attached to the same issuer and subject.
 The first member still must be the configured bootstrap administrator; automatic
 admission does not replace that bootstrap step or grant administrator privileges.
-An explicitly unverified email remains denied. WorkOS, local-owner login, and MCP
+An explicitly unverified email remains denied. Local-owner login and MCP
 bearer authentication keep their existing admission rules.
 
 Both policy variables require a complete OIDC configuration, even when automatic

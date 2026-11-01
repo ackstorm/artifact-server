@@ -1034,7 +1034,7 @@ export function createApplicationLayer(
           expiresAt: verified.expiresAt,
           principal,
           // The exact resource-bound audience grants access to this MCP
-          // endpoint. WorkOS does not issue a separate product scope.
+          // endpoint.
           scopes: ["mcp"],
         };
       });

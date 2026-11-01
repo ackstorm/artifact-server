@@ -127,20 +127,10 @@ configure a proxy, issue certificates, open a firewall, or create a tunnel.
 Changing an artifact to public removes the Artifact Server login check. It does
 not make a private server reachable from the internet.
 
-## WorkOS login
-
-Private-team serving requires exactly one identity provider. To use WorkOS, set
-the exact AuthKit issuer in
-`ARTIFACT_SERVER_WORKOS_ISSUER`, set `ARTIFACT_SERVER_WORKOS_CLIENT_ID`, and set either
-`ARTIFACT_SERVER_WORKOS_API_KEY` or
-`ARTIFACT_SERVER_WORKOS_API_KEY_FILE`. A file-backed key also needs a Compose
-override that mounts the file read-only. Use a dedicated Artifact Server WorkOS
-environment. Partial WorkOS configuration makes startup fail.
-
 ## OIDC login
 
 An installation that already runs its own OpenID Connect provider can use it
-instead of WorkOS. Set the issuer in `ARTIFACT_SERVER_OIDC_ISSUER` and the
+to sign in. Set the issuer in `ARTIFACT_SERVER_OIDC_ISSUER` and the
 client in `ARTIFACT_SERVER_OIDC_CLIENT_ID`. The issuer must be an HTTPS URL
 with no query or fragment; plain `http` is allowed only for `localhost`,
 `127.0.0.1`, and `::1`. The redirect URI to register with the provider is
@@ -152,9 +142,7 @@ using PKCE alone is valid. A file-backed secret also needs a Compose override
 that mounts the file read-only. `ARTIFACT_SERVER_OIDC_SCOPES` defaults to
 `openid email profile`.
 
-One installation has one browser-login provider. Setting any
-`ARTIFACT_SERVER_WORKOS_` variable together with any `ARTIFACT_SERVER_OIDC_`
-variable makes startup fail, and so does partial OIDC configuration.
+Partial OIDC configuration makes startup fail.
 
 ## Limits
 

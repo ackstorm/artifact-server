@@ -192,14 +192,11 @@ function configureDirectLocalStart(programToConfigure: Command): void {
 
 function requireLocalOwnerEnvironment(environment: NodeJS.ProcessEnv): void {
   const remoteIdentityConfigured = Object.entries(environment).some(
-    ([name, value]) => (
-      name.startsWith("ARTIFACT_SERVER_OIDC_")
-      || name.startsWith("ARTIFACT_SERVER_WORKOS_")
-    ) && value !== undefined && value.trim() !== "",
+    ([name, value]) => name.startsWith("ARTIFACT_SERVER_OIDC_") && value !== undefined && value.trim() !== "",
   );
   if (remoteIdentityConfigured) {
     throw new Error(
-      "artifactserver start is local-owner only; use a private-team deployment entrypoint for OIDC or WorkOS.",
+      "artifactserver start is local-owner only; use a private-team deployment entrypoint for OIDC.",
     );
   }
 }

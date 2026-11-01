@@ -113,7 +113,6 @@
             "databaseUrl",
             "s3AccessKeyId",
             "s3SecretAccessKey",
-            "workosApiKey",
             "oidcClientSecret"
           ],
           "properties": {
@@ -121,7 +120,6 @@
             "databaseUrl": {"type": "string", "minLength": 1},
             "s3AccessKeyId": {"type": "string"},
             "s3SecretAccessKey": {"type": "string"},
-            "workosApiKey": {"type": "string"},
             "oidcClientSecret": {"type": "string"}
           }
         }
@@ -130,10 +128,8 @@
     "identity": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["workosClientId", "workosIssuer", "oidcClientId", "oidcIssuer", "oidcScopes", "oidcAutoAdmit", "oidcAllowedEmailDomains"],
+      "required": ["oidcClientId", "oidcIssuer", "oidcScopes", "oidcAutoAdmit", "oidcAllowedEmailDomains"],
       "properties": {
-        "workosClientId": {"type": "string"},
-        "workosIssuer": {"type": "string"},
         "oidcClientId": {"type": "string"},
         "oidcIssuer": {"type": "string"},
         "oidcScopes": {"type": "string"},

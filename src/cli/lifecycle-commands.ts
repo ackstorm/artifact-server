@@ -7,18 +7,14 @@ import {
   createExternalStorageRuntime,
   type ExternalStorageRuntimeConfig,
 } from "../external-storage/create-external-storage-runtime.js";
-import {
-  startExternalStorageServer,
-  type ExternalStorageServerConfig,
-} from "../external-storage/start-external-storage-server.js";
+import {startExternalStorageServer} from
+  "../external-storage/start-external-storage-server.js";
 import {
   createOidcHostedAuthentication,
   type OidcHostedAuthentication,
 } from "../identity/oidc-hosted-authentication.js";
 import {createOidcIdentityProvider} from
   "../identity/oidc-identity-provider.js";
-import {createWorkOsHostedAuthentication} from
-  "../identity/workos-hosted-authentication.js";
 import {
   checkCompactIntegrity,
   checkExternalStorageIntegrity,
@@ -43,19 +39,14 @@ import {
   createLocalRuntime,
   type LocalRuntimeConfig,
 } from "../local/create-local-runtime.js";
-import {
-  startLocalServer,
-  type LocalServerConfig,
-} from "../local/start-local-server.js";
+import {startLocalServer} from "../local/start-local-server.js";
 import {PostgresDatabase} from "../storage/postgres-database.js";
 import {runCliEffect} from "./run-cli-effect.js";
 import {waitForProcessSignal} from "./wait-for-process-signal.js";
 import {
-  assertAtMostOneBrowserLoginProvider,
   loadOidcConfiguration,
   type OidcConfiguration,
 } from "./oidc-configuration.js";
-import {loadWorkOsConfiguration} from "./workos-configuration.js";
 import {writeGitHistoryConfigurationWarnings} from
   "./git-history-configuration-warnings.js";
 import {
@@ -307,25 +298,13 @@ function configureExternalStorageStart(
     .action(async (options: StartExternalStorageOptions) => {
       const parsed = await parseExternalConfiguration(options.host, options.port);
       writeGitHistoryConfigurationWarnings(parsed.gitHistory);
-      assertAtMostOneBrowserLoginProvider(process.env);
-      const workOs = await loadWorkOsConfiguration(process.env);
       const oidc = await loadOidcConfiguration(process.env);
-      const hostedAuthentication = workOs === null
-        ? null
-        : await createWorkOsHostedAuthentication(workOs);
-      const oidcAuthentication = oidc === null
-        ? null
-        : await oidcAuthenticationOrBrowserOnly(oidc);
-      const browserAccess = hostedAuthentication !== null
-        ? privateTeamBrowserAccess(browserLoginKinds.workOs)
-        : oidc !== null
-        ? privateTeamBrowserAccess(browserLoginKinds.oidc)
-        : missingPrivateTeamIdentityProvider();
-      let serverConfig: ExternalStorageServerConfig = {
+      if (oidc === null) missingPrivateTeamIdentityProvider();
+      const server = await startExternalStorageServer({
         apiToken: parsed.apiToken,
         applicationOrigin: parsed.applicationOrigin,
         bootstrapAdministratorEmail: parsed.bootstrapAdministratorEmail,
-        browserAccess,
+        browserAccess: privateTeamBrowserAccess(browserLoginKinds.oidc),
         completedRequestLogSampleRate: parsed.completedRequestLogSampleRate,
         contentDomain: parsed.contentDomain,
         databaseUrl: parsed.databaseUrl,
@@ -342,20 +321,8 @@ function configureExternalStorageStart(
         sessionLifetimeMilliseconds: parsed.sessionLifetimeMilliseconds,
         shutdownDeadlineMilliseconds: parsed.shutdownDeadlineMilliseconds,
         stagingCleanupPolicy: parsed.stagingCleanupPolicy,
-      };
-      if (hostedAuthentication !== null) {
-        serverConfig = {
-          ...serverConfig,
-          ...hostedAuthentication,
-        };
-      }
-      if (oidcAuthentication !== null) {
-        serverConfig = {
-          ...serverConfig,
-          ...oidcAuthentication,
-        };
-      }
-      const server = await startExternalStorageServer(serverConfig);
+        ...await oidcAuthenticationOrBrowserOnly(oidc),
+      });
       const displayHostname = options.host === "0.0.0.0"
         ? "localhost"
         : server.hostname;
@@ -371,35 +338,18 @@ async function startCompactServer(
   productVersion: string,
 ) {
   writeGitHistoryConfigurationWarnings(configuration.gitHistory);
-  assertAtMostOneBrowserLoginProvider(process.env);
-  const workOs = await loadWorkOsConfiguration({
-    ...process.env,
-    ARTIFACT_SERVER_BOOTSTRAP_ADMIN_EMAIL:
-      configuration.bootstrapAdministratorEmail,
-    ARTIFACT_SERVER_ORIGIN: configuration.applicationOrigin,
-  });
   const oidc = await loadOidcConfiguration({
     ...process.env,
     ARTIFACT_SERVER_BOOTSTRAP_ADMIN_EMAIL:
       configuration.bootstrapAdministratorEmail,
     ARTIFACT_SERVER_ORIGIN: configuration.applicationOrigin,
   });
-  const hostedAuthentication = workOs === null
-    ? null
-    : await createWorkOsHostedAuthentication(workOs);
-  const oidcAuthentication = oidc === null
-    ? null
-    : await oidcAuthenticationOrBrowserOnly(oidc);
-  const browserAccess = hostedAuthentication !== null
-    ? privateTeamBrowserAccess(browserLoginKinds.workOs)
-    : oidc !== null
-    ? privateTeamBrowserAccess(browserLoginKinds.oidc)
-    : missingPrivateTeamIdentityProvider();
-  let serverConfig: LocalServerConfig = {
+  if (oidc === null) missingPrivateTeamIdentityProvider();
+  return startLocalServer({
     apiToken: Redacted.value(configuration.apiToken),
     applicationOrigin: configuration.applicationOrigin,
     bootstrapAdministratorEmail: configuration.bootstrapAdministratorEmail,
-    browserAccess,
+    browserAccess: privateTeamBrowserAccess(browserLoginKinds.oidc),
     completedRequestLogSampleRate: configuration.completedRequestLogSampleRate,
     contentDomain: configuration.contentDomain,
     dataDirectory: configuration.dataDirectory,
@@ -417,20 +367,8 @@ async function startCompactServer(
     sessionLifetimeMilliseconds: configuration.sessionLifetimeMilliseconds,
     shutdownDeadlineMilliseconds: configuration.shutdownDeadlineMilliseconds,
     stagingCleanupPolicy: configuration.stagingCleanupPolicy,
-  };
-  if (hostedAuthentication !== null) {
-    serverConfig = {
-      ...serverConfig,
-      ...hostedAuthentication,
-    };
-  }
-  if (oidcAuthentication !== null) {
-    serverConfig = {
-      ...serverConfig,
-      ...oidcAuthentication,
-    };
-  }
-  return startLocalServer(serverConfig);
+    ...await oidcAuthenticationOrBrowserOnly(oidc),
+  });
 }
 
 type OidcServerAuthentication = (
@@ -517,7 +455,7 @@ function externalMaintenanceConfig(
 
 function missingPrivateTeamIdentityProvider(): never {
   throw new Error(
-    "A private-team server requires exactly one OIDC or WorkOS browser-login provider.",
+    "A private-team server requires an OIDC browser-login provider.",
   );
 }
 
@@ -532,24 +470,14 @@ function parseCleanupLimit(value: string): number {
 async function summarizeConfiguration(
   configuration: CompactRuntimeConfiguration | ExternalStorageRuntimeConfiguration,
 ) {
-  assertAtMostOneBrowserLoginProvider(process.env);
-  const workOs = await loadWorkOsConfiguration({
-    ...process.env,
-    ARTIFACT_SERVER_BOOTSTRAP_ADMIN_EMAIL:
-      configuration.bootstrapAdministratorEmail,
-    ARTIFACT_SERVER_ORIGIN: configuration.applicationOrigin,
-  });
   const oidc = await loadOidcConfiguration({
     ...process.env,
     ARTIFACT_SERVER_BOOTSTRAP_ADMIN_EMAIL:
       configuration.bootstrapAdministratorEmail,
     ARTIFACT_SERVER_ORIGIN: configuration.applicationOrigin,
   });
-  if (workOs === null && oidc === null) missingPrivateTeamIdentityProvider();
-  return summarizeRuntimeConfiguration(
-    configuration,
-    workOs === null ? "oidc" : "workos",
-  );
+  if (oidc === null) missingPrivateTeamIdentityProvider();
+  return summarizeRuntimeConfiguration(configuration, "oidc");
 }
 
 function parseExternalConfiguration(

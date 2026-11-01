@@ -85,7 +85,7 @@ const accessContextSchema = z.discriminatedUnion("accessMode", [
   }),
   z.object({
     accessMode: z.literal("private_team"),
-    login: z.object({kind: z.enum(["oidc", "workos"])}),
+    login: z.object({kind: z.literal("oidc")}),
   }),
 ]);
 

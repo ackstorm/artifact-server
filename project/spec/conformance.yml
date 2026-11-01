@@ -1600,12 +1600,12 @@ requirements:
 
   - id: AUTH-021
     kind: constraint
-    behavior: OIDC configuration is all-or-nothing, mutually exclusive with WorkOS, and issuer and endpoint URLs obey the HTTPS rules.
+    behavior: OIDC configuration is all-or-nothing, and issuer and endpoint URLs obey the HTTPS rules.
     owner: authorization
     source: {file: oidc-interactive-login-spec.md, anchor: conformance}
     acceptance:
       behavior: {id: AUTH-021-B, description: "A complete OIDC configuration boots and reports the oidc interactive identity provider; an application layer constructed without either provider keeps interactive login unavailable, while private-team process startup separately obeys AUTH-025."}
-      failure: {id: AUTH-021-F, description: "Partial OIDC configuration, any WorkOS variable configured beside any OIDC variable, a non-HTTPS non-local issuer, and discovery documents with a mismatched issuer or a credentialed or fragmented endpoint URL each fail startup or login without weakening the running server."}
+      failure: {id: AUTH-021-F, description: "Partial OIDC configuration, a non-HTTPS non-local issuer, and discovery documents with a mismatched issuer or a credentialed or fragmented endpoint URL each fail startup or login without weakening the running server."}
     deployments: *all
     status: behavior_verified
     depends_on: [AUTH-019]
@@ -1668,7 +1668,7 @@ requirements:
     owner: authorization
     source: {file: local-owner-and-private-team-access-spec.md, anchor: conformance-requirements}
     acceptance:
-      behavior: {id: AUTH-025-B, description: "Start compact and external-storage team runtimes with one complete OIDC or WorkOS configuration, bootstrap the configured administrator through that provider, and authenticate non-browser clients only with managed keys or a compatible external OAuth verifier."}
+      behavior: {id: AUTH-025-B, description: "Start compact and external-storage team runtimes with one complete OIDC configuration, bootstrap the configured administrator through that provider, and authenticate non-browser clients only with managed keys or a compatible external OAuth verifier."}
       failure: {id: AUTH-025-F, description: "Missing or multiple identity providers, a configured local bootstrap credential, the local-owner session route, the generated compact bootstrap credential, and the legacy installation bearer each fail startup or authentication without granting request authority."}
     deployments: [single_server, kubernetes]
     status: implementing
@@ -1728,7 +1728,7 @@ requirements:
       failure: {id: AUTH-029-F, description: "Default-disabled admission, malformed policy configuration, disallowed email domains, another issuer, explicitly unverified email, invalid tokens, and inactive email or subject matches refuse access without creating a member or session; changed email cannot evade deactivation or installation/issuer scope."}
     deployments: *all
     status: behavior_verified
-    proof_gap: Local browser, configuration, repository, bearer, and WorkOS boundaries pass; complete packaged deployment verification and issuer-specific production login remain to be recorded.
+    proof_gap: Local browser, configuration, repository, and bearer boundaries pass; complete packaged deployment verification and issuer-specific production login remain to be recorded.
     depends_on: [AUTH-001, AUTH-019, AUTH-020, AUTH-021, AUTH-027]
     evidence:
       - deployment: local

@@ -1980,7 +1980,7 @@
               single-organization model without an organization list or organization switcher: the
               installation itself is the group. On a laptop, that can be one implicit local user.
               On a team server, an administrator controls who can sign in through invitations or
-              the configured company login, which can be WorkOS AuthKit or any OpenID Connect
+              the configured company login, which is any OpenID Connect
               provider the team already runs. The product has no public self-sign-up and does not host
               several organizations inside one installation.
             </p>
@@ -3295,7 +3295,7 @@ artifact_delete</code></pre>
             </article>
             <article class="deployment-item">
               <h3>First release: private team</h3>
-              <p>Compact Compose runs one container with SQLite and attached disk. External-storage Compose uses the same image with existing Postgres and object storage, and it can run multiple application processes. Each teammate signs in through the installation's configured OpenID Connect or WorkOS provider. Azure teams use the Helm chart on AKS.</p>
+              <p>Compact Compose runs one container with SQLite and attached disk. External-storage Compose uses the same image with existing Postgres and object storage, and it can run multiple application processes. Each teammate signs in through the installation's configured OpenID Connect provider. Azure teams use the Helm chart on AKS.</p>
             </article>
           </div>
 
@@ -3366,10 +3366,9 @@ artifact_delete</code></pre>
                 </p>
                 <p>
                   Browser login and MCP authorization are separate protocols even when they use the
-                  same identity provider. Team browser login uses WorkOS AuthKit or any OpenID Connect
+                  same identity provider. Team browser login uses any OpenID Connect
                   provider, configured directly on the installation; one installation configures one
-                  browser-login provider. Hosted MCP
-                  connections use WorkOS AuthKit. Private installations can use server API keys or a
+                  browser-login provider. Private installations can use server API keys or a
                   compatible authorization service. A single-user installation may rely on the
                   operating-system account or a local token.
                 </p>
@@ -3653,7 +3652,7 @@ artifact_delete</code></pre>
             <article class="decision-item"><p>Changing public content back to account required stops future public access and purges supported caches, but cannot recall downloaded or externally cached copies.</p></article>
             <article class="decision-item"><p>Manifest paths follow one portable safety contract. Publishing clients upload bytes. A local client may read a user-selected path with its operating-system permissions, but HTTP and MCP never receive that path. The server does not fetch arbitrary source URLs.</p></article>
             <article class="decision-item"><p>Uploads stage, verify, then write content-addressed blobs without overwrite before the database commit. The first release deletes expired staging only and does not garbage-collect committed blobs.</p></article>
-            <article class="decision-item"><p>Browser, normal software requests, the command-line program, and MCP share the same product and authorization rules. Local MCP uses <code>artifactserver connect</code> without a human-visible secret. Hosted MCP uses browser approval through WorkOS AuthKit. Self-hosted MCP uses compatible browser authorization when configured and administration-issued scoped API keys otherwise. Startup logs never distribute keys.</p></article>
+            <article class="decision-item"><p>Browser, normal software requests, the command-line program, and MCP share the same product and authorization rules. Local MCP uses <code>artifactserver connect</code> without a human-visible secret. Team MCP uses compatible browser authorization when configured and administration-issued scoped API keys otherwise. Startup logs never distribute keys.</p></article>
             <article class="decision-item"><p>MCP and the command-line program intentionally overlap. Files on the user's computer use the command-line program. Work that only needs information already on Artifact Server may use either. <code>artifactserver auth login</code> gives the command-line program its own secure server profile. A remote MCP server never reads a user's local path.</p></article>
             <article class="decision-item"><p>Artifact Server ships one router skill with separate artifact and server-operation references. The artifact route uses the command-line program for local files and MCP or the command-line program for information already on the server. The server-operation route loads only for explicit administrator work. Stored references include the server and artifact, so agents open local or team artifacts at the correct address.</p></article>
             <article class="decision-item"><p>The product core uses narrow database, file-storage, login, background-work, and optional Git interfaces. Operators use Compose for one server and Helm for Kubernetes. Artifact Server does not add an infrastructure wrapper.</p></article>
@@ -3668,7 +3667,6 @@ artifact_delete</code></pre>
               <li><strong>Private site delivery:</strong> current tests exercise the bootstrap token and version-scoped content cookie, but the complete supported-browser and per-deployment matrix remains open.</li>
               <li><strong>Version origins:</strong> local <code>*.localhost</code> behavior has evidence. Equivalent DNS, certificate, proxy, and hostile-host proof remains open for each deployment before support is advertised.</li>
               <li><strong>Cloudflare Artifacts:</strong> complete bounded live binding, REST, smart-HTTP, token, project-switch, estimate, budget, namespace-isolation, run-manifest cleanup, backfill, disable, deletion, recovery, limits, jurisdiction, and cost probes before advertising the off-by-default provider. The product must remain complete without access, and tests must not touch another namespace.</li>
-              <li><strong>WorkOS MCP:</strong> browser approval, resource-bound tokens, refresh, revocation, reconnect, DCR, and CIMD pass for Codex and Claude Code. Visual Studio Code and claude.ai are deferred client qualifications, not first-release gates.</li>
               <li><strong>Embedded self-hosted OAuth:</strong> decide whether Better Auth's beta MCP path is mature enough; API keys and compatible external issuers remain the default until it passes the same hostile tests.</li>
               <li><strong>Capacity claims:</strong> the OSS release need not advertise universal capacity or cost envelopes. Any target-specific claim must be backed by measured evidence.</li>
               <li><strong>Recovery:</strong> define retention, tombstone duration, backup schedule, restore procedure, recovery-point and recovery-time promises, and an operator-visible integrity check.</li>

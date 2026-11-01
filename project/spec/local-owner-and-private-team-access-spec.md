@@ -28,7 +28,7 @@ The repository already has most of the private-team identity model:
 - server-side application sessions with digested credentials;
 - host-only application and CSRF cookies;
 - exact-origin and Fetch Metadata checks for browser mutations;
-- generic OIDC and WorkOS interactive identity providers;
+- generic OIDC interactive identity provider;
 - first-administrator bootstrap by verified email;
 - explicit member admission, administrator and member roles, and deactivation;
 - administrator-issued, scoped user and service API keys;
@@ -42,7 +42,7 @@ has no session and sees a sign-in screen. The Vite development origin has the
 same problem in a fresh profile.
 
 The private-team pieces also lack one complete release contract. A compact
-server can currently start without OIDC or WorkOS and can retain a local
+server can currently start without OIDC and can retain a local
 browser-bootstrap credential. The deployment documentation leaves the proxy,
 DNS, and certificates to the operator, and the conformance ledger does not yet
 prove an install-to-use team workflow behind real TLS and wildcard routing.
@@ -78,7 +78,7 @@ prove an install-to-use team workflow behind real TLS and wildcard routing.
 - a public Funnel deployment or a claim that VPN reachability is identity.
 
 Teams may use Tailscale or another private network for reachability in the
-first release. They still configure OIDC or WorkOS for browser identity and
+first release. They still configure OIDC for browser identity and
 still provide two valid HTTPS origins. A private-network-specific identity
 adapter requires a separate specification and conformance tests.
 
@@ -119,7 +119,7 @@ The direct local process starts only when all of these conditions are true:
 - the listener is `127.0.0.1` or `::1`;
 - the management origin is direct loopback HTTP;
 - the content domain is `localhost`;
-- no OIDC or WorkOS browser-login variables are configured;
+- no OIDC browser-login variables are configured;
 - no remote trusted application origin is configured;
 - the entry point selected `local_owner`.
 
@@ -155,7 +155,7 @@ Private-team response:
 ```
 
 Both responses use `200 OK`. Requests from a content host receive `404`.
-The only private-team `login.kind` values are `oidc` and `workos`. The endpoint
+The only private-team `login.kind` value is `oidc`. The endpoint
 does not return an issuer URL, client ID, bootstrap email, admitted-member
 state, installation credential, or deployment secret. Content hosts do not
 serve this endpoint.
@@ -291,7 +291,7 @@ credential.
 A private-team process reports ready only when all of these are configured and
 valid:
 
-- exactly one browser identity provider, generic OIDC or WorkOS;
+- a generic OIDC browser identity provider;
 - `ARTIFACT_SERVER_BOOTSTRAP_ADMIN_EMAIL`;
 - an HTTPS `ARTIFACT_SERVER_ORIGIN`;
 - a separate registrable `ARTIFACT_SERVER_CONTENT_DOMAIN`;
@@ -301,7 +301,6 @@ valid:
 Private-team mode rejects:
 
 - absent browser identity configuration;
-- both OIDC and WorkOS configuration;
 - `ARTIFACT_SERVER_LOCAL_BOOTSTRAP_TOKEN`;
 - the generated compact browser-bootstrap credential as login authority;
 - the legacy local installation bearer as HTTP API or MCP authority;
@@ -328,7 +327,7 @@ migration, but private-team authentication ignores them.
 
 ### Browser identity and admission
 
-The existing OIDC and WorkOS flows remain authoritative:
+The existing OIDC flow remains authoritative:
 
 1. The provider verifies the external identity.
 2. Artifact Server requires a usable email under the provider-specific rules.
@@ -394,7 +393,7 @@ server.
 
 | Client | First-release authority |
 | --- | --- |
-| Browser | OIDC or WorkOS followed by an Artifact Server session |
+| Browser | OIDC followed by an Artifact Server session |
 | MCP or CLI against a compatible configured OAuth server | The existing browser OAuth flow and audience-bound access token |
 | MCP or CLI against a generic OIDC-only team server | An administrator-issued, scoped user API key |
 | CI and unattended agents | An administrator-issued, scoped service API key in the deployment's secret manager |
@@ -437,7 +436,7 @@ authority, identity provider, Postgres, or object store.
 
 A tailnet-only deployment can route these names through private DNS and a
 tailnet-reachable gateway. It still needs both names and certificates and uses
-OIDC or WorkOS for Artifact Server identity. Tailscale Funnel and Tailscale
+OIDC for Artifact Server identity. Tailscale Funnel and Tailscale
 identity headers are outside this release scope.
 
 ## Shared security requirements
@@ -496,7 +495,7 @@ does not rewrite member state.
 
 Before upgrading to the new team contract, an operator must:
 
-1. configure OIDC or WorkOS;
+1. configure OIDC;
 2. verify that the configured bootstrap email matches the intended active
    administrator;
 3. sign in and create any API keys needed to replace the legacy installation
@@ -504,7 +503,7 @@ Before upgrading to the new team contract, an operator must:
 4. run `artifactserver config check`;
 5. test both management and wildcard content hosts.
 
-An existing local-bootstrap-created administrator can bind to OIDC or WorkOS
+An existing local-bootstrap-created administrator can bind to OIDC
 through the existing verified-email match. Existing application sessions may
 remain valid until their normal expiry. The bootstrap credential and legacy
 installation bearer stop creating new authority in private-team mode.
@@ -600,10 +599,6 @@ The run must prove:
   two-replica Helm installation;
 - the management and private-content flows work in Chromium, Firefox, WebKit,
   and a physical iPhone Safari run before phone access is advertised.
-
-The WorkOS path keeps its existing provider-specific tests. Generic OIDC
-evidence cannot stand in for WorkOS token or MCP OAuth evidence, and WorkOS
-evidence cannot stand in for the self-hosted OIDC team path.
 
 ## Conformance requirements
 

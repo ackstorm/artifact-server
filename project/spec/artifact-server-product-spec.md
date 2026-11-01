@@ -483,8 +483,8 @@ A requirement is complete only when both tests pass on every applicable deployme
 - One digest-pinned Docker image for compact and external-storage profiles.
 - Compact Compose for a one-server install plus External-storage Compose that
   connects to existing Postgres and object storage.
-- Browser login through WorkOS AuthKit or any OpenID Connect provider the
-  installation already runs, scoped API keys, Postgres and native blob drivers.
+- Browser login through any OpenID Connect provider the
+  installation runs, scoped API keys, Postgres and native blob drivers.
   One installation configures one browser-login provider.
 - Helm chart for Kubernetes. The chart deploys Artifact Server and connects to
   existing Postgres and object storage; it does not hide durable providers
@@ -524,16 +524,15 @@ These items can change implementation cost or hosting viability and must be reso
 1. **Private multi-file delivery:** top-level bootstrap tokens and version-scoped content cookies have focused tests. Exact-version Review leases and the complete supported-browser and per-deployment `GATE-001` matrix remain open until their recorded qualification completes.
 2. **Wildcard content hosts:** local `*.localhost` behavior has evidence. Equivalent DNS, certificate, proxy, and hostile-host proof remains open for each deployment before support is advertised.
 3. **Cloudflare Artifacts:** complete the live binding, REST, smart-HTTP, token, backfill, disable, deletion, recovery, limits, and cost probes before advertising the off-by-default provider. The core product remains supported without access.
-4. **WorkOS MCP authorization:** live browser approval, resource-bound tokens, refresh, revocation, reconnect, CIMD, and DCR pass for Codex and Claude Code. Visual Studio Code and claude.ai are deferred client qualifications, not first-release gates.
-5. **Embedded self-hosted OAuth:** ship Better Auth only after its beta MCP path passes the security, compatibility, migration, and recovery matrix.
-6. **Azure:** Azure has no direct target; the Azure Blob adapter remains preview until it passes a real provider test.
-7. **Capacity claims:** the OSS release need not advertise universal capacity or cost envelopes. Any target-specific claim must be backed by measured evidence; enforced input bounds remain part of core safety.
-8. **Recovery promises:** choose support tiers, availability target, backup frequency, restore-time target, and acceptable data-loss window for hosted and self-hosted team deployments.
-9. **Optional enterprise policy:** encryption-key ownership, regional placement, audit export, legal hold, and contractual deletion are outside the simple first release and should be specified only if an enterprise offering is proposed.
-10. **Custom domains:** decide whether customer-owned content domains are supported and how certificates, cookies, abuse handling, and version origins work.
-11. **Plannotator review bridge:** test the isolated review response against hostile artifact JavaScript, strict content policies, multi-page sites, single-page routes, service workers, anchor stability, session expiry, and browsers without third-party cookies. Use a browser extension if the injected bridge cannot pass without exposing a reusable credential.
-12. **Existing project binding:** decide how an existing Artifact Server project pairs with a Plannotator project, including name conflicts, existing artifacts, unlinking, rollback, archival, and reconnect behavior. Pairing must not silently move artifacts or change IDs.
-13. **Private Plannotator route:** choose the first supported path among customer-provided networking, Cloudflare Tunnel, or a product-owned connector. Define health, upgrades, replicas, egress addresses, and failure behavior before advertising one-click private connection.
+4. **Embedded self-hosted OAuth:** ship Better Auth only after its beta MCP path passes the security, compatibility, migration, and recovery matrix.
+5. **Azure:** Azure has no direct target; the Azure Blob adapter remains preview until it passes a real provider test.
+6. **Capacity claims:** the OSS release need not advertise universal capacity or cost envelopes. Any target-specific claim must be backed by measured evidence; enforced input bounds remain part of core safety.
+7. **Recovery promises:** choose support tiers, availability target, backup frequency, restore-time target, and acceptable data-loss window for hosted and self-hosted team deployments.
+8. **Optional enterprise policy:** encryption-key ownership, regional placement, audit export, legal hold, and contractual deletion are outside the simple first release and should be specified only if an enterprise offering is proposed.
+9. **Custom domains:** decide whether customer-owned content domains are supported and how certificates, cookies, abuse handling, and version origins work.
+10. **Plannotator review bridge:** test the isolated review response against hostile artifact JavaScript, strict content policies, multi-page sites, single-page routes, service workers, anchor stability, session expiry, and browsers without third-party cookies. Use a browser extension if the injected bridge cannot pass without exposing a reusable credential.
+11. **Existing project binding:** decide how an existing Artifact Server project pairs with a Plannotator project, including name conflicts, existing artifacts, unlinking, rollback, archival, and reconnect behavior. Pairing must not silently move artifacts or change IDs.
+12. **Private Plannotator route:** choose the first supported path among customer-provided networking, Cloudflare Tunnel, or a product-owned connector. Define health, upgrades, replicas, egress addresses, and failure behavior before advertising one-click private connection.
 
 ## Deliberately not included
 

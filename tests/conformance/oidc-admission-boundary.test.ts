@@ -103,10 +103,10 @@ describe("OIDC admission provider and credential boundaries", () => {
     expect(await identityRepository.listMembers(installationId)).toHaveLength(2);
   });
 
-  test("AUTH-029: an enabled OIDC policy cannot admit an unknown WorkOS browser identity", async () => {
+  test("AUTH-029: an enabled OIDC policy cannot admit an unknown identity from another provider", async () => {
     const denied = await runtime.runPromise(Effect.result(
       InstallationAccessService.use((access) =>
-        access.completeExternalIdentity({...memberIdentity, provider: "workos"})
+        access.completeExternalIdentity({...memberIdentity, provider: "other-provider"})
       ),
     ));
     expect(Result.match(denied, {
@@ -115,7 +115,7 @@ describe("OIDC admission provider and credential boundaries", () => {
     })).toBe("IdentityAdmissionDenied");
     expect(await identityRepository.listMembers(installationId)).toHaveLength(1);
     expect(await identityRepository.findMemberByExternalIdentity(
-      installationId, "workos", "new-member",
+      installationId, "other-provider", "new-member",
     )).toBeNull();
   });
 });
