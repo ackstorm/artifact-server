@@ -666,13 +666,11 @@ test.describe("Artifact Server frontend MVP", () => {
       expect(homeAnimationGeometry.height).toBeGreaterThan(0);
       expect(homeAnimationGeometry.naturalWidth).toBeGreaterThan(0);
       await expect(homeOverlay.getByRole("link", {name: /^GitHub Source and releases$/u}))
-        .toHaveAttribute("href", "https://github.com/plannotator/artifact-server");
-      await expect(homeOverlay.getByRole("link", {name: /Homepage/u}))
-        .toHaveAttribute("href", "https://artifactserver.com/");
+        .toHaveAttribute("href", "https://github.com/ackstorm/artifact-server");
       await expect(homeOverlay.getByRole("link", {name: /Docs/u}))
-        .toHaveAttribute("href", "https://artifactserver.com/docs/");
+        .toHaveAttribute("href", "https://github.com/ackstorm/artifact-server/tree/main/docs");
       await expect(homeOverlay.getByRole("link", {name: /Connect agents/u}))
-        .toHaveAttribute("href", "https://artifactserver.com/docs/connect-agents/");
+        .toHaveAttribute("href", "https://github.com/ackstorm/artifact-server/blob/main/docs/mcp.md");
       await fixture.page.waitForTimeout(1_200);
       await expect(homeOverlay).toBeVisible();
       await fixture.page.keyboard.press("Escape");
@@ -1650,7 +1648,6 @@ test.describe("Artifact Server frontend MVP", () => {
       const defaultProjectRow = fixture.page.getByRole("row").filter({hasText: "Default"});
       await defaultProjectRow.getByRole("link", {name: "Settings"}).click();
       await expect(fixture.page.getByRole("heading", {name: "Project identity"})).toBeVisible();
-      await expect(fixture.page.getByRole("heading", {name: "Git history"})).toHaveCount(0);
       await expect(fixture.page.getByRole("link", {name: "Artifact Server"})).toContainText("Settings");
       const settingsHeaderBox = await fixture.page.locator(".as-settings__header-inner").boundingBox();
       const settingsMarkBox = await fixture.page.locator(".as-settings__brand-mark").boundingBox();
@@ -1744,7 +1741,7 @@ async function publishReviewMultifileFixture(fixture: BrowserFixture) {
     new URL("../../project/evidence/frontend-mvp/error-not-found.png", import.meta.url),
   );
   const fontBytes = await readFile(
-    new URL("../../apps/site/public/fonts/Inter-Bold.ttf", import.meta.url),
+    new URL("../fixtures/fonts/Inter-Bold.ttf", import.meta.url),
   );
   const files = [
     {

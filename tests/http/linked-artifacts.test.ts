@@ -168,7 +168,6 @@ describe("linked artifacts over the local HTTP boundary", () => {
     });
     const sessionBody = z.object({
       capabilities: z.object({
-        gitHistory: z.unknown(),
         linkedArtifacts: z.boolean(),
       }).strict(),
     }).loose().parse(await session.json());

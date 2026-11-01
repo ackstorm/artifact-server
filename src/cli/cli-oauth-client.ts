@@ -205,7 +205,6 @@ interface OAuthProviderOptions {
 }
 
 class ArtifactServerOAuthProvider implements OAuthClientProvider {
-  readonly clientMetadataUrl = "https://artifactserver.com/oauth/client-metadata.json";
   readonly redirectUrl: string;
   readonly #environment: NodeJS.ProcessEnv;
   readonly #rejectBrowserRedirect: boolean;

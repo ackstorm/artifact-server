@@ -386,9 +386,6 @@ function isolatedRuntimeEnvironment(
     "ARTIFACT_SERVER_API_TOKEN",
     "ARTIFACT_SERVER_BOOTSTRAP_ADMIN_EMAIL",
     "ARTIFACT_SERVER_ORIGIN",
-    "ARTIFACT_SERVER_WORKOS_API_KEY",
-    "ARTIFACT_SERVER_WORKOS_CLIENT_ID",
-    "ARTIFACT_SERVER_WORKOS_ISSUER",
   ]) {
     delete environment[name];
   }

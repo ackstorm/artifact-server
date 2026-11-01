@@ -10,7 +10,7 @@ AUTH-006.
 
 - **Where the switch lives.** By default, a human administrator turns public
   links off or on in Settings › Public links. It is a runtime setting stored in
-  the database on every backend (SQLite, Postgres, Cloudflare D1), and it is on
+  the database on every backend (SQLite, Postgres), and it is on
   by default.
 - **Configuration lock.** An operator may set
   `ARTIFACT_SERVER_PUBLIC_LINKS_ENABLED=true|false` at startup, or

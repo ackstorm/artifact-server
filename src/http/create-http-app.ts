@@ -25,13 +25,6 @@ import {
 } from "../application/installation-access.js";
 import { InteractiveLoginService } from "../application/interactive-login.js";
 import { ProjectManagementService } from "../application/project-management.js";
-import {ProjectGitHistoryService} from
-  "../application/project-git-history.js";
-import {
-  defaultGitCloneCredentialTtlSeconds,
-  GitHistoryAccessService,
-  maximumGitCloneCredentialTtlSeconds,
-} from "../application/git-history-access.js";
 import {
   AgentDispatchService,
   type ConnectedRegisteredAgent,
@@ -119,11 +112,6 @@ import {
 import type { BlobStore } from "../core/ports.js";
 import { isUploadGrantToken } from "../core/upload-grant.js";
 import {
-  disabledGitHistoryCapability,
-  fixedGitHistoryCapabilityReader,
-  type GitHistoryCapabilityReader,
-} from "../git-history/git-history-capability.js";
-import {
   decideByteRange,
   ifRangeAllowsPartialResponse,
 } from "./byte-range.js";
@@ -170,13 +158,6 @@ const createProjectSchema = z.object({
   name: z.string().trim().min(1).max(120),
 }).strict();
 const renameProjectSchema = createProjectSchema;
-const setProjectGitHistorySchema = z.discriminatedUnion("enabled", [
-  z.object({enabled: z.literal(false)}).strict(),
-  z.object({
-    confirmEstimate: z.literal(true),
-    enabled: z.literal(true),
-  }).strict(),
-]);
 const declaredFileSchema = z.object({
   mediaType: z.string().trim().min(1).max(200),
   path: z.string().min(1).max(1_024),
@@ -388,10 +369,6 @@ const makePublicLinkPrivateItemSchema = z.object({
   idempotencyKey: z.string().min(16).max(200),
   projectId: projectIdSchema,
 }).strict();
-const issueGitCloneCredentialSchema = z.object({
-  ttlSeconds: z.number().int().min(1).max(maximumGitCloneCredentialTtlSeconds)
-    .default(defaultGitCloneCredentialTtlSeconds),
-}).strict();
 const publicLinkPolicySchema = z.object({publicLinksEnabled: z.boolean()}).strict();
 const makePublicLinksPrivateSchema = z.object({
   items: z.array(makePublicLinkPrivateItemSchema).min(1).max(100),
@@ -491,8 +468,6 @@ export interface HttpAppDependencies {
   readonly contentDomain: string;
   /** Server-only credential accepted from the co-launched Vite proxy. */
   readonly developmentProxyCredential?: Redacted.Redacted;
-  /** Secret-free optional Git state exposed through authenticated discovery. */
-  readonly gitHistory?: GitHistoryCapabilityReader;
   /**
    * Advertises the linked-artifact capability (local deployment with
    * `ARTIFACT_SERVER_LINKED_FILES=on`). The enabled application service is
@@ -514,7 +489,7 @@ export interface ApiOAuthResourceConfiguration {
   readonly resource: string;
 }
 
-/** WorkOS metadata and exact audience for the hosted MCP protected resource. */
+/** Authorization-server metadata and exact audience for the MCP protected resource. */
 export interface McpOAuthResourceConfiguration {
   readonly authorizationServerMetadata: OAuthMetadata;
   readonly resource: string;
@@ -559,16 +534,12 @@ export function createHttpApp(
   const mcpAllowedHostnames = applicationHostname === null
     ? ["localhost", "127.0.0.1", "[::1]"]
     : [applicationHostname];
-  const gitHistory = dependencies.gitHistory ?? fixedGitHistoryCapabilityReader(
-    disabledGitHistoryCapability(),
-  );
   const mcp = createMcpHttpAdapter({
     allowedHostnames: mcpAllowedHostnames,
     allowedOriginHostnames: mcpAllowedHostnames,
     applicationOrigin: dependencies.trustedApplicationOrigin,
     applicationRuntime: dependencies.applicationRuntime,
     contentDomain: dependencies.contentDomain,
-    gitHistory,
     linkedArtifacts: dependencies.linkedArtifacts === true,
     mode: dependencies.trustedApplicationOrigin === null ? "local" : "remote",
     oauthResource: dependencies.mcpOAuthResource?.resource ?? null,
@@ -1055,7 +1026,6 @@ export function createHttpApp(
     return context.json({
       authenticationMethod: context.get("authenticationMethod"),
       capabilities: {
-        gitHistory: gitHistory.read(),
         linkedArtifacts: dependencies.linkedArtifacts === true,
       },
       installation: {
@@ -1551,81 +1521,6 @@ export function createHttpApp(
     );
     return context.json({project});
   });
-
-  app.get("/api/v1/projects/:projectId/git-history", async (context) => {
-    const projectGitHistory = await runHttpApplicationEffect(
-      context,
-      dependencies,
-      ProjectGitHistoryService.use((service) => service.read({
-        principal: context.get("principal"),
-        projectId: projectIdSchema.parse(context.req.param("projectId")),
-      })),
-    );
-    return context.json({gitHistory: projectGitHistory});
-  });
-
-  app.post(
-    "/api/v1/projects/:projectId/git-history/estimate",
-    async (context) => {
-      const estimate = await runHttpApplicationEffect(
-        context,
-        dependencies,
-        ProjectGitHistoryService.use((service) => service.estimate({
-          principal: context.get("principal"),
-          projectId: projectIdSchema.parse(context.req.param("projectId")),
-        })),
-      );
-      return context.json({estimate});
-    },
-  );
-
-  app.put(
-    "/api/v1/projects/:projectId/git-history",
-    boundedJsonBody,
-    async (context) => {
-      const body = setProjectGitHistorySchema.parse(await context.req.json());
-      const command = body.enabled
-        ? {
-          confirmEstimate: true as const,
-          enabled: true as const,
-          principal: context.get("principal"),
-          projectId: projectIdSchema.parse(context.req.param("projectId")),
-        }
-        : {
-          enabled: false as const,
-          principal: context.get("principal"),
-          projectId: projectIdSchema.parse(context.req.param("projectId")),
-        };
-      const projectGitHistory = await runHttpApplicationEffect(
-        context,
-        dependencies,
-        ProjectGitHistoryService.use((service) => service.set(command)),
-      );
-      return context.json({gitHistory: projectGitHistory});
-    },
-  );
-
-  app.post(
-    "/api/v1/projects/:projectId/artifacts/:artifactId/history/clone-token",
-    boundedJsonBody,
-    async (context) => {
-      const body = issueGitCloneCredentialSchema.parse(
-        await context.req.json().catch(() => ({})),
-      );
-      const clone = await runHttpApplicationEffect(
-        context,
-        dependencies,
-        GitHistoryAccessService.use((service) => service.issueCloneCredential({
-          artifactId: context.req.param("artifactId"),
-          principal: context.get("principal"),
-          projectId: projectIdSchema.parse(context.req.param("projectId")),
-          ttlSeconds: body.ttlSeconds,
-        })),
-      );
-      context.header("Cache-Control", "private, no-store");
-      return context.json(clone, 201);
-    },
-  );
 
   app.post("/api/v1/artifacts", (context) => {
     context.header("Allow", "GET");

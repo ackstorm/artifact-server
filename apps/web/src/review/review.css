@@ -254,13 +254,10 @@ select:focus-visible {
 
 .as-home-resources__link:nth-child(3) {
   animation-delay: 940ms;
+  grid-column: 1 / -1;
 }
 
-.as-home-resources__link:nth-child(4) {
-  animation-delay: 990ms;
-}
-
-.as-home-resources__link:nth-child(odd) {
+.as-home-resources__link:nth-child(1) {
   border-right: 1px solid var(--as-border);
 }
 

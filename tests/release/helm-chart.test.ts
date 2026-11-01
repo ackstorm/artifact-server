@@ -611,8 +611,6 @@ async function writeValues(
       oidcClientId: "helm-integration",
       oidcIssuer: "https://identity.example.test",
       oidcScopes: "openid email profile",
-      workosClientId: "",
-      workosIssuer: "",
     },
     migration: {
       activeDeadlineSeconds: options.migrationDeadlineSeconds ?? 60,
@@ -631,7 +629,6 @@ async function writeValues(
         oidcClientSecret: "",
         s3AccessKeyId: "s3-access-key-id",
         s3SecretAccessKey: "s3-secret-access-key",
-        workosApiKey: "",
       },
       name: options.namespaceSecret ?? secretName,
       rolloutChecksum: rolloutRevision,

@@ -13,7 +13,7 @@ flows.
 | Mode | Intended use | Identity entry point | First-use experience |
 | --- | --- | --- | --- |
 | Local owner | One developer using Artifact Server on their own machine | Exact-loopback access on the host | Opening the local app establishes an owner session without a sign-in step |
-| Private team | A self-hosted installation used by teammates and agents | Configured OIDC or WorkOS login, with an optional trusted private-network adapter | Each admitted teammate signs in with their own identity |
+| Private team | A self-hosted installation used by teammates and agents | Configured OIDC login, with an optional trusted private-network adapter | Each admitted teammate signs in with their own identity |
 
 These are access modes, not storage modes. Local owner normally uses the
 host-filesystem and SQLite composition. A private team can use either the
@@ -55,7 +55,7 @@ The private-team baseline includes:
 - an HTTPS management origin;
 - a separate wildcard content origin with matching DNS, certificate, and
   routing;
-- configured browser identity through generic OIDC or WorkOS;
+- configured browser identity through generic OIDC;
 - a verified bootstrap administrator;
 - explicit admission of teammates;
 - one Artifact Server session and principal per person;
@@ -168,8 +168,7 @@ Server still owns admission, roles, revocation, and audit.
 
 ### Require a hosted identity vendor for every team
 
-Rejected because self-hosted teams need a generic OIDC path. WorkOS remains a
-supported provider, not a deployment prerequisite.
+Rejected because self-hosted teams need a generic OIDC path.
 
 ### Serve remote artifact content under the management hostname
 

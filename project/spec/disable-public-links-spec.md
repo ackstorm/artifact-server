@@ -72,8 +72,7 @@ Details:
   no-store`). An anonymous reader learns nothing about the policy, and nothing
   about the artifact beyond what an Organization link already reveals.
 - **No cache of the setting.** Every decision reads the stored setting. The
-  external-storage runtime and the Cloudflare worker run several processes or
-  isolates, so an in-process copy would keep serving public reads after an
+  external-storage runtime and Kubernetes run several processes, so an in-process copy would keep serving public reads after an
   administrator turned them off. The setting is read only on the would-be-public
   path, on a raise and on `GET /api/v1/session`, so Private and Organization
   content reads pay nothing extra.
@@ -117,7 +116,6 @@ Where each deployment sets it:
 | --- | --- |
 | Local and Compose (`artifactserver start`, `start-external-storage`) | the environment variable; both Compose files pass it through |
 | Helm | `configuration.publicLinksEnabled` (boolean, unset by default); rendered only when set |
-| Cloudflare Worker | the Worker variable, accepted as `true`/`false` or the strings `"true"`/`"false"`; an invalid value fails initialization with the same message |
 
 ## 3. Surfaces
 
@@ -291,10 +289,9 @@ Nothing else in the modal changes.
 | Backend | Change | Schema step |
 | --- | --- | --- |
 | SQLite | `CREATE TABLE IF NOT EXISTS installation_settings (installation_id TEXT PRIMARY KEY, public_links_enabled INTEGER NOT NULL CHECK (public_links_enabled IN (0, 1))) STRICT` | `user_version` 15 → 16 |
-| Cloudflare D1 | The same table, without `STRICT` (as for the other D1 tables), in the create path | `runtime` 12 → 13 |
 | Postgres | `ALTER TABLE artifact_installations ADD COLUMN public_links_enabled BOOLEAN NOT NULL DEFAULT TRUE` | migration `0015_public_link_policy` |
 
-- **Defaults.** SQLite and D1 have no installation row, so a missing row means
+- **Defaults.** SQLite has no installation row, so a missing row means
   on. Writes upsert one row per installation. Postgres already keeps one
   `artifact_installations` row per installation, so the setting is a column on
   it.
@@ -302,9 +299,8 @@ Nothing else in the modal changes.
   installation starts with public links on.
 - **Configured value.** It is never written to the database, so setting or
   unsetting the variable needs no migration and leaves the stored choice intact.
-- **Recovery.** The Cloudflare recovery worker's state digest includes
-  `installation_settings`, so a restore proves the setting survived. SQLite
-  backups copy the whole file, and Postgres keeps the column with its row.
+- **Recovery.** SQLite backups copy the whole file, and Postgres keeps the
+  column with its row.
 - **Downgrade.** A build older than this one ignores the setting, so public
   links come back on. Downgrading after a schema step is unsupported, as for
   every schema step.
@@ -314,8 +310,6 @@ Nothing else in the modal changes.
 - a per-project or per-member public-link policy
 - an audit record of who changed the switch and when (the action ledger is
   artifact-scoped)
-- a Cloudflare deployment-manifest default for the variable (operators set the
-  Worker variable, as for `ARTIFACT_SERVER_ORGANIZATION_NAME`)
 - a CLI flag for the policy, separate from the environment variable
 - an MCP tool or CLI command to change the policy
 - lowering existing Public artifacts automatically (administrators use Stop
@@ -348,7 +342,7 @@ The F rewording moves Plannotator to PLN-007-F, which already holds that
 promise, because no Plannotator entry point exists to test. The configuration
 lock is part of F, so it needs no new ID. The parsing of the variable on each
 deployment is proved by tests without acceptance IDs: the lifecycle CLI test,
-the Helm verify script and the Cloudflare runtime test.
+and the Helm verify script.
 
 No other requirement is reworded, and no requirement ID is added:
 

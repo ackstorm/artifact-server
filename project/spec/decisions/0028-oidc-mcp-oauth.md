@@ -9,9 +9,8 @@ Supersedes the "MCP OAuth" exclusion recorded in
 ## Decision
 
 An installation that configures a generic OIDC issuer for browser login now
-also accepts end-user access tokens from that issuer at `/mcp`. A second
-implementation of the existing `ExternalMcpBearerVerifier` port,
-`OidcMcpBearerVerifier`, sits beside the WorkOS one. Managed API keys keep
+also accepts end-user access tokens from that issuer at `/mcp`. `OidcMcpBearerVerifier` implements the
+`ExternalMcpBearerVerifier` port. Managed API keys keep
 working and are still checked first, so nothing an installation already uses
 changes.
 
@@ -104,8 +103,7 @@ failure instead of blaming the credential.
 ### Discovery runs at startup, and a down issuer only turns MCP OAuth off
 
 The protected-resource document cannot be served without the discovery
-document, so it is read once at startup, like the WorkOS path reads its
-authorization-server metadata. Unlike that path, a discovery failure is not
+document, so it is read once at startup. A discovery failure is not
 fatal: the process writes one warning to stderr and starts with browser login
 and managed API keys, which is exactly the behavior an installation had before
 this change. An identity provider that is briefly down must not take the
@@ -114,9 +112,8 @@ anyway.
 
 ### The credential travels to identity resolution
 
-`resolveIdentity` now receives the credential beside the verified claims. The
-WorkOS implementation ignores it and reads its own API. The OIDC implementation
-needs it, because an issuer's userinfo endpoint answers the presenter of the
+`resolveIdentity` receives the credential beside the verified claims. The
+OIDC implementation needs it, because an issuer's userinfo endpoint answers the presenter of the
 token, not a server credential.
 
 ### Client registration belongs to the issuer
@@ -133,8 +130,8 @@ server appears here.
   stay unset, so `/api/` keeps accepting managed API keys only. Advertising an
   authorization server for a resource that cannot accept its tokens would be a
   false promise.
-- Scope checks. The resource-bound audience grants MCP access, matching the
-  rule MCP-011 already records for WorkOS.
+- Scope checks. The resource-bound audience grants MCP access; no separate
+  product scope is required.
 - Dynamic client registration by Artifact Server. The issuer owns registration;
   Artifact Server only points clients at it.
 

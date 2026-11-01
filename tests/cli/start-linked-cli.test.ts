@@ -16,17 +16,6 @@ const cliEntrypoint = path.join(repositoryRoot, "src/cli/main.ts");
 
 const sessionSchema = z.object({
   capabilities: z.object({
-    gitHistory: z.object({
-      limits: z.object({
-        fileCopyBytes: z.number().int().nonnegative(),
-        logicalCopiedBytes: z.number().int().nonnegative(),
-        logicalReservedBytes: z.number().int().nonnegative(),
-        storageBudgetBytes: z.number().int().nonnegative().nullable(),
-        versionCopyBytes: z.number().int().nonnegative(),
-      }).strict(),
-      provider: z.literal("cloudflare-artifacts"),
-      providerState: z.literal("misconfigured"),
-    }).strict(),
     linkedArtifacts: z.boolean(),
   }).strict(),
   installation: z.object({publicLinksEnabled: z.boolean()}).loose(),
@@ -83,10 +72,6 @@ describe("artifactserver start with linked files enabled", () => {
         cwd: repositoryRoot,
         env: {
           ...process.env,
-          ARTIFACT_SERVER_CLOUDFLARE_ARTIFACTS_ACCOUNT_ID: "test-account",
-          ARTIFACT_SERVER_CLOUDFLARE_ARTIFACTS_NAMESPACE:
-            "artifact-server-test-cli",
-          ARTIFACT_SERVER_GIT_HISTORY_PROVIDER: "cloudflare-artifacts",
           ARTIFACT_SERVER_LINKED_FILES: "on",
           ARTIFACT_SERVER_LINK_ROOTS: linkRoot,
           ARTIFACT_SERVER_PUBLIC_LINKS_ENABLED: "false",
@@ -112,10 +97,6 @@ describe("artifactserver start with linked files enabled", () => {
     const sessionBody = sessionSchema.parse(await session.json());
     expect(sessionBody.capabilities.linkedArtifacts).toBe(true);
     expect(sessionBody.installation.publicLinksEnabled).toBe(false);
-    expect(sessionBody.capabilities.gitHistory).toMatchObject({
-      provider: "cloudflare-artifacts",
-      providerState: "misconfigured",
-    });
 
     const linkResponse = await fetch(new URL("/api/v1/artifacts/link", baseUrl), {
       body: JSON.stringify({path: sourcePath}),

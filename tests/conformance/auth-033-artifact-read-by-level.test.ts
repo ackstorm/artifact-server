@@ -17,11 +17,6 @@ import {
   mcpFailed,
   mcpToolErrorCode,
 } from "../support/agent-dispatch.js";
-import {
-  availableHealthProbe,
-  configuredGitHistory,
-  RecordingGitHistoryProvider,
-} from "../support/git-history-provider.js";
 import {publishNew, publishVersion} from "../support/publishing.js";
 import {
   createTestInstallation,
@@ -57,10 +52,6 @@ const failureSchema = z.object({
 });
 const jsonSchema = z.json();
 
-interface CloneTokenRequest {
-  readonly ttlSeconds: number;
-}
-
 type Credential =
   | {readonly kind: "bearer"; readonly token: string}
   | {readonly kind: "session"; readonly cookies: ApplicationCookies};
@@ -85,7 +76,6 @@ interface Answer {
 describe("artifact read authority by sharing level", () => {
   let installation: TestInstallation;
   let oidc: RunningStubOidcProvider;
-  let gitHistory: RecordingGitHistoryProvider;
   let server: RunningTestServer;
 
   beforeEach(async () => {
@@ -94,16 +84,12 @@ describe("artifact read authority by sharing level", () => {
       clientId: "artifact-server-auth-033",
       clientSecret,
     });
-    gitHistory = new RecordingGitHistoryProvider();
     const port = await reserveLoopbackPort();
     const applicationOrigin = `http://127.0.0.1:${port}`;
     server = await startTestServer(installation, {
       applicationOrigin,
       bootstrapAdministratorEmail: administratorEmail,
       browserAccess: privateTeamBrowserAccess(browserLoginKinds.oidc),
-      gitHistory: configuredGitHistory(),
-      gitHistoryHealthProbe: availableHealthProbe,
-      gitHistoryProvider: gitHistory,
       interactiveIdentityProvider: createOidcIdentityProvider({
         applicationOrigin,
         clientId: oidc.clientId,
@@ -140,7 +126,6 @@ describe("artifact read authority by sharing level", () => {
       ),
       issueApiKey(server, administrator, ["artifact:read"], "Reader bot"),
     ]);
-    await enableGitHistory(administrator);
 
     const adaInstallation = {...installation, apiToken: adaKey};
     const first = await publishNew(server, adaInstallation, {
@@ -158,7 +143,6 @@ describe("artifact read authority by sharing level", () => {
       idempotencyKey: "auth-033-ada-second",
       projectId,
     });
-    await expect.poll(() => gitHistory.commitCalls, {timeout: 8_000}).toBe(2);
     const thread = await new ApiClient(server, adaKey).openThread(
       second.body,
       "Only Ada should see this.",
@@ -172,7 +156,7 @@ describe("artifact read authority by sharing level", () => {
     };
     const missing: ReadTarget = {...target, artifactId: "art_auth033_missing"};
 
-    const ownerStatuses = [200, 200, 200, 200, 200, 415, 200, 200, 200, 200, 201, 201, 201, 201];
+    const ownerStatuses = [200, 200, 200, 200, 200, 415, 200, 200, 200, 200, 201, 201, 201];
     const ada = await Promise.all([
       readEverySurface({kind: "session", cookies: adaSession}, target),
       readEverySurface({kind: "bearer", token: adaKey}, target),
@@ -264,11 +248,6 @@ describe("artifact read authority by sharing level", () => {
       post(credential, `${artifact}/content-sessions`),
       post(credential, `${firstVersion}/content-sessions`),
       post(credential, `${secondVersion}/preview-leases`),
-      post(
-        credential,
-        `/api/v1/projects/${projectId}/artifacts/${target.artifactId}/history/clone-token`,
-        {ttlSeconds: 60},
-      ),
     ]);
   }
 
@@ -291,7 +270,6 @@ describe("artifact read authority by sharing level", () => {
       callTool(token, "comment_get", {artifactId, threadId: target.threadId}),
       callTool(token, "artifact_open", {artifactId}),
       callTool(token, "artifact_open", {artifactId, versionId: target.firstVersionId}),
-      callTool(token, "artifact_history_clone_token", {artifactId, projectId}),
       callMcp(server, token, "resources/read", manifest, {uri: manifest}),
     ]);
   }
@@ -310,16 +288,9 @@ describe("artifact read authority by sharing level", () => {
     }));
   }
 
-  async function post(
-    credential: Credential,
-    pathname: string,
-    body?: CloneTokenRequest,
-  ): Promise<Answer> {
-    const headers = credentialHeaders(credential, true);
-    if (body !== undefined) headers.set("Content-Type", "application/json");
+  async function post(credential: Credential, pathname: string): Promise<Answer> {
     return answer(await fetch(`${server.baseUrl}${pathname}`, {
-      body: body === undefined ? null : JSON.stringify(body),
-      headers,
+      headers: credentialHeaders(credential, true),
       method: "POST",
     }));
   }
@@ -328,24 +299,6 @@ describe("artifact read authority by sharing level", () => {
     return answer(await fetch(`${server.baseUrl}/artifacts/${artifactId}`, {
       redirect: "manual",
     }));
-  }
-
-  async function enableGitHistory(cookies: ApplicationCookies): Promise<void> {
-    const session = {kind: "session", cookies} as const;
-    await expect.poll(async () => z.object({
-      capabilities: z.object({
-        gitHistory: z.object({providerState: z.string()}).loose(),
-      }).loose(),
-    }).loose().parse((await get(session, "/api/v1/session")).body)
-      .capabilities.gitHistory.providerState, {timeout: 5_000}).toBe("available");
-    const headers = credentialHeaders(session, true);
-    headers.set("Content-Type", "application/json");
-    const response = await fetch(`${server.baseUrl}/api/v1/projects/${projectId}/git-history`, {
-      body: JSON.stringify({confirmEstimate: true, enabled: true}),
-      headers,
-      method: "PUT",
-    });
-    expect(response.status).toBe(200);
   }
 
   async function changeLevel(

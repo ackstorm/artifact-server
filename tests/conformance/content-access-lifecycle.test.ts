@@ -17,7 +17,7 @@ import {
 } from "../../src/core/identity.js";
 import type {Clock} from "../../src/core/ports.js";
 import {SystemIdGenerator} from "../../src/core/system.js";
-import {createLocalApplicationLayer} from "../../src/local/create-local-application-layer.js";
+import {createApplicationLayer} from "../../src/local/create-local-application-layer.js";
 import {LocalBlobStore} from "../../src/storage/local-blob-store.js";
 import {LocalStagingStore} from "../../src/storage/local-staging-store.js";
 import {SqliteArtifactRepository} from "../../src/storage/sqlite-artifact-repository.js";
@@ -36,7 +36,7 @@ describe("content access lifecycle", () => {
     const databasePath = path.join(dataDirectory, "artifact-server.db");
     repository = new SqliteArtifactRepository(databasePath);
     identityRepository = new SqliteIdentityRepository(databasePath);
-    runtime = ManagedRuntime.make(createLocalApplicationLayer({
+    runtime = ManagedRuntime.make(createApplicationLayer({
       apiToken: Redacted.make("test-api-token"),
       blobs: new LocalBlobStore(path.join(dataDirectory, "blobs")),
       bootstrapAdministratorEmail: "admin@example.test",

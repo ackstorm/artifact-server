@@ -21,7 +21,7 @@ import { readableFile } from "../storage/verified-file.js";
 /**
  * Filesystem mechanics for linked artifacts (project/spec/local-workspace-spec.md
  * section 4). Node-only: this module reaches the server machine's filesystem
- * and must never be imported by the Cloudflare worker build.
+ * and runs only in the Node process that owns the linked files.
  *
  * Error messages in this module never include the source path, so surfaced
  * or logged failures disclose no filesystem layout.

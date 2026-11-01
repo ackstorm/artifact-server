@@ -1,6 +1,6 @@
 # Local workspace features
 
-**Status:** Accepted; implementation underway — `LNK-001` through `LNK-008` are implemented across the local application, SQLite/Postgres/D1 storage, HTTP, MCP, CLI, and web surfaces and have normal and hostile acceptance-ID tests, but remain `implementing` for the explicit proof gaps recorded in the ledger. `PRV-001` through `PRV-005` are implemented with local HTTP and browser proof. `KAN-001` through `KAN-007`, `EDT-001` through `EDT-003`, and `OPN-001`/`OPN-002` remain specified and unimplemented (August 23, 2026)
+**Status:** Accepted; implementation underway — `LNK-001` through `LNK-008` are implemented across the local application, SQLite/Postgres storage, HTTP, MCP, CLI, and web surfaces and have normal and hostile acceptance-ID tests, but remain `implementing` for the explicit proof gaps recorded in the ledger. `PRV-001` through `PRV-005` are implemented with local HTTP and browser proof. `KAN-001` through `KAN-007`, `EDT-001` through `EDT-003`, and `OPN-001`/`OPN-002` remain specified and unimplemented (August 23, 2026)
 **Date:** August 19, 2026
 **Owner:** Artifact Server product engineering
 **Companion documents:** [Product specification](./artifact-server-product-spec.md), [Artifact comments](./artifact-comments-spec.md) (the storage and parity precedent this spec follows), [Image and video previews](./media-preview-spec.md), [Conformance ledger](./conformance.yml), [ADR 0023](./decisions/0023-linked-artifacts-are-captured-snapshots.md), [ADR 0024](./decisions/0024-kanban-is-first-class-records.md)
@@ -41,9 +41,9 @@ Two of the five require real architectural decisions, recorded as ADRs:
 
 Two of the five features read or execute against the server machine's filesystem outside the data directory. They are meaningful and safe only where the server is the user's own machine.
 
-| Feature | local | single_server | kubernetes / cloudflare / aws / gcp |
+| Feature | local | single_server | kubernetes |
 | --- | --- | --- | --- |
-| Linked artifacts | Available when enabled | Absent | Absent (impossible on Workers; pointless and dangerous on shared remotes) |
+| Linked artifacts | Available when enabled | Absent | Absent (pointless and dangerous on shared remotes) |
 | Open in app | Available when linked artifacts are enabled | Absent | Absent |
 | Kanban board | Available | Available | Available |
 | In-place text editing | Available | Available | Available |
@@ -209,7 +209,7 @@ Audio, PDF, and preformatted text presentation are follow-on preview slices, not
 
 ## 10. Storage sketch
 
-Linked bindings are one nullable group on the artifact record (SQLite shown; Postgres and D1 mirror it through each backend's migration mechanics):
+Linked bindings are one nullable group on the artifact record (SQLite shown; Postgres mirrors it through its migration mechanics):
 
 ```sql
 ALTER TABLE artifacts ADD COLUMN source_path TEXT;          -- canonical absolute path

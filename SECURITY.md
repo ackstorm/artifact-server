@@ -10,7 +10,7 @@ Security fixes apply to the latest tagged release and the current `main` branch.
 
 Do not open a public issue for a suspected vulnerability.
 
-Use [GitHub private vulnerability reporting](https://github.com/plannotator/artifact-server/security/advisories/new). If that form is not available to you, contact a repository administrator through an established private channel.
+Use [GitHub private vulnerability reporting](https://github.com/ackstorm/artifact-server/security/advisories/new). If that form is not available to you, contact a repository administrator through an established private channel.
 
 Include:
 

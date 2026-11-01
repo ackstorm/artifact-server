@@ -26,7 +26,7 @@ and do not mount a service-account token by default. Workload identity can
 explicitly enable the token and add service-account annotations.
 
 One existing Secret supplies the required API token and Postgres URL and may
-also supply S3, local-bootstrap, and WorkOS credentials. Secret keys are mounted
+also supply S3, local-bootstrap, and OIDC credentials. Secret keys are mounted
 as read-only files; durable credentials are not accepted as chart values. A
 non-secret `secret.rolloutChecksum` value gives external secret managers a
 portable way to request a controlled rollout when secret contents change.
@@ -43,7 +43,7 @@ Secrets. A cluster that uses Gateway API or a managed provider edge leaves this
 template disabled and routes the Service itself.
 
 NetworkPolicy is also disabled by default. Standard Kubernetes NetworkPolicy
-cannot express DNS-name egress rules for managed Postgres, S3, R2, WorkOS, or an
+cannot express DNS-name egress rules for managed Postgres, S3, R2, an OIDC provider, or an
 OTLP collector. Enabling a generic default-deny policy without exact cluster
 addresses would make the package look secure while breaking or accidentally
 opening required traffic. Operators may enable the template and provide native

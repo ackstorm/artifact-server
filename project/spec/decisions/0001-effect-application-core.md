@@ -72,8 +72,7 @@ This decision does not:
 - replace every Zod schema at once;
 - replace SQLite with Effect SQL;
 - change persisted records, public JSON, URLs, status codes, or cache behavior;
-- add retries around non-idempotent writes; or
-- use Effect's built-in MCP HTTP transport as the Cloudflare baseline.
+- add retries around non-idempotent writes.
 
 The primary MCP route must remain stateless and horizontally scalable. Its
 transport will be selected separately while its tool handlers use the same

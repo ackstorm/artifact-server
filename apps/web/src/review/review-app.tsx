@@ -22,7 +22,6 @@ import {
   FilterIcon,
   FullScreenIcon,
   GithubIcon,
-  Home01Icon,
   KeyboardIcon,
   LayoutLeftIcon,
   Link01Icon,
@@ -1419,7 +1418,7 @@ function ArtifactReview({
               <nav aria-label="Artifact Server resources" className="as-home-resources">
                 <a
                   className="as-home-resources__link"
-                  href="https://github.com/plannotator/artifact-server"
+                  href="https://github.com/ackstorm/artifact-server"
                   rel="noreferrer"
                   target="_blank"
                 >
@@ -1434,22 +1433,7 @@ function ArtifactReview({
                 </a>
                 <a
                   className="as-home-resources__link"
-                  href="https://artifactserver.com/"
-                  rel="noreferrer"
-                  target="_blank"
-                >
-                  <span className="as-home-resources__icon">
-                    <HugeiconsIcon aria-hidden="true" icon={Home01Icon} strokeWidth={1.8} />
-                  </span>
-                  <span className="as-home-resources__identity">
-                    <strong>Homepage</strong>
-                    <span>Product overview</span>
-                  </span>
-                  <HugeiconsIcon aria-hidden="true" icon={ExternalLinkIcon} strokeWidth={1.8} />
-                </a>
-                <a
-                  className="as-home-resources__link"
-                  href="https://artifactserver.com/docs/"
+                  href="https://github.com/ackstorm/artifact-server/tree/main/docs"
                   rel="noreferrer"
                   target="_blank"
                 >
@@ -1462,10 +1446,9 @@ function ArtifactReview({
                   </span>
                   <HugeiconsIcon aria-hidden="true" icon={ExternalLinkIcon} strokeWidth={1.8} />
                 </a>
-                {/* TODO(open-source-launch): publish the dedicated agent-connection guide at this canonical route. */}
                 <a
                   className="as-home-resources__link"
-                  href="https://artifactserver.com/docs/connect-agents/"
+                  href="https://github.com/ackstorm/artifact-server/blob/main/docs/mcp.md"
                   rel="noreferrer"
                   target="_blank"
                 >

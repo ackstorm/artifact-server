@@ -15,12 +15,6 @@ import type {
   ExternalMcpBearerVerifier,
 } from "../../src/application/authentication.js";
 import type {InteractiveIdentityProvider} from "../../src/application/interactive-login.js";
-import type {NodeGitHistoryConfiguration} from
-  "../../src/git-history/node-git-history-configuration.js";
-import type {GitHistoryProviderHealthProbe} from
-  "../../src/git-history/git-history-provider-health.js";
-import type {GitHistoryProvider} from
-  "../../src/git-history/git-history-mirror.js";
 import type {
   ApiOAuthResourceConfiguration,
   McpOAuthResourceConfiguration,
@@ -95,9 +89,6 @@ export async function startTestServer(
     readonly externalMcpBearerVerifier?: BearerCredentialVerifier;
     readonly externalMcpOAuthVerifier?: ExternalMcpBearerVerifier;
     readonly externalIdentityAdmissionPolicy?: ExternalIdentityAdmissionPolicy;
-    readonly gitHistory?: NodeGitHistoryConfiguration;
-    readonly gitHistoryHealthProbe?: GitHistoryProviderHealthProbe;
-    readonly gitHistoryProvider?: GitHistoryProvider;
     readonly hostname?: string;
     readonly interactiveIdentityProvider?: InteractiveIdentityProvider;
     readonly linkedFiles?: "off" | "on";
@@ -168,23 +159,11 @@ export async function startTestServer(
       interactiveIdentityProvider: options.interactiveIdentityProvider,
     };
   }
-  if (options.gitHistory !== undefined) {
-    config = {...config, gitHistory: options.gitHistory};
-  }
   if (options.sessionLifetimeMilliseconds !== undefined) {
     config = {
       ...config,
       sessionLifetimeMilliseconds: options.sessionLifetimeMilliseconds,
     };
-  }
-  if (options.gitHistoryHealthProbe !== undefined) {
-    config = {
-      ...config,
-      gitHistoryHealthProbe: options.gitHistoryHealthProbe,
-    };
-  }
-  if (options.gitHistoryProvider !== undefined) {
-    config = {...config, gitHistoryProvider: options.gitHistoryProvider};
   }
   if (options.hostname !== undefined) {
     config = {...config, hostname: options.hostname};

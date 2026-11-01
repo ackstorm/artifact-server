@@ -147,7 +147,7 @@ Artifact Server creates a separate review session and serves the same saved vers
 
 Plannotator stores the comment and its anchor. The anchor includes the Artifact Server installation ID, project ID, artifact ID, exact version ID, route, and the selector or text information needed to find the reviewed content again. Opening the comment always requests the same saved version.
 
-The bridge must not contain or receive a reusable Plannotator credential. Stored files, fingerprints, manifests, downloads, normal browser responses, and optional Git history remain unchanged. Review responses are private and are not placed in a shared CDN cache.
+The bridge must not contain or receive a reusable Plannotator credential. Stored files, fingerprints, manifests, downloads, and normal browser responses remain unchanged. Review responses are private and are not placed in a shared CDN cache.
 
 The implementation team must prototype the review channel before committing to its final UI. The prototype must test:
 
@@ -217,11 +217,10 @@ The Plannotator team should return a short findings document that answers:
 4. Whether Plannotator already has a service-token or signed-assertion facility suitable for audience-restricted Artifact Server requests.
 5. How comments currently identify a page, version, route, selected text, and selected element.
 6. Whether the first review bridge can reuse the current annotation client without exposing a reusable credential.
-7. Whether the hosted Cloudflare deployment should use an internal Artifact Server core directly or exercise the same external connection protocol.
-8. Which private-network path should ship first: customer-provided networking, Cloudflare Tunnel, or a product-owned connector.
-9. The exact user experience for disconnect, unavailable server, expired session, project pairing, workspace references, and project archival.
-10. Revised implementation estimates with responsible teams and the minimum test environment.
-11. How the pairing callback validates the server identity and address without creating an open redirect, server-side request forgery path, or connection-claiming race.
+7. Which private-network path should ship first: customer-provided networking, Cloudflare Tunnel, or a product-owned connector.
+8. The exact user experience for disconnect, unavailable server, expired session, project pairing, workspace references, and project archival.
+9. Revised implementation estimates with responsible teams and the minimum test environment.
+10. How the pairing callback validates the server identity and address without creating an open redirect, server-side request forgery path, or connection-claiming race.
 
 ## Acceptance tests
 

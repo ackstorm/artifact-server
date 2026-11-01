@@ -20,7 +20,7 @@ const serverAddressSchema = z.object({
 });
 
 /** External-storage server settings for one process. */
-export interface ExternalStorageServerConfig extends ExternalStorageRuntimeConfig {
+interface ExternalStorageServerConfig extends ExternalStorageRuntimeConfig {
   readonly hostname: string;
   readonly port: number;
   readonly readinessWithdrawalMilliseconds?: number;
@@ -40,7 +40,7 @@ export async function startExternalStorageServer(
 ): Promise<RunningExternalStorageServer> {
   if (config.interactiveIdentityProvider === undefined) {
     throw new Error(
-      "A private-team server requires exactly one OIDC or WorkOS browser-login provider.",
+      "A private-team server requires an OIDC browser-login provider.",
     );
   }
   const lifecycle = config.runtimeLifecycle ?? createRuntimeLifecycle();

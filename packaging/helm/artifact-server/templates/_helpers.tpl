@@ -60,12 +60,6 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- if ne $hasAccessKey $hasSecretKey -}}
 {{- fail "secret.keys.s3AccessKeyId and secret.keys.s3SecretAccessKey must be configured together" -}}
 {{- end -}}
-{{- $hasWorkosClient := ne .Values.identity.workosClientId "" -}}
-{{- $hasWorkosIssuer := ne .Values.identity.workosIssuer "" -}}
-{{- $hasWorkosKey := ne .Values.secret.keys.workosApiKey "" -}}
-{{- if not (or (and (not $hasWorkosClient) (not $hasWorkosIssuer) (not $hasWorkosKey)) (and $hasWorkosClient $hasWorkosIssuer $hasWorkosKey)) -}}
-{{- fail "identity.workosClientId, identity.workosIssuer, and secret.keys.workosApiKey must be configured together" -}}
-{{- end -}}
 {{- $hasOidcClient := ne .Values.identity.oidcClientId "" -}}
 {{- $hasOidcIssuer := ne .Values.identity.oidcIssuer "" -}}
 {{- if ne $hasOidcClient $hasOidcIssuer -}}
@@ -77,11 +71,8 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- if and (not $hasOidcIssuer) (or .Values.identity.oidcAutoAdmit (gt (len .Values.identity.oidcAllowedEmailDomains) 0)) -}}
 {{- fail "identity.oidcAutoAdmit and identity.oidcAllowedEmailDomains require identity.oidcClientId and identity.oidcIssuer" -}}
 {{- end -}}
-{{- if and $hasOidcIssuer $hasWorkosIssuer -}}
-{{- fail "one installation has one browser-login provider: configure the identity.workos values or the identity.oidc values, not both" -}}
-{{- end -}}
-{{- if and (not $hasOidcIssuer) (not $hasWorkosIssuer) -}}
-{{- fail "private-team deployments require exactly one browser-login provider: configure identity.oidc or identity.workos" -}}
+{{- if not $hasOidcIssuer -}}
+{{- fail "private-team deployments require identity.oidcIssuer and identity.oidcClientId" -}}
 {{- end -}}
 {{- $drainMilliseconds := add .Values.configuration.readinessWithdrawalMilliseconds .Values.configuration.shutdownDeadlineMilliseconds -}}
 {{- if le (mul .Values.terminationGracePeriodSeconds 1000) $drainMilliseconds -}}
@@ -130,10 +121,6 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
   path: s3-access-key-id
 - key: {{ .Values.secret.keys.s3SecretAccessKey | quote }}
   path: s3-secret-access-key
-{{- end }}
-{{- if .Values.secret.keys.workosApiKey }}
-- key: {{ .Values.secret.keys.workosApiKey | quote }}
-  path: workos-api-key
 {{- end }}
 {{- if .Values.secret.keys.oidcClientSecret }}
 - key: {{ .Values.secret.keys.oidcClientSecret | quote }}
@@ -215,13 +202,5 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 - name: ARTIFACT_SERVER_OIDC_SCOPES
   value: {{ .Values.identity.oidcScopes | quote }}
 {{- end }}
-{{- end }}
-{{- if .Values.identity.workosClientId }}
-- name: ARTIFACT_SERVER_WORKOS_API_KEY_FILE
-  value: /run/secrets/artifact-server/workos-api-key
-- name: ARTIFACT_SERVER_WORKOS_CLIENT_ID
-  value: {{ .Values.identity.workosClientId | quote }}
-- name: ARTIFACT_SERVER_WORKOS_ISSUER
-  value: {{ .Values.identity.workosIssuer | quote }}
 {{- end }}
 {{- end -}}

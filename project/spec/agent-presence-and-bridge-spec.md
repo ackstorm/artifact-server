@@ -184,7 +184,7 @@ fail open (dormant + one notice, exponential 1–30 s backoff), report
 - **Widen `kind`.** `registered_agents.kind` is a CHECK-constrained closed
   set (`'pi'`). Relax to a validated slug (`^[a-z][a-z0-9-]{0,39}$`) checked
   in the application layer; the CHECK constraint drops in a schema migration
-  on all three backends (SQLite, Postgres, D1 — each by its own mechanics).
+  on both backends (SQLite, Postgres — each by its own mechanics).
   `kind` remains display/analytics metadata; nothing branches on it, which is
   what makes widening safe. The dispatch spec reserved this for "a future
   ADR" — this is that decision, recorded as ADR when implemented.

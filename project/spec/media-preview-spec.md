@@ -150,8 +150,8 @@ Changing the artifact, version, or path invalidates the previous load immediatel
 
 - Images use the native resource URL directly. They are not converted to base64 or copied into a JavaScript string.
 - Video uses the native resource URL directly with `preload="metadata"`. It is not fetched into one in-memory `Blob` before playback.
-- Range reads stream from the existing blob adapter, so local disk, SQLite-backed application state, S3-compatible object storage, and Cloudflare storage keep the same byte path used by ordinary content delivery.
-- The route and UI behave the same on local, single-server, Kubernetes, Cloudflare, AWS, and GCP deployments.
+- Range reads stream from the existing blob adapter, so local disk, SQLite-backed application state, and S3-compatible object storage keep the same byte path used by ordinary content delivery.
+- The route and UI behave the same on local, single-server, and Kubernetes deployments.
 - The development proxy must preserve Fetch Metadata and Range request headers. Production reverse proxies must preserve `Range`, `If-Range`, and conditional headers and must not rewrite the response media type.
 
 ## 8. Comments and editing

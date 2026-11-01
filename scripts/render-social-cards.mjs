@@ -12,11 +12,7 @@ const outputDirectory = join(socialDirectory, "png");
 
 const cards = [
   {name: "pi-article", width: 1200, height: 675},
-  {name: "cloudflare-artifacts-article", width: 1200, height: 675},
-  {name: "multi-cloud-article", width: 1200, height: 675},
   {name: "pi-square", width: 1080, height: 1080},
-  {name: "cloudflare-artifacts-square", width: 1080, height: 1080},
-  {name: "multi-cloud-square", width: 1080, height: 1080},
 ];
 
 mkdirSync(outputDirectory, {recursive: true});

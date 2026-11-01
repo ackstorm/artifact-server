@@ -89,40 +89,6 @@ export async function loadOidcConfiguration(
   };
 }
 
-/**
- * Refuse an installation that configures WorkOS and generic OIDC together.
- *
- * Presence of any variable in either family selects that provider, matching the
- * Cloudflare worker guard: a leftover `ARTIFACT_SERVER_WORKOS_ISSUER` beside a
- * complete OIDC family must fail startup rather than boot silently on OIDC.
- */
-export function assertAtMostOneBrowserLoginProvider(
-  environment: NodeJS.ProcessEnv,
-): void {
-  if (
-    !hasBrowserLoginVariable(environment, "ARTIFACT_SERVER_WORKOS_") ||
-    !hasBrowserLoginVariable(environment, "ARTIFACT_SERVER_OIDC_")
-  ) {
-    return;
-  }
-  throw new Error(
-    "One installation has one browser-login provider: configure ARTIFACT_SERVER_WORKOS_* or ARTIFACT_SERVER_OIDC_*, not both.",
-  );
-}
-
-function hasBrowserLoginVariable(
-  environment: NodeJS.ProcessEnv,
-  prefix: string,
-): boolean {
-  return Object.entries(environment).some(([name, value]) =>
-    name.startsWith(prefix) && value !== undefined && (
-      value.trim() !== "" ||
-      name === "ARTIFACT_SERVER_OIDC_AUTO_ADMIT" ||
-      name === "ARTIFACT_SERVER_OIDC_ALLOWED_EMAIL_DOMAINS"
-    )
-  );
-}
-
 function credentialOrNull(value: LoadedSecret | null): Redacted.Redacted | null {
   return value === null ? null : value.value;
 }

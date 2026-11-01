@@ -33,6 +33,6 @@
   "repository": {
     "directory": "integrations/opencode",
     "type": "git",
-    "url": "git+https://github.com/plannotator/artifact-server.git"
+    "url": "git+https://github.com/ackstorm/artifact-server.git"
   }
 }

@@ -59,9 +59,6 @@ Shiki language/theme set, and an isolated lazy Mermaid bundle. No server
 processing service, document editor, MDX execution, or offset-anchor schema is
 introduced. The additional diagram script is fetched only for diagram fences.
 
-This scope proposal is tracked in
-[upstream issue #78](https://github.com/plannotator/artifact-server/issues/78).
-
 Primary implementation references: [Marked](https://marked.js.org/using_pro),
 [DOMPurify](https://github.com/cure53/DOMPurify),
 [Mermaid configuration](https://mermaid.js.org/config/usage.html), and

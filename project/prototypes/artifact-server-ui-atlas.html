@@ -229,9 +229,6 @@
     .project-card:nth-child(2n) { border-right: 0; }
     .project-card:nth-last-child(-n+2) { border-bottom: 0; }
     .project-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
-    .git-block { margin-top: 20px; padding-top: 17px; border-top: 1px solid var(--border); }
-    .git-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-    .git-actions { margin-top: 13px; }
     .tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--border); overflow-x: auto; }
     .tab { position: relative; min-height: 40px; border: 0; background: transparent; color: var(--muted-fg); padding: 0 13px; cursor: pointer; font-size: 12px; font-weight: 650; white-space: nowrap; }
     .tab.active { color: var(--fg); }
@@ -800,8 +797,8 @@
     }
 
     function renderProjects() {
-      const card = (name,id,state,git,copy) => `<article class="project-card"><div class="project-top"><div><h2>${name}</h2><p class="mono tiny muted">${id}</p></div>${badge(state,state==="Active"?"primary":"")}</div><p class="small muted" style="margin:18px 0 0">Created ${copy}</p><div class="git-block"><div class="git-head"><div><h3>Git history</h3><p class="tiny muted" style="margin:0">Optional Cloudflare mirror for this project.</p></div>${badge(git,git==="On"?"primary":"")}</div><div class="git-actions">${button(git==="On"?"Turn off":"Turn on","sm")}</div></div><div class="action-row" style="margin-top:20px; justify-content:flex-start">${button("Open project","sm","artifacts")}${button("Rename","ghost sm")}</div></article>`;
-      const content = pageHeader("Installation","Projects","One installation contains one or more projects. Project names are labels; stable IDs select the project.",button("New project","primary","new-project")) + `<div class="projects-grid">${card("Default","prj_default","Active","On","Aug 17, 2026")}${card("Workspaces","prj_workspaces","Active","Off","Aug 19, 2026")}${card("Research notes","prj_research","Active","Off","Aug 20, 2026")}${card("Client archive","prj_client_archive","Archived","Off","Jul 02, 2026")}</div>`;
+      const card = (name,id,state,copy) => `<article class="project-card"><div class="project-top"><div><h2>${name}</h2><p class="mono tiny muted">${id}</p></div>${badge(state,state==="Active"?"primary":"")}</div><p class="small muted" style="margin:18px 0 0">Created ${copy}</p><div class="action-row" style="margin-top:20px; justify-content:flex-start">${button("Open project","sm","artifacts")}${button("Rename","ghost sm")}</div></article>`;
+      const content = pageHeader("Installation","Projects","One installation contains one or more projects. Project names are labels; stable IDs select the project.",button("New project","primary","new-project")) + `<div class="projects-grid">${card("Default","prj_default","Active","Aug 17, 2026")}${card("Workspaces","prj_workspaces","Active","Aug 19, 2026")}${card("Research notes","prj_research","Active","Aug 20, 2026")}${card("Client archive","prj_client_archive","Archived","Jul 02, 2026")}</div>`;
       return appShell(content,"projects");
     }
 

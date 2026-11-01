@@ -29,7 +29,7 @@ import { LocalStagingStore } from "../storage/local-staging-store.js";
 import { SqliteArtifactRepository } from "../storage/sqlite-artifact-repository.js";
 import { SqliteIdentityRepository } from "../storage/sqlite-identity-repository.js";
 import {
-  createLocalApplicationLayer,
+  createApplicationLayer,
   type LinkedApplicationAdapters,
 } from "./create-local-application-layer.js";
 import {
@@ -55,30 +55,6 @@ import {createNodeWebAssetStore} from "../http/node-web-assets.js";
 import {browserAccessModes} from "../core/browser-access.js";
 import {ensureBootstrapManagedApiKey} from
   "../application/bootstrap-managed-api-key.js";
-import {
-  configuredNodeGitHistory,
-  offNodeGitHistoryConfiguration,
-  type NodeGitHistoryConfiguration,
-} from "../git-history/node-git-history-configuration.js";
-import {fixedGitHistoryCapabilityReader} from
-  "../git-history/git-history-capability.js";
-import type {GitHistoryProviderHealthProbe} from
-  "../git-history/git-history-provider-health.js";
-import {CloudflareArtifactsRestHealthProbe} from
-  "../git-history/cloudflare-artifacts-rest-health-probe.js";
-import {
-  startGitHistoryCapabilityMonitor,
-  type GitHistoryCapabilityMonitor,
-} from "../git-history/git-history-capability-monitor.js";
-import {SqliteGitHistoryProviderIdentityStore} from
-  "../storage/sqlite-git-history-provider-identity-store.js";
-import {
-  type GitHistoryProvider,
-  startGitHistoryMirrorWorker,
-} from "../git-history/git-history-mirror.js";
-import {CloudflareArtifactsGitHistoryProvider} from
-  "../git-history/cloudflare-artifacts-git-history-provider.js";
-
 export interface LocalRuntimeConfig {
   readonly apiToken: string;
   readonly apiOAuthResource?: ApiOAuthResourceConfiguration;
@@ -95,11 +71,6 @@ export interface LocalRuntimeConfig {
   readonly externalApiBearerVerifier?: BearerCredentialVerifier;
   readonly externalMcpBearerVerifier?: BearerCredentialVerifier;
   readonly externalMcpOAuthVerifier?: ExternalMcpBearerVerifier;
-  readonly gitHistory?: NodeGitHistoryConfiguration;
-  /** Optional provider seam for real-boundary tests; production composes REST. */
-  readonly gitHistoryHealthProbe?: GitHistoryProviderHealthProbe;
-  /** Complete provider seam for conformance tests; production composes REST and Git. */
-  readonly gitHistoryProvider?: GitHistoryProvider;
   readonly interactiveIdentityProvider?: InteractiveIdentityProvider;
   /** Linked-artifact capability switch; absent or "off" leaves it disabled. */
   readonly linkedFiles?: "off" | "on";
@@ -136,19 +107,8 @@ export async function createLocalRuntime(
   const runtimeClock = config.clock ?? new SystemClock();
   const stagingCleanupPolicy = config.stagingCleanupPolicy ??
     defaultStagingCleanupPolicy;
-  const gitHistory = config.gitHistory ?? offNodeGitHistoryConfiguration();
-  let applicationGitHistory = fixedGitHistoryCapabilityReader(
-    gitHistory.capability,
-  );
   const repository = new SqliteArtifactRepository(databasePath, installationId);
   const identityRepository = new SqliteIdentityRepository(databasePath);
-  const configuredGitHistory = configuredNodeGitHistory(gitHistory);
-  const gitHistoryProvider = configuredGitHistory === null
-    ? null
-    : config.gitHistoryProvider ?? new CloudflareArtifactsGitHistoryProvider({
-      apiToken: configuredGitHistory.apiToken,
-      identity: configuredGitHistory.identity,
-    });
   const apiToken = Redacted.make(config.apiToken, {label: "local-api-token"});
   if (config.browserAccess.mode === browserAccessModes.privateTeam) {
     try {
@@ -163,16 +123,6 @@ export async function createLocalRuntime(
       repository.close();
       throw cause;
     }
-  }
-  let gitHistoryIdentityStore: SqliteGitHistoryProviderIdentityStore | null;
-  try {
-    gitHistoryIdentityStore = configuredGitHistory === null
-      ? null
-      : new SqliteGitHistoryProviderIdentityStore(databasePath, installationId);
-  } catch (cause) {
-    identityRepository.close();
-    repository.close();
-    throw cause;
   }
   const linkedFilesEnabled = config.linkedFiles === "on";
   const selfProtectedPaths = {
@@ -205,18 +155,16 @@ export async function createLocalRuntime(
   const resourceLayer = Layer.effectDiscard(
     Effect.acquireRelease(
       Effect.succeed({
-        gitHistoryIdentityStore,
         identityRepository,
         repository,
       }),
       (owned) => Effect.sync(() => {
-        owned.gitHistoryIdentityStore?.close();
         owned.identityRepository.close();
         owned.repository.close();
       }),
     ),
   );
-  let applicationAdapters: Parameters<typeof createLocalApplicationLayer>[0] = {
+  let applicationAdapters: Parameters<typeof createApplicationLayer>[0] = {
     apiToken: config.browserAccess.mode === browserAccessModes.localOwner
       ? apiToken
       : null,
@@ -231,7 +179,6 @@ export async function createLocalRuntime(
     ids: new SystemIdGenerator(),
     identityRepository,
     installationId,
-    gitHistory: {read: () => applicationGitHistory.read()},
     interactiveIdentityProvider: config.interactiveIdentityProvider ?? null,
     localBootstrapCredential: config.localBootstrapToken === undefined
       ? null
@@ -249,13 +196,10 @@ export async function createLocalRuntime(
   if (config.externalIdentityAdmissionPolicy !== undefined) {
     Object.assign(applicationAdapters, {externalIdentityAdmissionPolicy: config.externalIdentityAdmissionPolicy});
   }
-  if (gitHistoryProvider !== null) {
-    Object.assign(applicationAdapters, {gitHistoryProvider});
-  }
   if (linkedAdapters !== undefined) {
     applicationAdapters = {...applicationAdapters, linked: linkedAdapters};
   }
-  const applicationLayer = createLocalApplicationLayer(applicationAdapters);
+  const applicationLayer = createApplicationLayer(applicationAdapters);
   const telemetryLayer = config.observability === true
     ? otlpLayer({
       deploymentMode: "local",
@@ -266,35 +210,8 @@ export async function createLocalRuntime(
   const applicationRuntime: ApplicationRuntime = ManagedRuntime.make(
     Layer.mergeAll(applicationLayer, resourceLayer, telemetryLayer),
   );
-  let gitHistoryMonitor: GitHistoryCapabilityMonitor | null = null;
-  let gitHistoryWorker: Awaited<ReturnType<typeof startGitHistoryMirrorWorker>> | null = null;
   try {
     await applicationRuntime.context();
-    if (
-      configuredGitHistory !== null &&
-      gitHistoryIdentityStore !== null &&
-      gitHistoryProvider !== null
-    ) {
-      gitHistoryMonitor = startGitHistoryCapabilityMonitor(applicationRuntime, {
-        clock: runtimeClock,
-        identity: configuredGitHistory.identity,
-        identityStore: gitHistoryIdentityStore,
-        initialCapability: configuredGitHistory.capability,
-        providerHealth: config.gitHistoryHealthProbe ??
-          new CloudflareArtifactsRestHealthProbe({
-            apiToken: configuredGitHistory.apiToken,
-            identity: configuredGitHistory.identity,
-          }),
-      });
-      applicationGitHistory = gitHistoryMonitor.reader;
-      gitHistoryWorker = await startGitHistoryMirrorWorker({
-        blobs,
-        capability: applicationGitHistory,
-        installationId,
-        provider: gitHistoryProvider,
-        store: repository,
-      });
-    }
     let appDependenciesWithoutOAuth: HttpAppDependencies = {
       applicationRuntime,
       blobs,
@@ -303,8 +220,6 @@ export async function createLocalRuntime(
         config.completedRequestLogSampleRate ??
           defaultCompletedRequestLogSampleRate,
       contentDomain: config.contentDomain,
-      gitHistory: gitHistoryMonitor?.reader ??
-        fixedGitHistoryCapabilityReader(gitHistory.capability),
       linkedArtifacts: linkedFilesEnabled,
       organizationName: config.organizationName ?? null,
       trustedApplicationOrigin: config.applicationOrigin ?? null,
@@ -344,14 +259,10 @@ export async function createLocalRuntime(
       cleanupStaging: (limit) => runStagingCleanupPass(applicationRuntime, limit),
       close: async () => {
         if (closeCleanupSchedule !== null) await closeCleanupSchedule();
-        if (gitHistoryWorker !== null) await gitHistoryWorker.close();
-        if (gitHistoryMonitor !== null) await gitHistoryMonitor.close();
         await applicationRuntime.dispose();
       },
     };
   } catch (error) {
-    if (gitHistoryWorker !== null) await gitHistoryWorker.close();
-    if (gitHistoryMonitor !== null) await gitHistoryMonitor.close();
     await applicationRuntime.dispose();
     throw error;
   }

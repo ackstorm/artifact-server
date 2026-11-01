@@ -6,7 +6,7 @@
 
 Artifact Server publishes finished browser files and gives each published item a stable link and saved history. It accepts a complete client-side site or one ordinary file. It does not build source code or run backend code for an artifact.
 
-The first release supports both a direct local owner and a private team on one server or Kubernetes. Later deployment releases add Cloudflare and direct AWS and GCP packages without changing the artifact, version, access, or MCP contracts. Azure teams use the Kubernetes release on AKS.
+The first release supports both a direct local owner and a private team on one server or Kubernetes. Azure teams use the Kubernetes release on AKS.
 
 ## Product summary
 
@@ -22,7 +22,7 @@ The first release supports both a direct local owner and a private team on one s
 | Who can change it? | Every admitted human member of the installation. A service principal can perform only the actions granted to its API key. |
 | How do agents use it? | Through MCP, the CLI, or the normal HTTP API. They share the same product operations and permissions. The `artifact-server` Agent Skill routes artifact work to the CLI or MCP and loads separate server-operation instructions only for explicit administrator work. |
 | How does an agent hear about feedback? | A person sends one comment thread or every open thread on a version to a connected agent. Sending is consumptive: the sent annotations leave the normal views, and they come back only if the bundle cannot be delivered. Agents connect outward and poll for work; Artifact Server never calls out to an agent. |
-| Where does it run? | Direct local, one server, and Kubernetes are first-release targets. Cloudflare and official AWS and GCP installers follow the same container and storage contracts. Azure teams use Helm on AKS; there is no separate Azure installer. |
+| Where does it run? | Direct local, one server, and Kubernetes are first-release targets. Azure teams use Helm on AKS; there is no separate Azure installer. |
 | What stays outside it? | Building source code, artifact backends, workspace collaboration, and general-purpose Git hosting. Plannotator owns its workspaces and their review records; Artifact Server stores comment threads on its own artifact versions. |
 
 ## Supported content
@@ -124,7 +124,7 @@ content bootstrap token or credential. MCP publication results tell agents to
 give the review URL to the user first and mention the raw URL second when useful;
 HTTP and the CLI return the same link object.
 
-The stable application link resolves the current version, checks access, and opens the exact version origin. A local installation uses a unique `*.localhost` hostname. Hosted and external-storage installations require wildcard DNS and a wildcard certificate for the content domain.
+The stable application link resolves the current version, checks access, and opens the exact version origin. A local installation uses a unique `*.localhost` hostname. External-storage installations require wildcard DNS and a wildcard certificate for the content domain.
 
 One origin per version provides four properties:
 
@@ -173,7 +173,7 @@ Published code is untrusted.
 - Published responses set explicit media types and `X-Content-Type-Options: nosniff`.
 - Tests include a malicious artifact that attempts forms, fetches, frames, service workers, and cross-origin requests against the application.
 
-A separate registrable content domain is required for hosted and external-storage deployments. Local development uses isolated `*.localhost` hosts. A same-site subdomain of the application domain is not the supported security boundary.
+A separate registrable content domain is required for external-storage deployments. Local development uses isolated `*.localhost` hosts. A same-site subdomain of the application domain is not the supported security boundary.
 
 ## Access and mutation policy
 
@@ -202,83 +202,15 @@ The mutation policy is separate from the two read settings:
 
 An interactive agent acts as the signed-in person. An API key belongs to one named user or service principal, one installation, an expiry and revoke state, and explicit capabilities. Rotating a key replaces its credential record and secret without changing that principal or the administrator who authorized it. A key with artifact access can use any project in that installation; projects do not add a second access-control list. Every mutation records the effective principal and, when present, the human who authorized the agent connection.
 
-## Versions, comparisons, and optional Git handoff
+## Versions and comparisons
 
-Comparisons use the primary version manifests, not Git.
+Comparisons use the primary version manifests.
 
 - Compare normalized manifest paths to report files added, removed, or changed.
 - Detect a rename only when an added path and removed path have the same fingerprint.
 - For bounded text files, show a line comparison.
 - For binary files, report the old and new size and fingerprint and provide links to both versions.
 - The first release has no image comparison interface, PDF comparison, media analysis, or archive inspection.
-
-Git handoff is an optional private copy. Deployment configuration makes a
-provider available; it does not select data. The provider is off by default on
-every deployment, there is no automatic provider choice, and Git never supplies
-the files used to render an artifact.
-
-| Configuration | Behavior |
-| --- | --- |
-| `off` or absent | Normal Artifact Server behavior with no Git implementation, credential, binding, or provider request. This is the default. |
-| `cloudflare-artifacts` | Makes one exclusive, pre-created Cloudflare Artifacts namespace available through a Workers binding or the REST API. It creates no repository until an administrator enables a project. |
-
-Every project has one durable Git-history switch, and it starts off. A project
-administrator can review a current-inventory estimate and explicitly turn the
-switch on for that project. There is no installation-wide selection mode,
-inheritance rule, or automatic enablement for future projects. Browser, HTTP,
-and MCP use the same authorized and naturally idempotent project operation.
-Provider account, namespace, credentials, copy limits, and optional logical
-copied-byte budget remain deployment configuration.
-
-Each artifact, including a single-document artifact, receives its own private
-repository only when its first history job runs. Each saved version maps to at
-most one Git commit. Enabling a project after versions exist backfills every
-unmapped version in that project asynchronously and resumes after failure. A
-project checkout command may clone those independent repositories as sibling
-folders; it does not turn the project into a repository or source of truth.
-
-Disabling a project or provider stops applicable mirror work without deleting
-repositories or durable mappings; re-enabling the same project and provider
-resumes. Changing the persisted provider account or namespace after repositories
-exist requires an explicit migration rather than interpreting configuration as
-permission to move or delete data.
-
-Permanent removal uses an operator-only `artifactserver history purge`
-plan/apply command with exact installation-ID confirmation. It is resumable,
-does not delete primary artifact data or the provider namespace, and is not
-available through HTTP, MCP, or the member application.
-
-Authenticated HTTP and MCP capability discovery separately reports provider
-state (`disabled`, `checking`, `available`, `degraded`, `misconfigured`, or
-`migration-required`) and project state (`disabled`, `waiting`, `backfilling`,
-`ready`, `degraded`, or `budget-limited`). It exposes no credentials or
-repository coordinates, and optional Git health never makes application
-readiness fail.
-
-An estimate shows repositories, versions, operations, copied bytes, pointer
-bytes, and a dated public rate card before project or all-project enablement.
-Deterministic per-file and per-version copy limits leave excluded bytes in
-primary storage with path, media type, size, and fingerprint pointers. An
-optional logical copied-byte budget atomically pauses new provider writes in
-`budget-limited` before overshoot. Estimates are guidance, not invoice
-guarantees; Cloudflare bills aggregate operations and storage and has no
-per-repository fee.
-
-One Artifact Server installation environment uses one exclusive, persisted
-Cloudflare account/namespace identity. The adapter has no account-wide or
-namespace-delete operation. The live provider suite uses its own
-`artifact-server-test-` namespace, unique run-prefixed repositories, a separate
-revocable token, hard operation/storage bounds, and cleanup restricted to a
-durable run manifest. This keeps an existing namespace such as `workspaces`
-outside the integration's route and cleanup boundary, although Cloudflare's
-control-plane token and billing remain account-wide.
-
-A Git failure never blocks or deletes the saved version. Cloudflare Artifacts
-remains optional while access is not universal. Current documented limits
-include 10 GB per repository, and current pricing requires Workers Paid. The
-product does not depend on Git LFS. Additional local, code.storage, or
-private-remote adapters are future options, not day-one claims. The full
-implementation contract is [the Git history specification](./git-history-spec.md).
 
 ## Storage commit and lifecycle
 
@@ -289,7 +221,6 @@ Publishing uses this order:
 3. Verify size, fingerprint, canonical path, manifest, and entry file.
 4. Make immutable blobs available under their fingerprints.
 5. In one database transaction, create the version, its manifest entries, the idempotency result, and the conditional current-version update.
-6. When the configured provider is non-off and this project's durable Git-history switch is on, queue its optional copy after the version is committed.
 
 The initial release deletes only expired staging uploads that were never committed. It does not automatically delete committed blobs or blobs left by a publish race. This may waste storage, but it cannot delete bytes referenced by an immutable version. A later garbage collector requires a durable lease or mark-and-sweep design with a concurrency and crash-recovery test before it is enabled.
 
@@ -333,7 +264,7 @@ The detailed MCP wire and authorization contract is in [Artifact Server MCP base
 | Condition | What the person does |
 | --- | --- |
 | Local, single user | Install Artifact Server and run `artifactserver connect`. There is no browser sign-in, visible token, copied key, Docker requirement, or startup-log step. |
-| Hosted or team server with compatible MCP OAuth | Add or select the server's `/mcp` address, sign in and approve in the browser, then return to the AI client. The client renews authorization automatically until it is revoked or disconnected. |
+| Team server with compatible MCP OAuth | Add or select the server's `/mcp` address, sign in and approve in the browser, then return to the AI client. The client renews authorization automatically until it is revoked or disconnected. |
 | Private-network team server with compatible MCP OAuth | Connect to the required company network or VPN, then use the same server-address and browser-sign-in flow. Signing in does not change network access. |
 | Self-hosted server without compatible MCP OAuth | An administrator creates a scoped API key in the administration interface or administrator CLI. The developer enters it once through the AI client's secret input. Keys never come from startup logs. |
 | CI, scripts, or unattended agents | An administrator creates a scoped service API key and stores it in the deployment's secret manager. No browser is involved. |
@@ -409,7 +340,7 @@ login.
 Artifact Server ships one portable **`artifact-server`** Agent Skill. Its entrypoint selects one internal reference:
 
 - **Artifact work:** publish, update, open, share, list, compare, comment on, and organize artifacts. It uses the CLI when local files are involved and MCP or the CLI for server-only operations.
-- **Server operation:** install, deploy, upgrade, back up, restore, inspect, and repair an Artifact Server installation. This route loads only for an explicit administrator request and uses the target's native Compose, Helm, Alchemy, or Pulumi workflow.
+- **Server operation:** install, deploy, upgrade, back up, restore, inspect, and repair an Artifact Server installation. This route loads only for an explicit administrator request and uses the target's native Compose or Helm workflow.
 
 The artifact route resolves its target in this order: an explicit address or link, the server recorded in the artifact reference, current conversation context, project default, then user default. If more than one server remains possible, it asks and never guesses. A non-secret `.artifactserver.json` project file may name an exact server origin, CLI profile, and stable project ID, but never contains a credential. A project display name is resolved through the selected server and is never passed to an ID field.
 
@@ -427,15 +358,8 @@ Every deployed process records request counts, handling time, and spans. It writ
 | One server, compact | One container and SQLite | One persistent data directory | Compact Docker Compose |
 | One server, external storage | One or more stateless containers and Postgres | Object storage through a supported adapter | External-storage Compose |
 | Kubernetes | Stateless containers and Postgres | S3, GCS, a tested compatible store, or the preview Azure Blob adapter | Helm chart, including AKS |
-| Cloudflare | Workers and D1 | R2 | Pinned Alchemy project |
-| AWS | ECS Fargate and RDS PostgreSQL | S3 | Pinned Pulumi project |
-| GCP | Cloud Run and Cloud SQL PostgreSQL | Google Cloud Storage | Pinned Pulumi project |
 
-Operators use the deployment tool that owns the target: Compose for one server, Helm for Kubernetes, Alchemy for Cloudflare, and Pulumi for AWS and GCP. Artifact Server does not add an infrastructure wrapper. It supplies complete projects, shared inputs and outputs, product probes, and recovery documentation. Pulumi Cloud is optional; an official Pulumi project can use an existing customer-owned S3 or GCS state backend. Azure users deploy the Helm chart to AKS or another Kubernetes cluster.
-
-The exact cross-cloud input, output, secret, runtime-configuration, and evidence
-contract is defined in
-[`cloud-deployment-contract.md`](./cloud-deployment-contract.md).
+Operators use the deployment tool that owns the target: Compose for one server and Helm for Kubernetes. Artifact Server does not add an infrastructure wrapper. Azure users deploy the Helm chart to AKS or another Kubernetes cluster.
 
 Local use runs directly on the host by default and does not require Docker. The
 one-server Compose package has two explicit profiles. Compact Compose runs one
@@ -452,17 +376,16 @@ reverse proxy, DNS setup, wildcard certificate, or Caddy. A one-server
 installation opened from other devices needs HTTPS routing for the application
 origin and wildcard content origin. Caddy is the reference only when the team
 does not already have a conforming reverse proxy. Kubernetes uses its Ingress
-or Gateway, and managed-cloud packages use their provider edge.
+or Gateway.
 
 The executable packaging scope, upgrade rules, recovery procedures, and test
 matrix are defined in
 [`phase-6-packaging.md`](./phase-6-packaging.md).
 
 The blob interface can accept any provider for which a tested adapter exists.
-The first external-storage package supports AWS S3 and Cloudflare R2 through its S3
+The first external-storage package supports AWS S3 and S3-compatible stores such as R2 through its S3
 adapter. Another S3-compatible service is supported only after it passes the
-same contract tests. Native Google Cloud Storage is supported by the GCP
-package. The native Azure Blob adapter is available as a preview for AKS and
+same contract tests. Native Google Cloud Storage is a first-party adapter. The native Azure Blob adapter is available as a preview for AKS and
 other self-managed deployments; it is not an Azure installer and is not called
 supported until a real Azure qualification passes.
 
@@ -483,7 +406,6 @@ A requirement is complete only when both tests pass on every applicable deployme
 - Immutable versions, canonical manifests, text comparison, restore, and two read settings.
 - `artifactserver connect`, the credential-hidden local stdio bridge, HTTP API, modern MCP, and `artifact-server` skill.
 - Unique `*.localhost` version origins and the browser security tests.
-- Git handoff disabled by default; an independently configured Cloudflare Artifacts provider is optional.
 - No automatic committed-blob garbage collection.
 
 ### Private team
@@ -491,8 +413,8 @@ A requirement is complete only when both tests pass on every applicable deployme
 - One digest-pinned Docker image for compact and external-storage profiles.
 - Compact Compose for a one-server install plus External-storage Compose that
   connects to existing Postgres and object storage.
-- Browser login through WorkOS AuthKit or any OpenID Connect provider the
-  installation already runs, scoped API keys, Postgres and native blob drivers.
+- Browser login through any OpenID Connect provider the
+  installation runs, scoped API keys, Postgres and native blob drivers.
   One installation configures one browser-login provider.
 - Helm chart for Kubernetes. The chart deploys Artifact Server and connects to
   existing Postgres and object storage; it does not hide durable providers
@@ -502,29 +424,9 @@ A requirement is complete only when both tests pass on every applicable deployme
 
 The optional Plannotator connection builds on this release. Public or already reachable servers support browser approval, signed operation requests, and top-level private opening first. The review bridge and private outbound connector have their own security and compatibility gates.
 
-### Optional Cloudflare deployment
-
-- Workers, D1, R2, WorkOS-hosted MCP authorization, public CDN delivery, and an off-by-default Cloudflare Artifacts integration.
-- A trusted installation directory maps each request to its installation and storage assignment. The request cannot supply an unverified installation ID.
-- Core technical safety: tenant isolation, authorization, audit records, recovery, and bounded uploads.
-
-Quotas, abuse operations, malware and copyright handling, reputation controls,
-support tiers, and regulated-enterprise promises are policy for a future
-artifactserver.com service operator. They are not core OSS first-release
-requirements and must not cause speculative product features.
-
-The hosted service starts with one D1 database only after load and failure tests show it is suitable. The architecture does not claim that adding more D1 bindings is an automatic sharding system. Before a second database is needed, choose and test either a D1 installation directory and binding rollout process or an external Postgres control plane.
-
-### Release 4: direct-cloud installers
-
-- Direct Pulumi projects for AWS and GCP, each implementing the shared cloud deployment contract.
-- Native object storage on each cloud.
-- Upgrade, rollback, state recovery, backup, restore, private-network, and managed-container tests on each cloud.
-- The official Helm chart remains available when customers prefer Kubernetes over a provider-specific container service and is the official Azure path on AKS.
-
 ## Release gates
 
-The first release is ready only when both the local-owner and private-team workflows pass their separate gates. Hosted Cloudflare and direct-cloud tests gate their own later deployment releases.
+The first release is ready only when both the local-owner and private-team workflows pass their separate gates.
 
 Every applicable release must prove:
 
@@ -536,7 +438,6 @@ Every applicable release must prove:
 - unsafe manifest paths, symlinks, hash mismatches, oversized uploads, and stale publishes are rejected;
 - retrying the same idempotency key returns the original result;
 - an intentional identical publish with a new key creates a new version;
-- Git-off comparison works and Git failure does not affect the saved version;
 - public-to-private changes stop new origin access and attempt the configured CDN purge;
 - backup and restore preserve IDs before a deployment is called team-ready;
 - local/team target resolution never guesses between configured servers.
@@ -550,20 +451,16 @@ Every applicable release must prove:
 These items can change implementation cost or hosting viability and must be resolved before their named release:
 
 1. **Private multi-file delivery:** top-level bootstrap tokens and version-scoped content cookies have focused tests. Exact-version Review leases and the complete supported-browser and per-deployment `GATE-001` matrix remain open until their recorded qualification completes.
-2. **Wildcard content hosts:** local `*.localhost` behavior and a real Cloudflare wildcard TLS probe have evidence. Equivalent DNS, certificate, proxy, and hostile-host proof remains open for each deployment before support is advertised.
-3. **Hosted database growth:** load-test D1 and choose the control-plane and second-shard design before hosted scale requires it.
-4. **Cloudflare Artifacts:** complete the live binding, REST, smart-HTTP, token, backfill, disable, deletion, recovery, limits, and cost probes before advertising the off-by-default provider. The core product remains supported without access.
-5. **WorkOS MCP authorization:** live browser approval, resource-bound tokens, refresh, revocation, reconnect, CIMD, and DCR pass for Codex and Claude Code. Visual Studio Code and claude.ai are deferred client qualifications, not first-release gates.
-6. **Embedded self-hosted OAuth:** ship Better Auth only after its beta MCP path passes the security, compatibility, migration, and recovery matrix.
-7. **Direct-cloud installers:** selected live AWS and GCP lifecycle probes have evidence, but the complete signed `GATE-007` and full product-conformance runs do not. Private AWS remains a separate unqualified variant. Azure has no direct target; the Azure Blob adapter remains preview until it passes a real provider test.
-8. **Optional hosted-service policy:** if artifactserver.com later offers public hosting, its operator must separately own quotas, abuse response, malware and copyright procedures, reputation, suspension, deletion, and appeals. This policy does not gate the core OSS release.
-9. **Capacity claims:** the OSS release need not advertise universal capacity or cost envelopes. Any target-specific claim must be backed by measured evidence; enforced input bounds remain part of core safety.
-10. **Recovery promises:** choose support tiers, availability target, backup frequency, restore-time target, and acceptable data-loss window for hosted and self-hosted team deployments.
-11. **Optional enterprise policy:** encryption-key ownership, regional placement, audit export, legal hold, and contractual deletion are outside the simple first release and should be specified only if an enterprise offering is proposed.
-12. **Custom domains:** decide whether customer-owned content domains are supported and how certificates, cookies, abuse handling, and version origins work.
-13. **Plannotator review bridge:** test the isolated review response against hostile artifact JavaScript, strict content policies, multi-page sites, single-page routes, service workers, anchor stability, session expiry, and browsers without third-party cookies. Use a browser extension if the injected bridge cannot pass without exposing a reusable credential.
-14. **Existing project binding:** decide how an existing Artifact Server project pairs with a Plannotator project, including name conflicts, existing artifacts, unlinking, rollback, archival, and reconnect behavior. Pairing must not silently move artifacts or change IDs.
-15. **Private Plannotator route:** choose the first supported path among customer-provided networking, Cloudflare Tunnel, or a product-owned connector. Define health, upgrades, replicas, egress addresses, and failure behavior before advertising one-click private connection.
+2. **Wildcard content hosts:** local `*.localhost` behavior has evidence. Equivalent DNS, certificate, proxy, and hostile-host proof remains open for each deployment before support is advertised.
+3. **Embedded self-hosted OAuth:** ship Better Auth only after its beta MCP path passes the security, compatibility, migration, and recovery matrix.
+4. **Azure:** Azure has no direct target; the Azure Blob adapter remains preview until it passes a real provider test.
+5. **Capacity claims:** the OSS release need not advertise universal capacity or cost envelopes. Any target-specific claim must be backed by measured evidence; enforced input bounds remain part of core safety.
+6. **Recovery promises:** choose support tiers, availability target, backup frequency, restore-time target, and acceptable data-loss window for hosted and self-hosted team deployments.
+7. **Optional enterprise policy:** encryption-key ownership, regional placement, audit export, legal hold, and contractual deletion are outside the simple first release and should be specified only if an enterprise offering is proposed.
+8. **Custom domains:** decide whether customer-owned content domains are supported and how certificates, cookies, abuse handling, and version origins work.
+9. **Plannotator review bridge:** test the isolated review response against hostile artifact JavaScript, strict content policies, multi-page sites, single-page routes, service workers, anchor stability, session expiry, and browsers without third-party cookies. Use a browser extension if the injected bridge cannot pass without exposing a reusable credential.
+10. **Existing project binding:** decide how an existing Artifact Server project pairs with a Plannotator project, including name conflicts, existing artifacts, unlinking, rollback, archival, and reconnect behavior. Pairing must not silently move artifacts or change IDs.
+11. **Private Plannotator route:** choose the first supported path among customer-provided networking, Cloudflare Tunnel, or a product-owned connector. Define health, upgrades, replicas, egress addresses, and failure behavior before advertising one-click private connection.
 
 ## Deliberately not included
 

@@ -454,7 +454,7 @@ describe("installation identity and access", () => {
     expect(await bearerStatus(server, installation.apiToken)).toBe(200);
     await expect(startTestServer(installation, {
       browserAccess: privateTeamBrowserAccess(browserLoginKinds.oidc),
-    })).rejects.toThrow("requires exactly one OIDC or WorkOS");
+    })).rejects.toThrow("requires an OIDC browser-login provider");
     await expect(startTestServer({
       ...installation,
       apiToken: "legacy-installation-bearer-with-sufficient-entropy",
@@ -714,12 +714,12 @@ describe("installation identity and access", () => {
       displayName: "Michael Ramos",
       email: "ramos@plannotator.ai",
       emailVerified: true,
-      provider: "test-workos",
-      subject: "workos-user-ramos",
+      provider: "test-provider",
+      subject: "provider-user-ramos",
     });
     server = await startTestServer(installation, {
       bootstrapAdministratorEmail: "ramos@plannotator.ai",
-      browserAccess: privateTeamBrowserAccess(browserLoginKinds.workOs),
+      browserAccess: privateTeamBrowserAccess(browserLoginKinds.oidc),
       interactiveIdentityProvider: provider,
     });
 
@@ -823,7 +823,7 @@ describe("installation identity and access", () => {
 
     provider.identity = {
       ...provider.identity,
-      subject: "workos-user-ramos",
+      subject: "provider-user-ramos",
     };
     const conflictingRebindStart = await fetch(`${server.baseUrl}/auth/login`, {
       redirect: "manual",
@@ -887,12 +887,12 @@ describe("installation identity and access", () => {
       displayName: "Malformed identity",
       email: "not-an-email-address",
       emailVerified: true,
-      provider: "test-workos",
-      subject: "workos-user-malformed",
+      provider: "test-provider",
+      subject: "provider-user-malformed",
     });
     server = await startTestServer(installation, {
       bootstrapAdministratorEmail: "ramos@plannotator.ai",
-      browserAccess: privateTeamBrowserAccess(browserLoginKinds.workOs),
+      browserAccess: privateTeamBrowserAccess(browserLoginKinds.oidc),
       interactiveIdentityProvider: provider,
     });
 
@@ -993,7 +993,7 @@ class TestIdentityProvider implements InteractiveIdentityProvider {
     state: "test-login-state-with-sufficient-entropy-0",
   };
   readonly authorizationCode = "test-authorization-code";
-  readonly name = "test-workos";
+  readonly name = "test-provider";
   completedCodeVerifier: string | null = null;
   identity: ExternalIdentity;
   #startCount = 0;

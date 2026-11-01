@@ -10,7 +10,7 @@ An author can make an HTML prototype open ready for interaction while keeping An
 
 ## Artifact metadata
 
-`ArtifactRecord.reviewMode` is required and is either `annotate` or `interact`. Creation inputs may omit it; omission means `annotate`. The default belongs to the artifact, not a version or manifest, and survives new versions, restoration, and reads from SQLite, PostgreSQL, or D1. Each adapter follows its existing migration scheme to initialize legacy artifacts to `annotate`.
+`ArtifactRecord.reviewMode` is required and is either `annotate` or `interact`. Creation inputs may omit it; omission means `annotate`. The default belongs to the artifact, not a version or manifest, and survives new versions, restoration, and reads from SQLite or PostgreSQL. Each adapter follows its existing migration scheme to initialize legacy artifacts to `annotate`.
 
 Staged HTTP upload commit and MCP `artifact_commit_upload` accept `target.reviewMode` only for `target.kind: new_artifact`. CLI `publish --review-mode annotate|interact` forwards that creation choice. Combining an explicit CLI option with `--artifact` is rejected rather than silently changing existing metadata.
 

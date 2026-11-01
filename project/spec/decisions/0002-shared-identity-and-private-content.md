@@ -65,7 +65,7 @@ session or use it to call a mutation route.
 When this foundation decision was accepted, that iteration did not add:
 
 - human account storage or browser login;
-- WorkOS, OIDC, or MCP OAuth token verification;
+- OIDC or MCP OAuth token verification;
 - API-key issuance, rotation, revocation, or expiration;
 - artifact access-setting changes;
 - earlier-version browsing or session issuance; or

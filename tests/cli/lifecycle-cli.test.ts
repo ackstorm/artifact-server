@@ -109,9 +109,9 @@ describe("Artifact Server lifecycle CLI", () => {
       ], compactEnvironment());
       expect(missingIdentityProvider.exitCode).not.toBe(0);
       expect(missingIdentityProvider.output).toContain(
-        "requires exactly one OIDC or WorkOS",
+        "requires an OIDC browser-login provider",
       );
-      const incompleteWorkOs = await runCli([
+      const incompleteOidc = await runCli([
         "config",
         "check",
         "--mode",
@@ -120,13 +120,14 @@ describe("Artifact Server lifecycle CLI", () => {
         dataDirectory,
       ], {
         ...compactEnvironment(),
-        ARTIFACT_SERVER_WORKOS_API_KEY: "workos-secret-value",
+        ARTIFACT_SERVER_OIDC_CLIENT_ID: "client_incomplete",
+        ARTIFACT_SERVER_OIDC_CLIENT_SECRET: "oidc-secret-sentinel-value",
       });
-      expect(incompleteWorkOs.exitCode).not.toBe(0);
-      expect(incompleteWorkOs.output).toContain(
-        "Hosted WorkOS authentication requires",
+      expect(incompleteOidc.exitCode).not.toBe(0);
+      expect(incompleteOidc.output).toContain(
+        "Generic OIDC authentication requires",
       );
-      expect(incompleteWorkOs.output).not.toContain("workos-secret-value");
+      expect(incompleteOidc.output).not.toContain("oidc-secret-sentinel-value");
       await chmod(path.join(dataDirectory, "secrets/api-token"), 0o644);
       const permissiveSecret = await runCli([
         "config",

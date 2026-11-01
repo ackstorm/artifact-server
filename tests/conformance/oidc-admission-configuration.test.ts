@@ -1,9 +1,6 @@
 import {afterEach, describe, expect, test} from "vitest";
 
-import {
-  assertAtMostOneBrowserLoginProvider,
-  loadOidcConfiguration,
-} from "../../src/cli/oidc-configuration.js";
+import {loadOidcConfiguration} from "../../src/cli/oidc-configuration.js";
 import {browserLoginKinds, privateTeamBrowserAccess} from
   "../../src/core/browser-access.js";
 import {createOidcIdentityProvider} from
@@ -104,10 +101,6 @@ describe("OIDC automatic-admission configuration", () => {
     await expect(loadOidcConfiguration(settings)).rejects.toThrow(
       "Generic OIDC authentication requires",
     );
-    expect(() => assertAtMostOneBrowserLoginProvider({
-      ARTIFACT_SERVER_WORKOS_CLIENT_ID: "workos-client",
-      ...settings,
-    })).toThrow("One installation has one browser-login provider");
   });
 
   test("AUTH-029: the loaded policy admits a new member through real browser login", async () => {

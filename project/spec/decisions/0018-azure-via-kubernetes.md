@@ -4,8 +4,8 @@ Status: accepted on August 15, 2026
 
 ## Decision
 
-Artifact Server will not ship an Azure-specific Pulumi project or claim a
-turnkey Azure deployment.
+Artifact Server does not ship an Azure-specific infrastructure project or claim
+a turnkey Azure deployment.
 
 Azure teams use the same Helm chart as every other Kubernetes team. AKS is an
 official Kubernetes environment only after the chart's normal Kubernetes
@@ -22,18 +22,14 @@ adapter does not create Azure infrastructure.
 - Direct executable for local use.
 - Docker Compose for one server.
 - Helm for Kubernetes, including AKS.
-- Alchemy for Cloudflare.
-- Pulumi for AWS.
-- Pulumi for GCP.
 
-There is no direct Azure installer, Azure release gate, or Azure entry in the
-shared cloud-deployment input contract.
+There is no direct Azure installer or Azure release gate.
 
 ## Why
 
 The Helm chart already gives Azure users a standard path without maintaining a
 second unqualified topology based on Container Apps, Front Door, Key Vault,
-PostgreSQL Flexible Server, and Pulumi Azure Native. Removing that topology
+PostgreSQL Flexible Server, and infrastructure-as-code. Not maintaining it
 reduces code, documentation, release testing, and support obligations while
 preserving a serious Azure option for teams that run AKS.
 
@@ -42,8 +38,7 @@ pretending that a complete Azure installation has been tested.
 
 ## Verification
 
-- No released command or document points to `deploy/pulumi/azure`.
-- The shared cloud-deployment contract accepts only Cloudflare, AWS, and GCP.
+- No released command or document points to an Azure-specific installer.
 - Azure does not appear as a conformance deployment target.
 - The Helm chart remains provider-neutral and documents AKS as an applicable
   Kubernetes environment.

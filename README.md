@@ -6,7 +6,7 @@
 
 Artifact Server gives people and agents one place to publish, review, comment on, version, and share the artifacts they create while building products. Its built-in MCP server gives agents direct access to the same work.
 
-Run it on a laptop for one developer. Deploy it for a private team on Cloudflare, one server, Kubernetes, AWS, or Google Cloud.
+Run it on a laptop for one developer. Deploy it for a private team on one server or Kubernetes.
 
 <p align="center">
   <a href="https://github.com/backnotprop/plannotator"><img src="./docs/images/star-plannotator.svg" alt="Artifact Server is created with Plannotator" width="395"></a>
@@ -18,7 +18,6 @@ Run it on a laptop for one developer. Deploy it for a private team on Cloudflare
 
 - [Why Artifact Server](#why-artifact-server)
 - [Built for AI agents and team collaboration](#built-for-ai-agents-and-team-collaboration)
-- [Cloudflare and Artifact Server](#cloudflare-and-artifact-server)
 - [Deploy it for a team](#deploy-it-for-a-team)
 - [Run it locally](#run-it-locally)
 - [Usage](#usage)
@@ -74,7 +73,7 @@ Connect the agent and install the skill:
 
 ```sh
 artifactserver connect
-npx skills add plannotator/artifact-server
+npx skills add ackstorm/artifact-server
 ```
 
 Then ask:
@@ -93,34 +92,15 @@ Live session delivery is available from source for Pi and Claude Code Channels. 
   <a href="./integrations/opencode/README.md"><img src="./docs/assets/opencode-plugin-wanted.svg" alt="OpenCode live-host verification, features, and pull requests are welcome" width="268"></a>
 </p>
 
-## Cloudflare and Artifact Server
-
-Cloudflare is the main hosted deployment target. Cloudflare Artifacts can add private Git-backed history for selected projects. It is off by default and currently requires closed beta access.
-
-<p align="center">
-  <a href="./docs/cloudflare-artifacts.md"><img src="./docs/assets/cloudflare-artifacts-git-handoff.svg" alt="Cloudflare Artifacts provides optional Git-backed history" width="800"></a>
-</p>
-
-- [Deploy Artifact Server on Cloudflare](./deploy/cloudflare/README.md)
-- [Configure optional Git history](./docs/cloudflare-artifacts.md)
-- [Read the Cloudflare Artifacts documentation](https://developers.cloudflare.com/artifacts/)
-
-Cloudflare is optional. Artifact Server also runs locally, on Compose, on Kubernetes, on AWS, and on Google Cloud.
-
-[![Artifact Server supports Cloudflare, Docker Compose, Kubernetes, AWS, and Google Cloud](./docs/assets/supported-deployments.svg)](./docs/deployment.md)
-
 ## Deploy it for a team
 
 Every remote deployment uses one trusted application origin and one isolated wildcard content domain.
 
 | Deployment | Data layer | Guide |
 | --- | --- | --- |
-| Cloudflare | D1 and R2 | [Cloudflare guide](./deploy/cloudflare/README.md) |
 | Compact Compose | SQLite and one file volume | [Compose guide](./packaging/compose/README.md) |
 | External-storage Compose | PostgreSQL and S3-compatible storage | [Compose guide](./packaging/compose/README.md) |
 | Kubernetes | PostgreSQL and object storage | [Helm guide](./packaging/helm/artifact-server/README.md) |
-| AWS | ECS, RDS, and S3 | [AWS Pulumi guide](./deploy/pulumi/aws/README.md) |
-| Google Cloud | Cloud Run, Cloud SQL, and Cloud Storage | [Google Cloud Pulumi guide](./deploy/pulumi/gcp/README.md) |
 
 Azure teams deploy through the Helm chart on AKS; there is no separate Azure installer. Azure Blob Storage is available as a preview adapter and has not passed live Azure qualification.
 
@@ -131,13 +111,13 @@ Azure teams deploy through the Helm chart on AKS; there is no separate Azure ins
 Local mode stores metadata in SQLite and files on disk. It grants owner access only from the same loopback origin. Running from source requires Node.js 24.12 or newer and pnpm 10.34.3.
 
 ```sh
-git clone https://github.com/plannotator/artifact-server.git
+git clone https://github.com/ackstorm/artifact-server.git
 cd artifact-server
 pnpm install
 pnpm dev
 ```
 
-Open the printed URL. You can also download the portable Node.js package from the [latest GitHub release](https://github.com/plannotator/artifact-server/releases/latest). See [Get started locally](https://artifactserver.com/docs/get-started/) for package verification and startup instructions.
+Open the printed URL.
 
 ## Usage
 
@@ -150,8 +130,6 @@ HTML prototypes can open in Interact mode so people can use them immediately. Se
 Artifact Server serves untrusted artifact content from isolated version hosts, separate from the trusted application origin used for authentication, review, comments, API, and MCP. Private content uses version-scoped browser sessions, and untrusted paths cannot select storage locations.
 
 Read the [security model](./project/spec/decisions/0002-shared-identity-and-private-content.md) or [report a vulnerability](./SECURITY.md).
-
-Read about Artifact Server's [software supply-chain security](https://artifactserver.com/docs/security/).
 
 ## Development and project records
 
@@ -171,7 +149,7 @@ pnpm verify:iteration
 
 Repository engineering rules live in [AGENTS.md](./AGENTS.md).
 
-The [`project`](./project) directory contains specifications, conformance evidence, performance records, prototypes, and research. Start with:
+The [`project`](./project) directory contains specifications, conformance evidence, performance records, and prototypes. Start with:
 
 - [Product specification](./project/spec/artifact-server-product-spec.html)
 - [Conformance ledger](./project/spec/conformance.yml)

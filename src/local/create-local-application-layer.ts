@@ -43,11 +43,6 @@ import {
 import {ExpiredStagingCleanupService} from
   "../application/expired-staging-cleanup.js";
 import {
-  type GitHistoryAccessDependencies,
-  GitHistoryAccessService,
-} from "../application/git-history-access.js";
-
-import {
   disabledLinkedArtifactLayer,
   type LinkedArtifactConfiguration,
   type LinkedSourceEngineOperations,
@@ -65,11 +60,6 @@ import {
   type ProjectManagementDependencies,
   ProjectManagementService,
 } from "../application/project-management.js";
-import {
-  type ProjectGitHistoryDependencies,
-  type ProjectGitHistoryStore,
-  ProjectGitHistoryService,
-} from "../application/project-git-history.js";
 import {
   type ListPublicLinks,
   type PublicLinkAdministrationRepository,
@@ -139,15 +129,6 @@ import {uploadGrantPrefix} from "../core/upload-grant.js";
 import { FileVerificationError } from "../storage/verified-file.js";
 import {defaultStagingCleanupPolicy} from
   "../lifecycle/staging-cleanup.js";
-import {
-  disabledGitHistoryCapability,
-  fixedGitHistoryCapabilityReader,
-  type GitHistoryCapabilityReader,
-} from "../git-history/git-history-capability.js";
-import type {
-  GitHistoryMirrorStore,
-  GitHistoryProvider,
-} from "../git-history/git-history-mirror.js";
 
 /** Concrete Node adapters reused by the Effect application layer. */
 export interface ApplicationAdapters {
@@ -168,10 +149,6 @@ export interface ApplicationAdapters {
   readonly identityRepository: IdentityRepository;
   readonly installationId: string;
   readonly interactiveIdentityProvider: InteractiveIdentityProvider | null;
-  /** Live optional-provider state used to guard project enablement. */
-  readonly gitHistory?: GitHistoryCapabilityReader;
-  /** Optional managed provider used only after application authorization. */
-  readonly gitHistoryProvider?: GitHistoryProvider;
   /**
    * Linked-artifact adapters, present only on a local deployment that has
    * enabled the capability. Absent, every runtime still provides the
@@ -187,8 +164,6 @@ export interface ApplicationAdapters {
     CommentRepository &
     ContentSessionRepository &
     ProjectRepository &
-    ProjectGitHistoryStore &
-    GitHistoryMirrorStore &
     PublicLinkInventoryStore &
     StagedUploadRepository;
   /** Absolute lifetime of a browser application session. */
@@ -228,12 +203,10 @@ export function createApplicationLayer(
   | CompareArtifactService
   | ContentAccessService
   | ExpiredStagingCleanupService
-  | GitHistoryAccessService
   | InstallationAccessService
   | InteractiveLoginService
   | LinkedArtifactService
   | PublishArtifactService
-  | ProjectGitHistoryService
   | ProjectManagementService
   | PublicLinkAdministrationService
   | PublicLinkPolicyService
@@ -446,47 +419,6 @@ export function createApplicationLayer(
           cause instanceof ProjectNotFound || cause instanceof ProjectConflict
             ? cause
             : repositoryFailure("setProjectArchive", cause),
-      }),
-    },
-  };
-  const projectGitHistoryDependencies: ProjectGitHistoryDependencies = {
-    clock,
-    provider: adapters.gitHistory ?? fixedGitHistoryCapabilityReader(
-      disabledGitHistoryCapability(),
-    ),
-    repository: {
-      estimateProjectGitHistory: (projectId, limits) => Effect.tryPromise({
-        try: () => adapters.repository.estimateProjectGitHistory(projectId, limits),
-        catch: (cause) => repositoryFailure("estimateProjectGitHistory", cause),
-      }),
-      readProjectGitHistorySetting: (projectId) => Effect.tryPromise({
-        try: () => adapters.repository.readProjectGitHistorySetting(projectId),
-        catch: (cause) => repositoryFailure("readProjectGitHistorySetting", cause),
-      }),
-      readProjectGitHistoryProgress: (projectId) => Effect.tryPromise({
-        try: () => adapters.repository.readProjectGitHistoryProgress(projectId),
-        catch: (cause) => repositoryFailure("readProjectGitHistoryProgress", cause),
-      }),
-      storeProjectGitHistorySetting: (setting) => Effect.tryPromise({
-        try: () => adapters.repository.storeProjectGitHistorySetting(setting),
-        catch: (cause) => repositoryFailure("storeProjectGitHistorySetting", cause),
-      }),
-    },
-  };
-  const gitHistoryAccessDependencies: GitHistoryAccessDependencies = {
-    provider: adapters.gitHistoryProvider ?? null,
-    repository: {
-      findArtifact: (projectId, artifactId) => Effect.tryPromise({
-        try: () => adapters.repository.findArtifact(projectId, artifactId),
-        catch: (cause) => repositoryFailure("findArtifact", cause),
-      }),
-      findGitHistoryRepository: (projectId, artifactId) => Effect.tryPromise({
-        try: () => adapters.repository.findGitHistoryRepository(projectId, artifactId),
-        catch: (cause) => repositoryFailure("findGitHistoryRepository", cause),
-      }),
-      readProjectGitHistorySetting: (projectId) => Effect.tryPromise({
-        try: () => adapters.repository.readProjectGitHistorySetting(projectId),
-        catch: (cause) => repositoryFailure("readProjectGitHistorySetting", cause),
       }),
     },
   };
@@ -1034,7 +966,7 @@ export function createApplicationLayer(
           expiresAt: verified.expiresAt,
           principal,
           // The exact resource-bound audience grants access to this MCP
-          // endpoint. WorkOS does not issue a separate product scope.
+          // endpoint.
           scopes: ["mcp"],
         };
       });
@@ -1077,12 +1009,6 @@ export function createApplicationLayer(
   const projectLayer = ProjectManagementService.layer(projectDependencies).pipe(
     Layer.provideMerge(authorizationLayer),
   );
-  const projectGitHistoryLayer = ProjectGitHistoryService.layer(
-    projectGitHistoryDependencies,
-  ).pipe(Layer.provideMerge(Layer.mergeAll(authorizationLayer, projectLayer)));
-  const gitHistoryAccessLayer = GitHistoryAccessService.layer(
-    gitHistoryAccessDependencies,
-  ).pipe(Layer.provideMerge(Layer.mergeAll(authorizationLayer, projectLayer)));
 
   const publishLayer = PublishArtifactService.layer(publishDependencies).pipe(
     Layer.provideMerge(Layer.mergeAll(authorizationLayer, policyLayer)),
@@ -1217,14 +1143,9 @@ export function createApplicationLayer(
     publicLinkAdministrationLayer,
     policyLayer,
     comparisonLayer,
-    gitHistoryAccessLayer,
-    projectGitHistoryLayer,
     projectLayer,
   );
 }
-
-/** Backward-compatible local composition name. */
-export const createLocalApplicationLayer = createApplicationLayer;
 
 function combineAbortSignals(
   fiberSignal: AbortSignal,

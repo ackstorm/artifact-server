@@ -39,7 +39,7 @@ export interface ResolveActiveProjectCommand {
 }
 
 /** Input for reading one project inside the current installation. */
-export interface ReadProjectCommand {
+interface ReadProjectCommand {
   readonly principal: Principal;
   readonly projectId: string;
 }

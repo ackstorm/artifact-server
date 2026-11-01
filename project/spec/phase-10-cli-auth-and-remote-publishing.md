@@ -163,10 +163,8 @@ The phase is complete only when these observable paths pass:
 - lint, type checking, the complete test suite, bounded smoke and performance
   checks, and the conformance ledger pass.
 
-Provider-specific hosted WorkOS activation remains gated on the separate
-WorkOS staging and named-client matrix. Passing this phase proves the portable
-CLI contract; it does not claim that an unconfigured deployment advertises
-browser OAuth.
+Passing this phase proves the portable CLI contract; it does not claim that an
+unconfigured deployment advertises browser OAuth.
 
 The current `CLI-001` acceptance-ID test proves the remote PKCE, refresh,
 status, and revoke path. It does not attach the local automatic-authentication
@@ -181,6 +179,3 @@ behavior and failure IDs. The ledger therefore remains `implementing`.
 - [OAuth 2.0 Protected Resource Metadata (RFC 9728)](https://www.rfc-editor.org/rfc/rfc9728)
   defines how the CLI discovers the authorization server for the exact API
   resource.
-- [WorkOS AuthKit CLI authorization](https://workos.com/docs/authkit/cli-auth)
-  documents the hosted authorization-code and PKCE path that must pass staging
-  before it is enabled for a hosted Artifact Server.
