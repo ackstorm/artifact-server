@@ -5,7 +5,7 @@ import {fileURLToPath} from "node:url";
 
 import {z} from "zod";
 
-const imageRepository = "ghcr.io/plannotator/artifact-server";
+const imageRepository = "ghcr.io/ackstorm/artifact-server";
 const repositoryRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "..",

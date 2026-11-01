@@ -36,13 +36,10 @@ ordinary visible, revocable managed key on first startup and refuses a new key
 id after installation identity exists.
 
 Create a values file containing the installation identity, origins, bucket,
-region, released image repository and digest, and Secret reference:
+region, and Secret reference. The published chart already pins the image digest
+built from the same release tag:
 
 ```yaml
-image:
-  repository: ghcr.io/plannotator/artifact-server
-  digest: sha256:replace_with_release_digest
-
 configuration:
   installationId: team-example
   bootstrapAdministratorEmail: admin@example.com
@@ -66,10 +63,12 @@ secret:
     s3SecretAccessKey: s3-secret-access-key
 ```
 
-Install with Helm 4:
+Each `vX.Y.Z` release tag publishes chart version `X.Y.Z` to
+`oci://ghcr.io/ackstorm/charts/artifact-server`. Install with Helm 4:
 
 ```sh
-helm upgrade --install artifact-server ./packaging/helm/artifact-server \
+helm upgrade --install artifact-server oci://ghcr.io/ackstorm/charts/artifact-server \
+  --version 0.3.0 \
   --namespace artifact-server \
   --create-namespace \
   --values artifact-server-values.yaml \

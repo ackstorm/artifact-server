@@ -21,6 +21,7 @@ spec:
         app.kubernetes.io/component: migration
     spec:
       restartPolicy: Never
+      enableServiceLinks: false
       automountServiceAccountToken: false
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
