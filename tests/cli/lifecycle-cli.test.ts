@@ -121,11 +121,13 @@ describe("Artifact Server lifecycle CLI", () => {
       ], {
         ...compactEnvironment(),
         ARTIFACT_SERVER_OIDC_CLIENT_ID: "client_incomplete",
+        ARTIFACT_SERVER_OIDC_CLIENT_SECRET: "oidc-secret-sentinel-value",
       });
       expect(incompleteOidc.exitCode).not.toBe(0);
       expect(incompleteOidc.output).toContain(
         "Generic OIDC authentication requires",
       );
+      expect(incompleteOidc.output).not.toContain("oidc-secret-sentinel-value");
       await chmod(path.join(dataDirectory, "secrets/api-token"), 0o644);
       const permissiveSecret = await runCli([
         "config",

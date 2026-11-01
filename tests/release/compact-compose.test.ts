@@ -395,7 +395,7 @@ describe.sequential("Compact Compose release", () => {
     expect(await isReady(denied.port)).toBe(false);
 
     const incompleteIdentity = await createProject("compact-identity", {
-      ARTIFACT_SERVER_OIDC_CLIENT_ID: "client_incomplete",
+      ARTIFACT_SERVER_OIDC_ISSUER: undefined,
     });
     await initialize(incompleteIdentity);
     const identityResult = await compose(incompleteIdentity.environment, [
