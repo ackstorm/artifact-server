@@ -38,8 +38,6 @@ export type CompactInstallationMetadata =
 export interface CompactInstallationLayout {
   /** Generated API credential file. */
   readonly apiTokenPath: string;
-  /** Legacy browser bootstrap path retained only for restore compatibility. */
-  readonly browserBootstrapTokenPath: string;
   /** Persistent database, blobs, staging, and installation metadata root. */
   readonly dataDirectory: string;
   /** Stable installation metadata file. */
@@ -82,10 +80,6 @@ export function compactInstallationLayout(
   const secretsDirectory = path.join(resolved, "secrets");
   return {
     apiTokenPath: path.join(secretsDirectory, "api-token"),
-    browserBootstrapTokenPath: path.join(
-      secretsDirectory,
-      "browser-bootstrap-token",
-    ),
     dataDirectory: resolved,
     metadataPath: path.join(resolved, "installation.json"),
     restoreIncompletePath: path.join(resolved, ".restore-incomplete"),

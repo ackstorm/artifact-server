@@ -35,6 +35,6 @@
   "repository": {
     "directory": "integrations/claude-channel",
     "type": "git",
-    "url": "git+https://github.com/plannotator/artifact-server.git"
+    "url": "git+https://github.com/ackstorm/artifact-server.git"
   }
 }

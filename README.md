@@ -73,7 +73,7 @@ Connect the agent and install the skill:
 
 ```sh
 artifactserver connect
-npx skills add plannotator/artifact-server
+npx skills add ackstorm/artifact-server
 ```
 
 Then ask:
@@ -111,13 +111,13 @@ Azure teams deploy through the Helm chart on AKS; there is no separate Azure ins
 Local mode stores metadata in SQLite and files on disk. It grants owner access only from the same loopback origin. Running from source requires Node.js 24.12 or newer and pnpm 10.34.3.
 
 ```sh
-git clone https://github.com/plannotator/artifact-server.git
+git clone https://github.com/ackstorm/artifact-server.git
 cd artifact-server
 pnpm install
 pnpm dev
 ```
 
-Open the printed URL. You can also download the portable Node.js package from the [latest GitHub release](https://github.com/plannotator/artifact-server/releases/latest). See [Get started locally](https://artifactserver.com/docs/get-started/) for package verification and startup instructions.
+Open the printed URL.
 
 ## Usage
 
@@ -130,8 +130,6 @@ HTML prototypes can open in Interact mode so people can use them immediately. Se
 Artifact Server serves untrusted artifact content from isolated version hosts, separate from the trusted application origin used for authentication, review, comments, API, and MCP. Private content uses version-scoped browser sessions, and untrusted paths cannot select storage locations.
 
 Read the [security model](./project/spec/decisions/0002-shared-identity-and-private-content.md) or [report a vulnerability](./SECURITY.md).
-
-Read about Artifact Server's [software supply-chain security](https://artifactserver.com/docs/security/).
 
 ## Development and project records
 

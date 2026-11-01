@@ -1147,7 +1147,7 @@ export function createApplicationLayer(
   );
 }
 
-/** Backward-compatible local composition name. */
+/** Local composition name. */
 export const createLocalApplicationLayer = createApplicationLayer;
 
 function combineAbortSignals(

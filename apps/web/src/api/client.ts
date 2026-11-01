@@ -25,15 +25,9 @@ const principalSchema = z.object({
   membershipRole: membershipRoleSchema,
 });
 
-/**
- * What this deployment offers beyond the shared surface. A deployment that
- * never learned the field is a deployment without the capability, so the
- * default keeps every gated affordance hidden rather than guessed at.
- */
+/** What this deployment offers beyond the shared surface. */
 const deploymentCapabilitiesSchema = z.object({
   linkedArtifacts: z.boolean(),
-}).default({
-  linkedArtifacts: false,
 });
 
 const sessionSchema = z.object({
@@ -88,7 +82,7 @@ const artifactSchema = z.object({
   name: z.string(),
   ownerPrincipalId: z.string(),
   projectId: z.string(),
-  reviewMode: reviewModeSchema.default("annotate"),
+  reviewMode: reviewModeSchema,
   tags: z.array(z.string()),
 });
 

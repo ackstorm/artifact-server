@@ -23,7 +23,7 @@ const bearerCredentialSchema = z.string()
   .regex(/^[A-Za-z0-9._~-]+$/u);
 
 /** Inputs shared by authenticated Artifact Server CLI commands. */
-export interface CliServerConnectionOptions {
+interface CliServerConnectionOptions {
   readonly data: string;
   readonly profile?: string;
   readonly profileData: string;

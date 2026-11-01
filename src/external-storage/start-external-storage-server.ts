@@ -20,7 +20,7 @@ const serverAddressSchema = z.object({
 });
 
 /** External-storage server settings for one process. */
-export interface ExternalStorageServerConfig extends ExternalStorageRuntimeConfig {
+interface ExternalStorageServerConfig extends ExternalStorageRuntimeConfig {
   readonly hostname: string;
   readonly port: number;
   readonly readinessWithdrawalMilliseconds?: number;

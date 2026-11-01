@@ -127,8 +127,8 @@ export function McpScreen({administrator}: {readonly administrator: boolean}) {
         <CopyableValue
           copied={copiedTarget === "skill"}
           label="Copy skill installation command"
-          onCopy={() => void copy("npx skills add plannotator/artifact-server", "skill")}
-          value="npx skills add plannotator/artifact-server"
+          onCopy={() => void copy("npx skills add ackstorm/artifact-server", "skill")}
+          value="npx skills add ackstorm/artifact-server"
         />
       </section>
     </div>

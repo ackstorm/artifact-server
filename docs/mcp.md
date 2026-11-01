@@ -102,7 +102,7 @@ Linked-artifact tools appear only when the deployment enables linked artifacts.
 Install the portable Agent Skill:
 
 ```sh
-npx skills add plannotator/artifact-server
+npx skills add ackstorm/artifact-server
 ```
 
 The skill routes artifact work and explicit server-administration work to separate internal instructions. It uses the CLI for files on the developer machine and MCP for server data and agent-held context.
