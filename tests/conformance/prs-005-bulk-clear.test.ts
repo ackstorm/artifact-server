@@ -35,6 +35,7 @@ const actionPageSchema = z.object({
     versionId: z.string(),
   }).loose()),
   nextCursor: z.string().nullable(),
+  principals: z.record(z.string(), z.string()),
 }).strict();
 const mcpToolResultSchema = z.object({
   id: z.union([z.string(), z.number()]),
