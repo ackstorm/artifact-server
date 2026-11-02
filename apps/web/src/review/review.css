@@ -60,7 +60,6 @@ body {
 button,
 input,
 select {
-  color: inherit;
   font: inherit;
 }
 

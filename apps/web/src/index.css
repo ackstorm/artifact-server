@@ -60,6 +60,11 @@
   html {
     @apply font-sans;
   }
+  button:not(:disabled),
+  select:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
 }
 
 /*
