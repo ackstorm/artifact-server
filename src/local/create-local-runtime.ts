@@ -79,7 +79,6 @@ export interface LocalRuntimeConfig {
   readonly localBootstrapToken?: string;
   readonly mcpOAuthResource?: McpOAuthResourceConfiguration;
   readonly observability?: boolean;
-  readonly organizationName?: string | null;
   readonly publicLinksEnabled?: boolean | null;
   readonly runtimeLifecycle?: RuntimeLifecycle;
   readonly installationId?: string;
@@ -221,7 +220,6 @@ export async function createLocalRuntime(
           defaultCompletedRequestLogSampleRate,
       contentDomain: config.contentDomain,
       linkedArtifacts: linkedFilesEnabled,
-      organizationName: config.organizationName ?? null,
       trustedApplicationOrigin: config.applicationOrigin ?? null,
       webAssets: createNodeWebAssetStore(config.webAssetsRoot),
     };

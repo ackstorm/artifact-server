@@ -134,7 +134,7 @@ test.describe("Artifact Server frontend MVP", () => {
       const accessRow = fixture.page.locator(".as-inspector-row").filter({
         hasText: "access",
       });
-      await expect(accessRow.getByText("Organization", {exact: true})).toBeVisible();
+      await expect(accessRow.getByText("Signed-in", {exact: true})).toBeVisible();
       await expect(accessRow.getByText("Account required", {exact: true})).toHaveCount(0);
       const reviewFrame = fixture.page.frameLocator(".as-artifact-frame");
       const preview = reviewFrame.frameLocator("iframe");
@@ -1118,7 +1118,7 @@ test.describe("Artifact Server frontend MVP", () => {
       await expect(share.getByText(exactReviewLink.toString(), {exact: true})).toBeVisible();
       await expect(share.getByText(published.body.links.artifact, {exact: true})).toBeVisible();
       await expect(share.getByText(
-        "Anyone signed in to this Artifact Server can open this link.",
+        "Anyone signed in can open this link.",
         {exact: true},
       )).toBeVisible();
       await expect(share.getByText(published.body.links.version, {exact: true})).toBeVisible();

@@ -25,7 +25,7 @@ interface PublishOptions {
   readonly entry?: string;
   readonly expectedVersion?: string;
   readonly name?: string;
-  readonly organization: boolean;
+  readonly signedIn: boolean;
   readonly public: boolean;
   readonly project?: string;
   readonly profile?: string;
@@ -82,10 +82,10 @@ export function configurePublishCommand(
     .addOption(
       new Option("--public", "let anyone with the link open it without sign-in")
         .default(false)
-        .conflicts("organization"),
+        .conflicts("signedIn"),
     )
     .addOption(
-      new Option("--organization", "let anyone signed in to this server open it with the link")
+      new Option("--signed-in", "let anyone signed in open it with the link")
         .default(false),
     )
     .addOption(
@@ -157,11 +157,11 @@ function publicationCommand(
       };
   if (options.artifact !== undefined && options.expectedVersion !== undefined) {
     if (
-      options.name !== undefined || options.public || options.organization
+      options.name !== undefined || options.public || options.signedIn
       || options.tag.length > 0 || options.reviewMode !== undefined
     ) {
       throw new Error(
-        "--name, --public, --organization, --tag, and --review-mode apply only when creating a new artifact.",
+        "--name, --public, --signed-in, --tag, and --review-mode apply only when creating a new artifact.",
       );
     }
     return withEntryPath({
@@ -200,7 +200,7 @@ function newArtifactAccess(
   options: PublishOptions,
 ): "private" | "account_required" | "public_link" {
   if (options.public) return "public_link";
-  return options.organization ? "account_required" : "private";
+  return options.signedIn ? "account_required" : "private";
 }
 
 async function executePublication(

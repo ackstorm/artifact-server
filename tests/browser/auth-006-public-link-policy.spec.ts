@@ -25,7 +25,6 @@ import {
 } from "../support/stub-oidc-provider.js";
 
 const clientSecret = "stub-oidc-client-secret-with-entropy";
-const organizationName = "myOrg";
 const offLabel = "Public — Turned off by an administrator";
 const offNote = "Public links are turned off by an administrator.";
 const configurationNote =
@@ -64,7 +63,6 @@ async function startPolicyFixture(
       issuer: oidc.issuer,
       scopes: "openid email profile",
     }),
-    organizationName,
     port,
     ...options,
   });
@@ -198,7 +196,7 @@ test.describe("AUTH-006 public-link policy", () => {
       await expect(turnOff).toContainText("1 artifact is Public now.");
       await expect(turnOff).toContainText("It keeps its Public setting");
       await expect(turnOff).toContainText(
-        `people signed in to ${organizationName} with the link can still open it`,
+        "people signed in with the link can still open it",
       );
       await expect(turnOff).toContainText("cannot be recalled");
 
@@ -218,7 +216,7 @@ test.describe("AUTH-006 public-link policy", () => {
       await expect(toRaise.share.getByText(offNote, {exact: true})).toBeVisible();
       await toRaise.access.selectOption("account_required");
       await expect(toRaise.share.getByText(
-        `Anyone signed in to ${organizationName} can open this link.`,
+        "Anyone signed in can open this link.",
         {exact: true},
       )).toBeVisible();
       await expect(toRaise.access).toHaveValue("account_required");
@@ -226,12 +224,12 @@ test.describe("AUTH-006 public-link policy", () => {
       const stored = await openShare(fixture.ada, fixture, publicPlan);
       await expect(stored.access).toHaveValue("public_link");
       await expect(stored.share).toContainText(
-        `Only people signed in to ${organizationName} with the link can open it`,
+        "Only people signed in with the link can open it",
       );
       await expect(stored.share.getByRole("heading", {exact: true, name: "Public link"}))
         .toHaveCount(0);
       await expect(stored.share.getByText(
-        `Anyone signed in to ${organizationName} can open this link.`,
+        "Anyone signed in can open this link.",
         {exact: true},
       )).toBeVisible();
       await expect(stored.access.locator('option[value="account_required"]')).toBeEnabled();

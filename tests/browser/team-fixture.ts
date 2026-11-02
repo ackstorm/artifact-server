@@ -60,7 +60,6 @@ export async function startTeamFixture(
       issuer: oidc.issuer,
       scopes: "openid email profile",
     }),
-    organizationName: "myOrg",
     port,
   });
   const administrator = await signInWithStubOidc(

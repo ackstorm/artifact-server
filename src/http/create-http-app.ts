@@ -484,8 +484,6 @@ export interface HttpAppDependencies {
    */
   readonly linkedArtifacts?: boolean;
   readonly mcpOAuthResource?: McpOAuthResourceConfiguration;
-  /** Names the installation's people in the UI; null or absent when unset. */
-  readonly organizationName?: string | null;
   readonly readiness?: ReadinessProbe;
   readonly runtimeLifecycle?: RuntimeLifecycle;
   readonly trustedApplicationOrigin: string | null;
@@ -1042,7 +1040,6 @@ export function createHttpApp(
         linkedArtifacts: dependencies.linkedArtifacts === true,
       },
       installation: {
-        organizationName: dependencies.organizationName ?? null,
         publicLinksEnabled,
       },
       principal: context.get("principal"),

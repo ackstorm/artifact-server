@@ -4,8 +4,7 @@ import type {Page} from "@playwright/test";
 import {publishNew, type PublishResponse} from "../support/publishing.js";
 import {startTeamFixture, stopTeamFixture, type TeamFixture} from "./team-fixture.js";
 
-const organizationName = "myOrg";
-const listingLabel = `List it in ${organizationName}'s Shared with me`;
+const listingLabel = "List it in Shared with me";
 
 async function publishAs(
   fixture: TeamFixture,
@@ -50,7 +49,7 @@ async function openShare(page: Page, fixture: TeamFixture, published: PublishRes
 }
 
 test.describe("AUTH-038 Shared with me", () => {
-  test("AUTH-038-B: an owner lists an Organization artifact and a colleague finds it in Shared with me, next to what they opened by link", async ({browser}) => {
+  test("AUTH-038-B: an owner lists a Signed-in artifact and a colleague finds it in Shared with me, next to what they opened by link", async ({browser}) => {
     const fixture = await startTeamFixture(browser, {withCarol: true});
     try {
       if (fixture.carolKey === null) throw new Error("The fixture did not add Carol.");
@@ -65,7 +64,7 @@ test.describe("AUTH-038 Shared with me", () => {
       await listing.click();
       await expect(listing).toBeChecked();
       await expect(share.getByText(
-        `Everyone signed in to ${organizationName} sees it in Shared with me.`,
+        "Everyone signed in sees it in Shared with me.",
         {exact: true},
       )).toBeVisible();
 
@@ -81,7 +80,7 @@ test.describe("AUTH-038 Shared with me", () => {
       await access.selectOption("private");
       await expect(listing).not.toBeChecked();
       await expect(listing).toBeDisabled();
-      await expect(share.getByText("Share it with the organization first.", {exact: true}))
+      await expect(share.getByText("Make it Signed-in first.", {exact: true}))
         .toBeVisible();
       await share.getByRole("button", {name: "Close Share"}).click();
       await page.getByRole("tab", {name: /Activity/u}).click();
@@ -109,7 +108,7 @@ test.describe("AUTH-038 Shared with me", () => {
       await bob.getByRole("tab", {name: "Shared with me"}).click();
       const groups = bob.locator(".as-catalog-group");
       const listedGroup = groups.filter({
-        has: bob.getByRole("heading", {name: `Listed for ${organizationName}`}),
+        has: bob.getByRole("heading", {name: "Listed for everyone"}),
       });
       await expect(listedGroup.locator(".as-artifact-card")).toHaveCount(1);
       await expect(listedGroup.locator(".as-artifact-card__title")).toHaveText(/^L$/u);

@@ -1970,8 +1970,8 @@
               Every artifact has an owner, the person or service principal that published its first
               version, and one of three sharing levels. The owner shares an artifact by raising its
               level and handing out the link. Lists show each person the artifacts they own. Another
-              person's artifact appears only in Shared with me, when its owner lists it for the
-              organization or the reader has opened its link.
+              person's artifact appears only in Shared with me, when its owner lists it for
+              everyone or the reader has opened its link.
             </p>
           </div>
 
@@ -1990,15 +1990,14 @@
               </div>
             </article>
             <article class="visibility-card">
-              <span class="visibility-icon" aria-hidden="true">Org</span>
+              <span class="visibility-icon" aria-hidden="true">In</span>
               <div class="visibility-copy">
-                <h3>2. Organization</h3>
+                <h3>2. Signed-in</h3>
                 <p>
                   Stored as <code>account_required</code>. Anyone admitted to this installation who
                   has the link can open the item; it appears in their lists only in Shared with
                   me, when its owner lists it or they have opened it. A person outside that
-                  group cannot open it. An optional organization name labels this level in the
-                  Review application. A workspace reference may grant a short-lived read-only
+                  group cannot open it. A workspace reference may grant a short-lived read-only
                   session for one exact artifact version without granting access to the project
                   artifact list.
                 </p>
@@ -2039,7 +2038,7 @@
             <p>
               The administrator-only <strong>Public links</strong> screen uses bounded cursor pages
               and shows each artifact's project, current version and save time, and public URL.
-              One row or a selection of at most 100 rows can be lowered to Organization with
+              One row or a selection of at most 100 rows can be lowered to Signed-in with
               <strong>Stop public access</strong>, through the ordinary visibility operation, with the observed current version, one idempotency key
               and one action record per item. Selection copy distinguishes the visible page, loaded
               pages, and the complete inventory. Stale or failed items are reported separately and

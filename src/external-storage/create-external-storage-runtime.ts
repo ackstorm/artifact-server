@@ -61,7 +61,6 @@ export interface ExternalStorageRuntimeConfig {
   readonly localBootstrapCredential?: Redacted.Redacted;
   readonly mcpOAuthResource?: McpOAuthResourceConfiguration;
   readonly objectStorage: ObjectStorageProviderFactory;
-  readonly organizationName?: string | null;
   readonly postgresMaxConnections?: number;
   readonly publicLinksEnabled?: boolean | null;
   readonly runtimeLifecycle?: RuntimeLifecycle;
@@ -164,7 +163,6 @@ export async function createExternalStorageRuntime(
         config.completedRequestLogSampleRate ??
           defaultCompletedRequestLogSampleRate,
       contentDomain: config.contentDomain,
-      organizationName: config.organizationName ?? null,
       readiness: () => externalStorageReadiness(database, connectedObjectStorage),
       trustedApplicationOrigin: config.applicationOrigin ?? null,
       webAssets: createNodeWebAssetStore(),

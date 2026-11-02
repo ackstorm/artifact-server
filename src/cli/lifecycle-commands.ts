@@ -308,7 +308,6 @@ function configureExternalStorageStart(
         hostname: parsed.hostname,
         installationId: parsed.installationId,
         objectStorage: parsed.objectStorage,
-        organizationName: parsed.organizationName,
         port: parsed.port,
         postgresMaxConnections: parsed.postgresMaxConnections,
         publicLinksEnabled: parsed.publicLinksEnabled,
@@ -352,7 +351,6 @@ async function startCompactServer(
     installationId: configuration.installation.installationId,
     linkedFiles: configuration.linkedFiles,
     linkRoots: configuration.linkRoots,
-    organizationName: configuration.organizationName,
     port: configuration.port,
     publicLinksEnabled: configuration.publicLinksEnabled,
     readinessWithdrawalMilliseconds:

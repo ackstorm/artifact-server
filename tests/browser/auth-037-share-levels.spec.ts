@@ -4,7 +4,6 @@ import type {Page} from "@playwright/test";
 import {publishNew, type PublishResponse} from "../support/publishing.js";
 import {startTeamFixture, stopTeamFixture, type TeamFixture} from "./team-fixture.js";
 
-const organizationName = "myOrg";
 const loweringWarning =
   "Content sessions already issued keep serving their version for up to 15 minutes.";
 
@@ -43,7 +42,7 @@ async function openShare(page: Page, fixture: TeamFixture, published: PublishRes
 }
 
 test.describe("AUTH-037 share levels", () => {
-  test("AUTH-037-B: the owner moves between Private, Organization and Public, confirming in place before Public", async ({browser}) => {
+  test("AUTH-037-B: the owner moves between Private, Signed-in and Public, confirming in place before Public", async ({browser}) => {
     const fixture = await startTeamFixture(browser);
     try {
       const published = await publishAsAda(fixture, "Ada's plan", "private");
@@ -53,7 +52,7 @@ test.describe("AUTH-037 share levels", () => {
       await expect(access).toBeEnabled();
       await expect(access.locator("option")).toHaveText([
         "Private — Only you",
-        `Organization — Anyone signed in to ${organizationName} with the link`,
+        "Signed-in — Anyone signed in with the link",
         "Public — Anyone with the link, no sign-in",
       ]);
       await expect(share.getByText("Only you can open this link.", {exact: true}))
@@ -61,7 +60,7 @@ test.describe("AUTH-037 share levels", () => {
 
       await access.selectOption("account_required");
       await expect(share.getByText(
-        `Anyone signed in to ${organizationName} can open this link.`,
+        "Anyone signed in can open this link.",
         {exact: true},
       )).toBeVisible();
       await expect(access).toBeEnabled();
@@ -70,7 +69,7 @@ test.describe("AUTH-037 share levels", () => {
       await expect(access).toHaveValue("account_required");
 
       const confirmation =
-        `Anyone with the link, including people outside ${organizationName}, can open the latest version.`;
+        "Anyone with the link, including people who are not signed in, can open the latest version.";
       await access.selectOption("public_link");
       await expect(share.getByText(confirmation, {exact: true})).toBeVisible();
       await share.getByRole("button", {name: "Cancel"}).click();
@@ -112,7 +111,7 @@ test.describe("AUTH-037 share levels", () => {
 
       const reader = await openShare(fixture.bob, fixture, published);
       await expect(reader.access).toBeDisabled();
-      await expect(reader.access).toHaveText(`Shared with ${organizationName}`);
+      await expect(reader.access).toHaveText("Shared with anyone signed in");
       await expect(fixture.bob.getByRole("button", {name: "Edit tags"})).toHaveCount(0);
 
       const failure = "The access change could not be stored.";

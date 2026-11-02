@@ -1146,7 +1146,7 @@ export class PostgresArtifactRepository implements
       return yield* sql.withTransaction(Effect.gen({self: this}, function*() {
         const artifact = yield* this.#readArtifact(command.projectId, command.artifactId, true);
         if (command.listed && artifact.accessSetting === accessSettings.private) {
-          return yield* new ArtifactPrivate({message: "Share it with the organization first."});
+          return yield* new ArtifactPrivate({message: "Make it Signed-in first."});
         }
         if (artifact.listed !== command.listed) {
           yield* sql`UPDATE artifacts SET listed = ${command.listed}

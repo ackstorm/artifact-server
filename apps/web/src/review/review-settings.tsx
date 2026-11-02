@@ -102,7 +102,6 @@ export function ReviewSettings({
             onProjectsChanged={onProjectsChanged}
             projects={projects}
             route={route}
-            session={session}
           />
         </main>
       </div>
@@ -116,14 +115,12 @@ function SettingsContent({
   onProjectsChanged,
   projects,
   route,
-  session,
 }: {
   readonly administrator: boolean;
   readonly canManageProjects: boolean;
   readonly onProjectsChanged: () => Promise<readonly Project[]>;
   readonly projects: readonly Project[];
   readonly route: SettingsRoute;
-  readonly session: Session;
 }) {
   if (route.kind === "notFound") {
     return (
@@ -167,7 +164,7 @@ function SettingsContent({
     case "apiKeys":
       return <ApiKeysScreen />;
     case "publicLinks":
-      return <PublicLinksScreen organizationName={session.installation.organizationName} />;
+      return <PublicLinksScreen />;
   }
   return <AdministratorPermissionRequired />;
 }

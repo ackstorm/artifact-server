@@ -572,7 +572,7 @@ function makeArtifactManagementService(
       const artifact = yield* requireArtifact(project.id, command.artifactId);
       yield* requireArtifactChange(command.principal, artifact);
       if (command.listed && artifact.accessSetting === accessSettings.private) {
-        return yield* new ArtifactPrivate({message: "Share it with the organization first."});
+        return yield* new ArtifactPrivate({message: "Make it Signed-in first."});
       }
       return yield* dependencies.repository.setArtifactListing({
         artifactId: artifact.id,

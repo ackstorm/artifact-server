@@ -12,7 +12,7 @@
         "Treats team as a profile only if that exact profile exists",
         "Stops for a project ID or MCP connection if the selected profile has no matching MCP",
         "Does not send a local path or inline content through MCP",
-        "Does not pass --public or --organization, so the artifact stays private",
+        "Does not pass --public or --signed-in, so the artifact stays private",
         "Returns the server, project ID, artifact ID, exact version ID, and browser link"
       ]
     },

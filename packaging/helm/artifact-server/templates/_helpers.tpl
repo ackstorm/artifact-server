@@ -141,10 +141,6 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
   value: {{ .Values.configuration.installationId | quote }}
 - name: ARTIFACT_SERVER_ORIGIN
   value: {{ .Values.configuration.applicationOrigin | quote }}
-{{- with .Values.configuration.organizationName }}
-- name: ARTIFACT_SERVER_ORGANIZATION_NAME
-  value: {{ . | quote }}
-{{- end }}
 {{- if kindIs "bool" .Values.configuration.publicLinksEnabled }}
 - name: ARTIFACT_SERVER_PUBLIC_LINKS_ENABLED
   value: {{ .Values.configuration.publicLinksEnabled | quote }}
