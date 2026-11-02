@@ -448,6 +448,19 @@ requirements:
     depends_on: [ART-011, AUTH-034]
     evidence: []
 
+  - id: ART-015
+    kind: behavior
+    behavior: A reader who may create artifacts duplicates a readable version as a new Private artifact they own, with its own history and the source's immutable bytes, without changing the source.
+    owner: artifact-core
+    source: {file: review-catalog-spec.md, anchor: 5-duplicate}
+    acceptance:
+      behavior: {id: ART-015-B, description: "Duplicate from the More actions menu creates the named Private copy owned by the reader with one version identical to the source, and opens it in Mine."}
+      failure: {id: ART-015-F, description: "A non-reader gets 404 and a reader without creation rights 403; a replay returns the same copy, a reused key with another source conflicts, and the source's versions, pointer, actions and bytes never change."}
+    deployments: *all
+    status: specified
+    depends_on: [ART-001, PUB-006, AUTH-033]
+    evidence: []
+
   - id: MAN-001
     kind: behavior
     behavior: A canonical manifest contains a sorted list of normalized paths, fingerprints, sizes, media types, disposition, entry file, routing mode, and serving metadata.
