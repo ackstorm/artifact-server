@@ -376,7 +376,7 @@ function makeAuthorizationService(
 }
 
 // Human administrators treat artifacts a service key published as their own.
-function controlsArtifact(
+export function controlsArtifact(
   principal: Principal,
   artifact: ArtifactRecord,
 ): boolean {

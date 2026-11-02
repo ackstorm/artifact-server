@@ -79,10 +79,13 @@ describe("sqlite artifact owner", () => {
 
   const listFor = async (principalId: string, includeServiceOwned = false) => {
     const command: ListArtifacts = {
+      access: [],
       comments: "all",
       cursor: null,
       limit: 10,
+      pinned: "all",
       projectId: defaultProjectId,
+      scope: "mine",
       sort: "newest",
       tags: [],
       viewer: {includeServiceOwned, principalId},

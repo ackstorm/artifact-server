@@ -63,6 +63,7 @@ const runningInProcessServers = new Set<InProcessExternalStorageServer>();
 
 const publishResponseSchema = z.object({
   artifact: z.object({
+    accessSetting: z.string().optional(),
     currentVersionId: z.string(),
     id: z.string(),
     name: z.string(),
@@ -339,6 +340,9 @@ describe.sequential("external-storage Postgres and S3 runtime", () => {
           // Roll back to schema 11: the migrator applies only migrations after
           // the newest recorded one, so later rows must go with review mode.
           yield* sql.unsafe("ALTER TABLE staged_uploads DROP COLUMN grant_digest");
+          yield* sql.unsafe("DROP TABLE artifact_openings");
+          yield* sql.unsafe("DROP TABLE artifact_pins");
+          yield* sql.unsafe("ALTER TABLE artifacts DROP COLUMN listed");
           yield* sql.unsafe("ALTER TABLE artifacts DROP COLUMN owner_principal_id");
           yield* sql.unsafe("ALTER TABLE artifact_installations DROP COLUMN public_links_enabled");
           yield* sql.unsafe("DELETE FROM artifact_server_postgres_migrations WHERE migration_id >= 12");
@@ -496,6 +500,9 @@ describe.sequential("external-storage Postgres and S3 runtime", () => {
         const sql = yield* SqlClient;
         yield* sql.withTransaction(Effect.gen(function*() {
           const statements = [
+            "DROP TABLE artifact_openings",
+            "DROP TABLE artifact_pins",
+            "ALTER TABLE artifacts DROP COLUMN listed",
             "ALTER TABLE artifacts DROP COLUMN owner_principal_id",
             `ALTER TABLE artifacts
               DROP CONSTRAINT artifacts_access_setting_check,
@@ -547,10 +554,13 @@ describe.sequential("external-storage Postgres and S3 runtime", () => {
         sort: "comments" | "newest" = "newest",
       ) =>
         (await repository.listArtifacts({
+          access: [],
           comments: "all",
           cursor: null,
           limit: 10,
+          pinned: "all",
           projectId: defaultProjectId,
+          scope: "mine",
           sort,
           tags: [],
           viewer: {includeServiceOwned, principalId},
@@ -677,6 +687,298 @@ describe.sequential("external-storage Postgres and S3 runtime", () => {
     }
   });
 
+  test("catalog pins and names on Postgres: one process pins and names, another process reads the same order and names", async () => {
+    const previousClaims = {...oidcProvider.claims};
+    const identity = {
+      apiToken: managedTestKey("postgres-catalog-pins"),
+      installationId: "postgres-catalog-pins-installation",
+    };
+    const [first, second] = await Promise.all([
+      startExternalStorageProcess(environment, identity),
+      startExternalStorageProcess(environment, identity),
+    ]);
+    try {
+      const older = await publishNew(first.baseUrl, identity.apiToken, {
+        content: "<h1>older</h1>",
+        idempotencyKey: `catalog-pins-older-${randomUUID()}`,
+        name: "Older artifact",
+      });
+      const newer = await publishNew(first.baseUrl, identity.apiToken, {
+        content: "<h1>newer</h1>",
+        idempotencyKey: `catalog-pins-newer-${randomUUID()}`,
+        name: "Newer artifact",
+      });
+      expect([older.response.status, newer.response.status]).toEqual([201, 201]);
+
+      oidcProvider.claims.email = oidcAdministratorEmail;
+      oidcProvider.claims.subject = "postgres-catalog-pins-administrator";
+      const login = await oidcBrowserLogin(first.baseUrl);
+      expect(login.status).toBe(303);
+      const cookies = applicationCookies(login.headers.getSetCookie());
+      const listing = z.object({
+        artifacts: z.array(z.object({
+          artifact: z.object({id: z.string()}),
+          pinned: z.boolean(),
+        })),
+        principals: z.record(z.string(), z.string()),
+      });
+      const listOrder = async (baseUrl: string) => listing.parse(await (await fetch(
+        `${baseUrl}/api/v1/artifacts?projectId=${defaultProjectId}`,
+        {headers: {Cookie: cookies.header}},
+      )).json()).artifacts.map(({artifact, pinned}) => ({id: artifact.id, pinned}));
+
+      expect(await listOrder(second.baseUrl)).toEqual([
+        {id: newer.body.artifact.id, pinned: false},
+        {id: older.body.artifact.id, pinned: false},
+      ]);
+      const pinned = await fetch(
+        `${first.baseUrl}/api/v1/artifacts/${older.body.artifact.id}/pin?projectId=${defaultProjectId}`,
+        {headers: browserMutationHeaders("https://artifacts.example.com", cookies), method: "PUT"},
+      );
+      expect(pinned.status).toBe(204);
+      expect(await listOrder(second.baseUrl)).toEqual([
+        {id: older.body.artifact.id, pinned: true},
+        {id: newer.body.artifact.id, pinned: false},
+      ]);
+
+      const details = await fetch(
+        `${second.baseUrl}/api/v1/artifacts/${older.body.artifact.id}?projectId=${defaultProjectId}`,
+        {headers: {Cookie: cookies.header}},
+      );
+      expect(details.status).toBe(200);
+      expect(z.object({principals: z.record(z.string(), z.string())}).parse(await details.json()).principals)
+        .toEqual({[managedTestPrincipal(identity.apiToken).principalId]: "Installation bootstrap key"});
+
+      const status = await runExternalCli(["migrate", "status"], {
+        ARTIFACT_SERVER_DATABASE_URL: environment.databaseUrl,
+        ARTIFACT_SERVER_INSTALLATION_ID: identity.installationId,
+      });
+      expect(status.exitCode).toBe(0);
+      expect(JSON.parse(status.output)).toMatchObject({currentVersion: 18});
+    } finally {
+      Object.assign(oidcProvider.claims, previousClaims);
+    }
+  });
+
+  test("shared scope on Postgres: listing and openings from one process appear in another process's Shared with me, and lowering to Private clears them", async () => {
+    const previousClaims = {...oidcProvider.claims};
+    const identity = {
+      apiToken: managedTestKey("postgres-shared-scope"),
+      installationId: "postgres-shared-scope-installation",
+    };
+    const [first, second] = await Promise.all([
+      startExternalStorageProcess(environment, identity),
+      startExternalStorageProcess(environment, identity),
+    ]);
+    const origin = "https://artifacts.example.com";
+    try {
+      const signIn = async (email: string, subject: string) => {
+        oidcProvider.claims.email = email;
+        oidcProvider.claims.subject = subject;
+        const login = await oidcBrowserLogin(first.baseUrl);
+        expect(login.status).toBe(303);
+        return applicationCookies(login.headers.getSetCookie());
+      };
+      const administrator = await signIn(oidcAdministratorEmail, "postgres-shared-scope-administrator");
+      const admit = async (displayName: string, email: string) => {
+        const response = await fetch(`${first.baseUrl}/api/v1/members`, {
+          body: JSON.stringify({displayName, email}),
+          headers: browserMutationHeaders(origin, administrator),
+          method: "POST",
+        });
+        expect(response.status).toBe(201);
+        return z.object({member: z.object({id: z.string()})}).parse(await response.json()).member.id;
+      };
+      const ownerId = await admit("Owner", "shared-owner@example.test");
+      await admit("Reader", "shared-reader@example.test");
+      const issued = await fetch(`${first.baseUrl}/api/v1/api-keys`, {
+        body: JSON.stringify({
+          capabilities: ["artifact:create", "artifact:read"],
+          expiresAt: "2099-01-01T00:00:00.000Z",
+          memberId: ownerId,
+          name: "Shared owner's agent",
+        }),
+        headers: browserMutationHeaders(origin, administrator),
+        method: "POST",
+      });
+      expect(issued.status).toBe(201);
+      const ownerKey = issuedKeySchema.parse(await issued.json()).token;
+      const owner = await signIn("shared-owner@example.test", "postgres-shared-scope-owner");
+      const reader = await signIn("shared-reader@example.test", "postgres-shared-scope-reader");
+
+      const publishShared = async (name: string) => {
+        const published = await publishNew(first.baseUrl, ownerKey, {
+          content: `<h1>${name}</h1>`,
+          idempotencyKey: `shared-scope-${name}-${randomUUID()}`,
+          name,
+        });
+        expect(published.response.status).toBe(201);
+        return published.body.artifact;
+      };
+      const listed = await publishShared("Listed artifact");
+      const opened = await publishShared("Opened artifact");
+      const sharedItems = async (baseUrl: string) => z.object({
+        artifacts: z.array(z.object({artifact: z.object({id: z.string(), listed: z.boolean()})})),
+      }).parse(await (await fetch(
+        `${baseUrl}/api/v1/artifacts?projectId=${defaultProjectId}&scope=shared`,
+        {headers: {Cookie: reader.header}},
+      )).json()).artifacts
+        .map(({artifact}) => ({id: artifact.id, listed: artifact.listed}))
+        .toSorted((a, b) => a.id.localeCompare(b.id));
+      const actionKinds = async () => z.object({
+        actions: z.array(z.object({action: z.string()})),
+      }).parse(await (await fetch(
+        `${second.baseUrl}/api/v1/artifacts/${listed.id}/actions?projectId=${defaultProjectId}`,
+        {headers: {Cookie: owner.header}},
+      )).json()).actions.map(({action}) => action).toReversed();
+      const setListing = (baseUrl: string, value: boolean) => fetch(
+        `${baseUrl}/api/v1/artifacts/${listed.id}/listing?projectId=${defaultProjectId}`,
+        {
+          body: JSON.stringify({listed: value}),
+          headers: browserMutationHeaders(origin, owner),
+          method: "PUT",
+        },
+      );
+      const lower = (baseUrl: string, idempotencyKey: string) => {
+        const headers = browserMutationHeaders(origin, owner);
+        headers.set("Idempotency-Key", idempotencyKey);
+        return fetch(
+          `${baseUrl}/api/v1/artifacts/${listed.id}/access?projectId=${defaultProjectId}`,
+          {
+            body: JSON.stringify({
+              accessSetting: "private",
+              expectedCurrentVersionId: listed.currentVersionId,
+            }),
+            headers,
+            method: "PATCH",
+          },
+        );
+      };
+
+      expect(await sharedItems(second.baseUrl)).toEqual([]);
+      expect((await setListing(first.baseUrl, true)).status).toBe(200);
+      expect(await sharedItems(second.baseUrl)).toEqual([{id: listed.id, listed: true}]);
+
+      const read = await fetch(
+        `${first.baseUrl}/api/v1/artifacts/${opened.id}?projectId=${defaultProjectId}`,
+        {headers: {Cookie: reader.header}},
+      );
+      expect(read.status).toBe(200);
+      expect(await sharedItems(second.baseUrl)).toEqual([
+        {id: listed.id, listed: true},
+        {id: opened.id, listed: false},
+      ].toSorted((a, b) => a.id.localeCompare(b.id)));
+
+      const idempotencyKey = `shared-scope-lower-${randomUUID()}`;
+      expect((await lower(first.baseUrl, idempotencyKey)).status).toBe(200);
+      expect(await sharedItems(second.baseUrl)).toEqual([{id: opened.id, listed: false}]);
+      const afterLowering = ["publish", "list", "change_access", "unlist"];
+      expect(await actionKinds()).toEqual(afterLowering);
+      expect((await lower(second.baseUrl, idempotencyKey)).status).toBe(200);
+      expect(await actionKinds()).toEqual(afterLowering);
+
+      const refused = await setListing(second.baseUrl, true);
+      expect(refused.status).toBe(409);
+      expect(await refused.text()).toContain("ARTIFACT_PRIVATE");
+      expect(await actionKinds()).toEqual(afterLowering);
+
+      const status = await runExternalCli(["migrate", "status"], {
+        ARTIFACT_SERVER_DATABASE_URL: environment.databaseUrl,
+        ARTIFACT_SERVER_INSTALLATION_ID: identity.installationId,
+      });
+      expect(status.exitCode).toBe(0);
+      expect(JSON.parse(status.output)).toMatchObject({currentVersion: 18});
+    } finally {
+      Object.assign(oidcProvider.claims, previousClaims);
+    }
+  });
+
+  test("duplicate on Postgres: a copy made by another member through one process serves the source bytes through another", async () => {
+    const previousClaims = {...oidcProvider.claims};
+    const identity = {
+      apiToken: managedTestKey("postgres-duplicate"),
+      installationId: "postgres-duplicate-installation",
+    };
+    const [first, second] = await Promise.all([
+      startExternalStorageProcess(environment, identity),
+      startExternalStorageProcess(environment, identity),
+    ]);
+    try {
+      const content = "<h1>duplicate source</h1>";
+      const source = await publishNew(first.baseUrl, identity.apiToken, {
+        content,
+        idempotencyKey: `duplicate-source-${randomUUID()}`,
+        name: "Source",
+      });
+      expect(source.response.status).toBe(201);
+      const sourceState = async () => Promise.all(["versions", "actions"].map(async (route) =>
+        (await fetch(
+          `${second.baseUrl}/api/v1/artifacts/${source.body.artifact.id}/${route}?projectId=${defaultProjectId}`,
+          {headers: bearerHeaders(identity.apiToken)},
+        )).json()));
+      const before = await sourceState();
+
+      oidcProvider.claims.email = oidcAdministratorEmail;
+      oidcProvider.claims.subject = "postgres-duplicate-administrator";
+      const login = await oidcBrowserLogin(first.baseUrl);
+      expect(login.status).toBe(303);
+      const cookies = applicationCookies(login.headers.getSetCookie());
+      const key = `duplicate-copy-${randomUUID()}`;
+      const duplicate = (baseUrl: string) => {
+        const headers = browserMutationHeaders("https://artifacts.example.com", cookies);
+        headers.set("Idempotency-Key", key);
+        return fetch(
+          `${baseUrl}/api/v1/artifacts/${source.body.artifact.id}/duplicate?projectId=${defaultProjectId}`,
+          {
+            body: JSON.stringify({versionId: source.body.version.id}),
+            headers,
+            method: "POST",
+          },
+        );
+      };
+      const created = await duplicate(first.baseUrl);
+      expect(created.status).toBe(201);
+      const copy = publishResponseSchema.parse(await created.json());
+      expect(copy.artifact).toMatchObject({accessSetting: "private", name: "Source (copy)"});
+      expect(copy.artifact.id).not.toBe(source.body.artifact.id);
+
+      const replay = await duplicate(second.baseUrl);
+      expect(replay.status).toBe(200);
+      expect(publishResponseSchema.parse(await replay.json()).artifact.id).toBe(copy.artifact.id);
+
+      const bootstrapResponse = await fetch(
+        `${second.baseUrl}/api/v1/artifacts/${copy.artifact.id}/content-sessions?projectId=${defaultProjectId}`,
+        {
+          headers: browserMutationHeaders("https://artifacts.example.com", cookies),
+          method: "POST",
+        },
+      );
+      expect(bootstrapResponse.status).toBe(201);
+      const bootstrap = z.object({bootstrapUrl: z.url()}).parse(
+        await bootstrapResponse.json(),
+      );
+      const exchange = await fetchContentThroughServer(
+        second.baseUrl,
+        bootstrap.bootstrapUrl,
+      );
+      expect(exchange.status).toBe(200);
+      const contentCookie = exchange.headers.get("set-cookie")?.split(";", 1)[0];
+      if (contentCookie === undefined) {
+        throw new Error("The private-content exchange did not issue a cookie.");
+      }
+      expect(
+        await (
+          await fetchContentThroughServer(second.baseUrl, copy.links.version, {
+            Cookie: contentCookie,
+          })
+        ).text(),
+      ).toBe(content);
+      expect(await sourceState()).toEqual(before);
+    } finally {
+      Object.assign(oidcProvider.claims, previousClaims);
+    }
+  });
+
   test("a populated Postgres v1 installation migrates without changing identity or bytes", async () => {
     const databaseName = `artifactserver_project_migration_${randomUUID().replaceAll("-", "")}`;
     await createPostgresDatabase(environment, databaseName);
@@ -711,6 +1013,9 @@ describe.sequential("external-storage Postgres and S3 runtime", () => {
       await database.run(Effect.gen(function*() {
         const sql = yield* SqlClient;
         const statements = [
+          "DROP TABLE artifact_openings",
+          "DROP TABLE artifact_pins",
+          "ALTER TABLE artifacts DROP COLUMN listed",
           `ALTER TABLE actions
             DROP CONSTRAINT actions_action_check,
             ADD CONSTRAINT actions_action_check
@@ -799,6 +1104,13 @@ describe.sequential("external-storage Postgres and S3 runtime", () => {
         `;
       }));
       expect(absent[0]?.absent).toBe(true);
+      const listed = await migratedDatabase.run(Effect.gen(function*() {
+        const sql = yield* SqlClient;
+        return yield* sql<{readonly listed: string}>`
+          SELECT count(*) AS listed FROM artifacts WHERE listed
+        `;
+      }));
+      expect(Number(listed[0]?.listed)).toBe(0);
     } finally {
       await migratedDatabase.close();
     }

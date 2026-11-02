@@ -79,6 +79,7 @@ const artifactSchema = z.object({
   currentVersionId: z.string(),
   deletedAt: z.string().nullable(),
   id: z.string(),
+  listed: z.boolean(),
   name: z.string(),
   ownerPrincipalId: z.string(),
   projectId: z.string(),
@@ -226,9 +227,11 @@ export interface ArtifactPage {
       readonly artifact: string;
       readonly management: string;
     };
+    readonly pinned: boolean;
     readonly versionCount: number;
   }[];
   readonly nextCursor: string | null;
+  readonly principals: Readonly<Record<string, string>>;
 }
 
 export interface ArtifactDetails {
@@ -242,6 +245,7 @@ export interface ArtifactDetails {
   };
   /** Present only on a local deployment that linked this artifact to a file. */
   readonly sourceBinding?: SourceBinding | undefined;
+  readonly principals: Readonly<Record<string, string>>;
 }
 
 export interface ArtifactAction {
@@ -258,9 +262,11 @@ export interface ArtifactAction {
     | "comment_update"
     | "delete"
     | "link"
+    | "list"
     | "publish"
     | "relink"
-    | "restore";
+    | "restore"
+    | "unlist";
   readonly artifactId: string;
   readonly authorizedByPrincipalId: string | null;
   readonly createdAt: string;
@@ -313,9 +319,11 @@ const artifactPageSchema: z.ZodType<ArtifactPage> = z.object({
     artifact: artifactSchema,
     commentCount: z.number().int().nonnegative(),
     links: z.object({ artifact: z.url(), management: z.url() }),
+    pinned: z.boolean(),
     versionCount: z.number().int().positive(),
   })),
   nextCursor: z.string().nullable(),
+  principals: z.record(z.string(), z.string()),
 });
 
 const artifactDetailsSchema: z.ZodType<ArtifactDetails> = z.object({
@@ -327,6 +335,7 @@ const artifactDetailsSchema: z.ZodType<ArtifactDetails> = z.object({
     management: z.url(),
   }),
   sourceBinding: sourceBindingSchema.optional(),
+  principals: z.record(z.string(), z.string()),
 });
 
 /** The link and capture answer: a published version plus the binding it read. */
@@ -358,9 +367,11 @@ const actionSchema: z.ZodType<ArtifactAction> = z.object({
     "comment_update",
     "delete",
     "link",
+    "list",
     "publish",
     "relink",
     "restore",
+    "unlist",
   ]),
   artifactId: z.string(),
   authorizedByPrincipalId: z.string().nullable(),
@@ -900,13 +911,19 @@ export const api = {
     tags: readonly string[],
     search = "",
     options: {
+      readonly access?: readonly AccessSetting[];
       readonly comments?: "all" | "with" | "without";
+      readonly pinned?: "all" | "only";
+      readonly scope?: "mine" | "shared";
       readonly sort?: "comments" | "newest";
     } = {},
   ) => {
     const query = new URLSearchParams({ limit: "25", projectId });
     query.set("comments", options.comments ?? "all");
     query.set("sort", options.sort ?? "newest");
+    query.set("pinned", options.pinned ?? "all");
+    query.set("scope", options.scope ?? "mine");
+    for (const level of options.access ?? []) query.append("access", level);
     if (cursor !== null) query.set("cursor", cursor);
     for (const tag of tags) query.append("tag", tag);
     if (search.trim() !== "") query.set("search", search.trim());
@@ -923,9 +940,10 @@ export const api = {
         links: z.object({ review: z.url(), version: z.url() }),
         version: versionSchema,
       })),
+      principals: z.record(z.string(), z.string()),
     }),
     `/api/v1/artifacts/${encodeURIComponent(artifactId)}/versions?${projectQuery(projectId)}`,
-  ).then(({ versions }) => versions),
+  ).then(({ principals, versions }) => ({ principals, versions })),
   version: (projectId: string, artifactId: string, versionId: string) => request(
     artifactVersionSchema,
     `/api/v1/artifacts/${encodeURIComponent(artifactId)}/versions/${encodeURIComponent(versionId)}?${projectQuery(projectId)}`,
@@ -937,6 +955,7 @@ export const api = {
       z.object({
         actions: z.array(actionSchema),
         nextCursor: z.string().nullable(),
+        principals: z.record(z.string(), z.string()),
       }),
       `/api/v1/artifacts/${encodeURIComponent(artifactId)}/actions?${query}`,
     );
@@ -969,6 +988,29 @@ export const api = {
       method: "POST",
     },
   ),
+  duplicate: (
+    projectId: string,
+    artifactId: string,
+    versionId: string,
+    idempotencyKey: string,
+  ) => request(
+    artifactStateSchema,
+    `/api/v1/artifacts/${encodeURIComponent(artifactId)}/duplicate?${projectQuery(projectId)}`,
+    {
+      body: JSON.stringify({ versionId }),
+      headers: mutationHeaders(idempotencyKey),
+      method: "POST",
+    },
+  ),
+  pin: (projectId: string, artifactId: string, pinned: boolean) => requestNoContent(
+    `/api/v1/artifacts/${encodeURIComponent(artifactId)}/pin?${projectQuery(projectId)}`,
+    { headers: mutationHeaders(), method: pinned ? "PUT" : "DELETE" },
+  ),
+  setListing: (projectId: string, artifactId: string, listed: boolean) => request(
+    z.object({ artifact: artifactSchema }),
+    `/api/v1/artifacts/${encodeURIComponent(artifactId)}/listing?${projectQuery(projectId)}`,
+    { body: JSON.stringify({ listed }), headers: mutationHeaders(), method: "PUT" },
+  ).then(({ artifact }) => artifact),
   changeAccess: (
     projectId: string,
     artifactId: string,

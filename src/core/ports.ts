@@ -95,12 +95,19 @@ export interface ExpiredStagedUpload {
   readonly id: string;
 }
 
-export interface PublicationSource {
+export interface StagedUploadSource {
   readonly kind: "staged_upload";
   readonly principalId: string;
   readonly projectId: string;
   readonly uploadId: string;
 }
+
+/** A version 1 whose manifest comes from an existing saved version; its blobs are already stored. */
+export interface SavedVersionSource {
+  readonly kind: "saved_version";
+}
+
+export type PublicationSource = SavedVersionSource | StagedUploadSource;
 
 export interface CommitNewArtifact {
   readonly reviewMode?: ReviewMode;
@@ -132,7 +139,7 @@ export interface CommitArtifactVersion {
   readonly principalId: string;
   readonly projectId: string;
   readonly authorizedByPrincipalId: string | null;
-  readonly source: PublicationSource;
+  readonly source: StagedUploadSource;
   readonly versionId: string;
 }
 
@@ -202,10 +209,15 @@ export interface DeleteArtifact {
 
 /** Values used to read one bounded page of active artifacts. */
 export interface ListArtifacts {
+  /** Stored levels to keep; empty keeps every level. */
+  readonly access: readonly AccessSetting[];
   readonly comments: "all" | "with" | "without";
   readonly cursor: PageCursor | null;
   readonly limit: number;
+  readonly pinned: "all" | "only";
   readonly projectId: string;
+  /** `mine` lists the reader's own artifacts; `shared` lists others' that are listed or were opened. */
+  readonly scope: "mine" | "shared";
   /** Normalized name-substring or exact-tag search, when supplied. */
   readonly search?: string | null;
   readonly sort: "comments" | "newest";
@@ -216,6 +228,24 @@ export interface ListArtifacts {
     readonly includeServiceOwned: boolean;
     readonly principalId: string;
   };
+}
+
+/** Values used to pin or unpin one artifact for one principal. */
+export interface SetArtifactPin {
+  readonly artifactId: string;
+  readonly pinned: boolean;
+  readonly principalId: string;
+  readonly projectId: string;
+}
+
+/** Values used to list or unlist one artifact in Shared with me. */
+export interface SetArtifactListing {
+  readonly artifactId: string;
+  readonly authorizedByPrincipalId: string | null;
+  readonly createdAt: string;
+  readonly listed: boolean;
+  readonly principalId: string;
+  readonly projectId: string;
 }
 
 /** Values used to read one bounded page of artifact actions. */
@@ -693,6 +723,11 @@ export interface ArtifactRepository {
     artifactId: string,
   ): Promise<readonly VersionRecord[]>;
   restoreVersion(command: RestoreArtifactVersion): Promise<ArtifactState>;
+  setArtifactPin(command: SetArtifactPin): Promise<void>;
+  /** Changes the listing and writes one `list` or `unlist` action; an unchanged value writes nothing. */
+  setArtifactListing(command: SetArtifactListing): Promise<ArtifactRecord>;
+  /** Remembers that the principal opened the artifact; repeats keep one row. */
+  recordArtifactOpening(projectId: string, artifactId: string, principalId: string): Promise<void>;
 }
 
 /** Persistent capabilities required by private browser content sessions. */

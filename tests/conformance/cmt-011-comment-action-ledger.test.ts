@@ -41,6 +41,7 @@ const actionRecordSchema = z.object({
 const actionPageSchema = z.object({
   actions: z.array(actionRecordSchema),
   nextCursor: z.string().nullable(),
+  principals: z.record(z.string(), z.string()),
 }).strict();
 const threadCreationSchema = z.object({
   replayed: z.boolean(),

@@ -74,6 +74,7 @@ import {
   AgentDispatchNotFound,
   AgentNotFound,
   ArtifactNotFound,
+  ArtifactPrivate,
   ArtifactMutationConflict,
   ArtifactRepositoryFailure,
   AuthenticationRequired,
@@ -485,6 +486,24 @@ export function createApplicationLayer(
           try: () => adapters.repository.listArtifacts(command),
           catch: (cause) => repositoryFailure("listArtifacts", cause),
         }),
+      setArtifactPin: (command) =>
+        Effect.tryPromise({
+          try: () => adapters.repository.setArtifactPin(command),
+          catch: (cause) => repositoryFailure("setArtifactPin", cause),
+        }),
+      setArtifactListing: (command) =>
+        Effect.tryPromise({
+          try: () => adapters.repository.setArtifactListing(command),
+          catch: (cause) =>
+            cause instanceof ArtifactNotFound || cause instanceof ArtifactPrivate
+              ? cause
+              : repositoryFailure("setArtifactListing", cause),
+        }),
+      recordArtifactOpening: (projectId, artifactId, principalId) =>
+        Effect.tryPromise({
+          try: () => adapters.repository.recordArtifactOpening(projectId, artifactId, principalId),
+          catch: (cause) => repositoryFailure("recordArtifactOpening", cause),
+        }),
       restoreVersion: (command) =>
         Effect.tryPromise({
           try: () => adapters.repository.restoreVersion(command),
@@ -859,6 +878,10 @@ export function createApplicationLayer(
         "listMembers",
         () => identityRepository.listMembers(installationId),
       ),
+      findPrincipalDisplayNames: (installationId, principalIds) => identityEffect(
+        "findPrincipalDisplayNames",
+        () => identityRepository.findPrincipalDisplayNames(installationId, principalIds),
+      ),
       revokeApiKey: (installationId, keyId, revokedAt) => identityEffectWithNotFound(
         "revokeApiKey",
         () => identityRepository.revokeApiKey(installationId, keyId, revokedAt),
@@ -1010,8 +1033,17 @@ export function createApplicationLayer(
     Layer.provideMerge(authorizationLayer),
   );
 
+  const managementLayer = ArtifactManagementService.layer(
+    managementDependencies,
+  ).pipe(
+    Layer.provideMerge(
+      Layer.mergeAll(authorizationLayer, identityLayer, policyLayer, projectLayer),
+    ),
+  );
   const publishLayer = PublishArtifactService.layer(publishDependencies).pipe(
-    Layer.provideMerge(Layer.mergeAll(authorizationLayer, policyLayer)),
+    Layer.provideMerge(
+      Layer.mergeAll(authorizationLayer, policyLayer, managementLayer, projectLayer),
+    ),
   );
   const stagedLayer = StagedUploadService.layer(stagedDependencies).pipe(
     Layer.provideMerge(Layer.mergeAll(publishLayer, projectLayer)),
@@ -1028,13 +1060,6 @@ export function createApplicationLayer(
   });
   const contentLayer = ContentAccessService.layer(contentDependencies).pipe(
     Layer.provideMerge(Layer.mergeAll(authorizationLayer, policyLayer, projectLayer)),
-  );
-  const managementLayer = ArtifactManagementService.layer(
-    managementDependencies,
-  ).pipe(
-    Layer.provideMerge(
-      Layer.mergeAll(authorizationLayer, identityLayer, policyLayer, projectLayer),
-    ),
   );
   const linked = adapters.linked;
   const linkedLayer = linked === undefined

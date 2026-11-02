@@ -23,6 +23,7 @@ export const publicLinkInventoryRowSchema = z.object({
   currentVersionId: z.string(),
   entryPath: z.string(),
   installationId: z.string(),
+  listed: z.union([z.boolean(), z.number().transform((value) => value === 1)]),
   manifestDigest: z.string(),
   ownerPrincipalId: z.string(),
   projectArchivedAt: z.string().nullable(),

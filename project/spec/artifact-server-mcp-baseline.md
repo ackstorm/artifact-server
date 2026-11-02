@@ -315,6 +315,7 @@ Start with a small, explicit tool surface:
 | `artifact_commit_upload` | Verify the manifest and publish an immutable version. Return the exact-version review URL as the primary human handoff, plus stable and raw links. |
 | `artifact_set_visibility` | Change between account-required and public-link access when permitted. A public link opens only the current version. Warn that public copies cannot be recalled and perform the configured CDN purge when returning to account-required. |
 | `artifact_set_tags` | Replace the artifact's normalized tag set without changing its saved files. |
+| `artifact_read_file` | Return one file of the current or an exact version: UTF-8 text up to 1 MiB inline after a digest check, anything else as a 15-minute preview-lease URL that fetches the raw bytes with no credential. Same read check as `artifact_get`. |
 | `artifact_version_list` | List immutable saved versions and their exact content addresses. Use `artifact_open` when a user needs an authorized browser address. |
 | `artifact_diff` | Return a bounded comparison summary and a link to the full comparison. |
 | `artifact_restore_version` | Make an existing immutable version current again. |

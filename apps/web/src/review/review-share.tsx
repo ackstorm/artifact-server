@@ -62,6 +62,8 @@ interface ReviewShareControlProps {
   readonly details: ArtifactDetails | null;
   readonly onArtifactChanged: (artifact: ArtifactDetails["artifact"]) => void;
   readonly organizationName: string | null;
+  /** The owner's display name, when known. */
+  readonly ownerName: string | null;
   readonly publicLinksEnabled: boolean;
   readonly selectedPath: string | null;
   readonly selectedVersion: ArtifactVersion | null;
@@ -75,6 +77,7 @@ export function ReviewShareControl({
   details,
   onArtifactChanged,
   organizationName,
+  ownerName,
   publicLinksEnabled,
   selectedPath,
   selectedVersion,
@@ -88,6 +91,8 @@ export function ReviewShareControl({
   const [failure, setFailure] = useState<string | null>(null);
   const [accessFailure, setAccessFailure] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [listingSaving, setListingSaving] = useState(false);
+  const [listingError, setListingError] = useState<string | null>(null);
   const copiedResetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => () => {
@@ -104,6 +109,7 @@ export function ReviewShareControl({
       setChosenAccess(null);
       setAccessFailure(null);
       setNotice(null);
+      setListingError(null);
     }
   };
 
@@ -185,6 +191,30 @@ export function ReviewShareControl({
     } finally {
       setPending(false);
       setChosenAccess(null);
+    }
+  };
+
+  const listed = (details?.artifact.listed ?? false) && savedAccess !== "private";
+  const listingReason = !canRaise
+    ? `Only ${ownerName ?? "the owner"} can change this.`
+    : savedAccess === "private"
+      ? "Share it with the organization first."
+      : null;
+
+  const saveListing = async (next: boolean): Promise<void> => {
+    if (details === null) return;
+    setListingSaving(true);
+    setListingError(null);
+    try {
+      onArtifactChanged(
+        await api.setListing(details.artifact.projectId, details.artifact.id, next),
+      );
+    } catch (caught) {
+      setListingError(
+        caught instanceof Error ? caught.message : "Listing could not be changed.",
+      );
+    } finally {
+      setListingSaving(false);
     }
   };
 
@@ -348,6 +378,32 @@ export function ReviewShareControl({
                   )}
                   {notice === null ? null : (
                     <p className="as-share-message" data-tone="notice" role="status">{notice}</p>
+                  )}
+                </section>
+
+                <section aria-labelledby="as-share-listing-heading" className="as-share-listing">
+                  <div className="as-share-listing__row">
+                    <span className="as-share-listing__title" id="as-share-listing-heading">
+                      List it in {organization}&apos;s Shared with me
+                    </span>
+                    <input
+                      aria-describedby="as-share-listing-note"
+                      aria-labelledby="as-share-listing-heading"
+                      checked={listed}
+                      disabled={details === null || listingReason !== null || listingSaving}
+                      onChange={(event) => void saveListing(event.currentTarget.checked)}
+                      role="switch"
+                      type="checkbox"
+                    />
+                  </div>
+                  {listingError === null ? (
+                    <p id="as-share-listing-note">
+                      {listingReason ?? (listed
+                        ? `Everyone signed in to ${organization} sees it in Shared with me.`
+                        : "Only people who have the link find it.")}
+                    </p>
+                  ) : (
+                    <p className="as-share-message" data-tone="error" role="alert">{listingError}</p>
                   )}
                 </section>
 

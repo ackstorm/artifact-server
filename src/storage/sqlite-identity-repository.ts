@@ -180,6 +180,27 @@ export class SqliteIdentityRepository implements BootstrapManagedApiKeyRepositor
     return rows.map((row) => memberRowSchema.parse(row));
   }
 
+  async findPrincipalDisplayNames(
+    installationId: string,
+    principalIds: readonly string[],
+  ): Promise<ReadonlyMap<string, string>> {
+    if (principalIds.length === 0) return new Map();
+    const ids = JSON.stringify([...new Set(principalIds)]);
+    const rowSchema = z.array(z.object({id: z.string(), name: z.string()}));
+    const members = rowSchema.parse(this.#database.prepare(`
+      SELECT id, display_name AS name FROM installation_members
+      WHERE installation_id = ? AND id IN (SELECT value FROM json_each(?))
+    `).all(installationId, ids));
+    // A rotated service key keeps its principal id, so the newest key names it.
+    const keys = rowSchema.parse(this.#database.prepare(`
+      SELECT principal_id AS id, name FROM managed_api_keys
+      WHERE installation_id = ? AND principal_kind = 'service'
+        AND principal_id IN (SELECT value FROM json_each(?))
+      ORDER BY created_at, id
+    `).all(installationId, ids));
+    return new Map([...keys, ...members].map(({id, name}) => [id, name]));
+  }
+
   async findMember(
     installationId: string,
     memberId: string,

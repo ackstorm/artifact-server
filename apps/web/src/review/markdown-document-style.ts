@@ -1,13 +1,13 @@
 /** Trusted presentation for the generated document, matching the Review palette. */
 export function markdownDocumentStyle(isLight: boolean): string {
   const color = isLight ? {
-    background: "oklch(1 0 0)", foreground: "oklch(0.145 0.008 326)",
-    muted: "oklch(0.542 0.034 322.5)", border: "oklch(0.922 0.005 325.62)",
-    code: "oklch(0.967 0.001 286.375)", link: "oklch(0.511 0.262 276.966)",
+    background: "oklch(0.995 0.002 250)", foreground: "oklch(0.2 0.01 250)",
+    muted: "oklch(0.5 0.012 250)", border: "oklch(0.9 0.005 250)",
+    code: "oklch(0.96 0.004 250)", link: "oklch(0.24 0.01 250)",
   } : {
-    background: "oklch(0.145 0.008 326)", foreground: "oklch(0.985 0 0)",
-    muted: "oklch(0.711 0.019 323.02)", border: "oklch(1 0 0 / 10%)",
-    code: "oklch(0.274 0.006 286.033)", link: "oklch(0.75 0.13 277)",
+    background: "oklch(0.17 0.006 250)", foreground: "oklch(0.95 0.004 250)",
+    muted: "oklch(0.72 0.01 250)", border: "oklch(1 0 0 / 10%)",
+    code: "oklch(0.26 0.008 250)", link: "oklch(0.93 0.004 250)",
   };
   return `
 :root {

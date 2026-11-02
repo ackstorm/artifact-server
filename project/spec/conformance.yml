@@ -422,6 +422,75 @@ requirements:
         run: project/evidence/artifact-review-mode.json
         recorded_at: "2026-10-10T04:56:30.471Z"
 
+  - id: ART-013
+    kind: security
+    behavior: Review shows the names of an artifact's owner, version publishers and actors, resolved at read time for principals recorded on artifacts the reader can read, without exposing the member directory.
+    owner: web-application
+    source: {file: review-catalog-spec.md, anchor: 2-names}
+    acceptance:
+      behavior: {id: ART-013-B, description: "Details, Versions and Activity show the owner's, publishers' and actors' names with initials avatars, and via API key for key-authorized actions."}
+      failure: {id: ART-013-F, description: "List, details, versions and actions responses name only principals recorded on artifacts the reader can read; a failed read names nobody, emails never appear, and members cannot list the directory."}
+    deployments: *all
+    status: behavior_verified
+    depends_on: [AUTH-033, AUTH-034]
+    evidence:
+      - deployment: local
+        tests: [ART-013-B]
+        result: pass
+        run: project/evidence/browser.json
+        recorded_at: "2026-11-02T11:49:46.485Z"
+      - deployment: local
+        tests: [ART-013-F]
+        result: pass
+        run: project/evidence/local-foundation.json
+        recorded_at: "2026-11-02T12:18:18.212Z"
+
+  - id: ART-014
+    kind: behavior
+    behavior: The Review catalog filters by stored sharing level and keeps each reader's pinned artifacts grouped first, with pins stored per principal on the server and applied before pagination.
+    owner: artifact-core
+    source: {file: review-catalog-spec.md, anchor: 3-catalog-filters-and-pins}
+    acceptance:
+      behavior: {id: ART-014-B, description: "Filter the catalog by sharing level, pin an artifact, and see it grouped under Pinned at the top across reloads and under Pinned only."}
+      failure: {id: ART-014-F, description: "Pins are per principal and need read authority; pages never repeat or skip an artifact across the pinned boundary in either sort; a cursor without a group or an unknown level is refused."}
+    deployments: *all
+    status: behavior_verified
+    depends_on: [ART-011, AUTH-034]
+    evidence:
+      - deployment: local
+        tests: [ART-014-B]
+        result: pass
+        run: project/evidence/browser.json
+        recorded_at: "2026-11-02T11:49:46.485Z"
+      - deployment: local
+        tests: [ART-014-F]
+        result: pass
+        run: project/evidence/local-foundation.json
+        recorded_at: "2026-11-02T12:18:18.212Z"
+
+  - id: ART-015
+    kind: behavior
+    behavior: A reader who may create artifacts duplicates a readable version as a new Private artifact they own, with its own history and the source's immutable bytes, without changing the source.
+    owner: artifact-core
+    source: {file: review-catalog-spec.md, anchor: 5-duplicate}
+    acceptance:
+      behavior: {id: ART-015-B, description: "Duplicate from the More actions menu creates the named Private copy owned by the reader with one version identical to the source, and opens it in Mine."}
+      failure: {id: ART-015-F, description: "A non-reader gets 404 and a reader without creation rights 403; a replay returns the same copy, a reused key with another source conflicts, and the source's versions, pointer, actions and bytes never change."}
+    deployments: *all
+    status: behavior_verified
+    depends_on: [ART-001, PUB-006, AUTH-033]
+    evidence:
+      - deployment: local
+        tests: [ART-015-B]
+        result: pass
+        run: project/evidence/browser.json
+        recorded_at: "2026-11-02T11:49:46.485Z"
+      - deployment: local
+        tests: [ART-015-F]
+        result: pass
+        run: project/evidence/local-foundation.json
+        recorded_at: "2026-11-02T12:18:18.212Z"
+
   - id: MAN-001
     kind: behavior
     behavior: A canonical manifest contains a sorted list of normalized paths, fingerprints, sizes, media types, disposition, entry file, routing mode, and serving metadata.
@@ -1604,12 +1673,12 @@ requirements:
 
   - id: AUTH-034
     kind: security
-    behavior: Artifact lists and search return only the artifacts the reader owns, plus service-owned artifacts for a human administrator; an Organization or Public artifact owned by someone else is opened by link and never listed.
+    behavior: Artifact lists and search return only the artifacts the reader owns, plus service-owned artifacts for a human administrator; an Organization or Public artifact owned by someone else appears only in the reader's Shared with me list, when its owner listed it or the reader opened it.
     owner: authorization
     source: {file: artifact-sharing-levels-spec.md, anchor: conformance}
     acceptance:
       behavior: {id: AUTH-034-B, description: "Lists return the reader's own artifacts; an administrator's lists also contain service-owned ones."}
-      failure: {id: AUTH-034-F, description: "Another member's Organization and Public artifacts never appear in lists or search results."}
+      failure: {id: AUTH-034-F, description: "Another member's artifacts never appear in Mine lists or search results, and appear in Shared with me only when listed by their owner or opened by the reader."}
     deployments: *all
     status: behavior_verified
     depends_on: [AUTH-032]
@@ -1618,7 +1687,7 @@ requirements:
         tests: [AUTH-034-B, AUTH-034-F]
         result: pass
         run: project/evidence/local-foundation.json
-        recorded_at: "2026-10-30T21:57:54.908Z"
+        recorded_at: "2026-11-02T12:18:18.212Z"
 
   - id: AUTH-035
     kind: security
@@ -1673,6 +1742,29 @@ requirements:
         result: pass
         run: project/evidence/browser.json
         recorded_at: "2026-10-30T22:00:13.840Z"
+
+  - id: AUTH-038
+    kind: security
+    behavior: Shared with me lists another principal's Organization or Public artifact only when its controller listed it or the reader opened it in the Review web app with a browser session; listing follows the raise rule, each listing change is an action record, and lowering to Private unlists with its own record.
+    owner: authorization
+    source: {file: review-catalog-spec.md, anchor: 4-shared-with-me}
+    acceptance:
+      behavior: {id: AUTH-038-B, description: "An owner lists an Organization artifact from the Share modal and a colleague finds it under Listed for the organization, next to an artifact the colleague opened by link."}
+      failure: {id: AUTH-038-F, description: "Shared with me never holds Private artifacts, service-owned ones for an administrator, or another reader's openings; non-controllers cannot change the listing and a Private artifact cannot be listed; each listing change and the unlisting by a lowering to Private writes one action record and a repeat writes none; API-key, member-bound-key and MCP OAuth-bearer reads record no openings, and a browser-session read does."}
+    deployments: *all
+    status: behavior_verified
+    depends_on: [AUTH-033, AUTH-034, AUTH-035]
+    evidence:
+      - deployment: local
+        tests: [AUTH-038-B]
+        result: pass
+        run: project/evidence/browser.json
+        recorded_at: "2026-11-02T11:49:46.485Z"
+      - deployment: local
+        tests: [AUTH-038-F]
+        result: pass
+        run: project/evidence/local-foundation.json
+        recorded_at: "2026-11-02T12:18:18.212Z"
 
   - id: SEC-001
     kind: security
@@ -1987,6 +2079,19 @@ requirements:
         result: pass
         run: project/evidence/local-foundation.json
         recorded_at: "2026-08-25T18:29:58.000Z"
+
+  - id: MCP-021
+    kind: security
+    behavior: artifact_read_file returns one file of a readable version without putting large or binary bytes in the agent context, as UTF-8 text up to 1 MiB checked against the manifest digest or as a short-lived credential-free preview-lease URL.
+    owner: mcp
+    source: {file: artifact-server-mcp-baseline.md, anchor: mcp-tools-and-resources}
+    acceptance:
+      behavior: {id: MCP-021-B, description: "Read the current and an exact earlier version inline, and fetch a binary file through its download URL with no credential after a server restart, matching the manifest digest."}
+      failure: {id: MCP-021-F, description: "A missing or traversing path, an unknown version or artifact, and an unauthenticated caller get no bytes and no URL; another member, a member-bound key, a service key and an administrator get ARTIFACT_NOT_FOUND for another member's Private text and binary files (AUTH-033 sweep)."}
+    deployments: *all
+    status: specified
+    depends_on: [AUTH-033, MCP-018]
+    evidence: []
 
   - id: SKL-001
     kind: behavior

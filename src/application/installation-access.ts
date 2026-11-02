@@ -139,6 +139,10 @@ export interface InstallationIdentityRepository {
   readonly listMembers: (
     installationId: string,
   ) => Effect.Effect<readonly InstallationMember[], IdentityRepositoryFailure>;
+  readonly findPrincipalDisplayNames: (
+    installationId: string,
+    principalIds: readonly string[],
+  ) => Effect.Effect<ReadonlyMap<string, string>, IdentityRepositoryFailure>;
   readonly revokeApiKey: (
     installationId: string,
     keyId: string,
@@ -275,6 +279,9 @@ export interface InstallationAccessOperations {
     readonly InstallationMember[],
     AuthorizationDenied | IdentityRepositoryFailure
   >;
+  readonly principalDisplayNames: (
+    principalIds: readonly string[],
+  ) => Effect.Effect<ReadonlyMap<string, string>, IdentityRepositoryFailure>;
   readonly issueLocalBrowserLogin: (
     credential: Redacted.Redacted,
   ) => Effect.Effect<
@@ -651,6 +658,19 @@ function makeInstallationAccessService(
     return yield* dependencies.repository.listMembers(dependencies.installationId);
   });
 
+  /**
+   * Names principals for a response the caller was already authorized to read.
+   * Callers pass only ids taken from the records that read returned.
+   */
+  const principalDisplayNames = Effect.fn(
+    "InstallationAccessService.principalDisplayNames",
+  )(function*(principalIds: readonly string[]) {
+    return yield* dependencies.repository.findPrincipalDisplayNames(
+      dependencies.installationId,
+      principalIds,
+    );
+  });
+
   const deactivateMember = Effect.fn(
     "InstallationAccessService.deactivateMember",
   )(function*(principal: Principal, memberId: string) {
@@ -818,6 +838,7 @@ function makeInstallationAccessService(
     listApiKeys,
     listMembers,
     loginWithLocalBrowserToken,
+    principalDisplayNames,
     revokeApiKey,
     revokeSession,
     rotateApiKey,

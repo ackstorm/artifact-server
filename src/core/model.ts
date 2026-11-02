@@ -31,9 +31,11 @@ export const artifactActionKinds = {
   commentUpdate: "comment_update",
   delete: "delete",
   link: "link",
+  list: "list",
   publish: "publish",
   relink: "relink",
   restore: "restore",
+  unlist: "unlist",
 } as const;
 
 /** One persisted artifact mutation kind. */
@@ -85,6 +87,8 @@ export interface ArtifactRecord {
   readonly currentVersionId: string;
   readonly deletedAt: string | null;
   readonly id: string;
+  /** The owner listed it in Shared with me; only Organization and Public artifacts are listed. */
+  readonly listed: boolean;
   readonly name: string;
   readonly ownerPrincipalId: string;
   readonly projectId: string;
@@ -123,6 +127,8 @@ export interface SourceBindingRecord {
 /** Stable keyset position used by bounded artifact and action queries. */
 export interface PageCursor {
   readonly createdAt: string;
+  /** Catalog group of an artifact list page: pinned first. */
+  readonly group?: number;
   readonly id: string;
   /** Optional aggregate rank used by non-chronological keyset queries. */
   readonly rank?: number;
@@ -144,6 +150,7 @@ export interface ArtifactActionRecord {
 /** One active artifact with exact aggregate data needed by list surfaces. */
 export interface ArtifactListItem extends ArtifactRecord {
   readonly commentCount: number;
+  readonly pinned: boolean;
   readonly versionCount: number;
 }
 

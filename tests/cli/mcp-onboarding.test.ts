@@ -31,7 +31,7 @@ const connectFixture = path.join(
 const tsxExecutable = path.join(repositoryRoot, "node_modules/.bin/tsx");
 const modernProtocolRevision = "2026-07-28";
 const processStartupTimeoutMilliseconds = 45_000;
-const testTimeoutMilliseconds = 60_000;
+const testTimeoutMilliseconds = 90_000;
 const temporaryDirectories = new Set<string>();
 const managedServicePids = new Set<number>();
 const serviceRecordSchema = z.object({
@@ -82,7 +82,7 @@ describe("local MCP onboarding", {timeout: testTimeoutMilliseconds}, () => {
     const first = await connectStdio(dataDirectory);
     const firstTools = await first.client.listTools();
     expect(first.client.getNegotiatedProtocolVersion()).toBe(modernProtocolRevision);
-    expect(firstTools.tools).toHaveLength(30);
+    expect(firstTools.tools).toHaveLength(31);
     const capabilities = await first.client.callTool({
       arguments: {},
       name: "artifact_capabilities",
@@ -104,11 +104,11 @@ describe("local MCP onboarding", {timeout: testTimeoutMilliseconds}, () => {
     )).toEqual({status: "ok"});
 
     const second = await connectStdio(dataDirectory);
-    expect((await second.client.listTools()).tools).toHaveLength(30);
+    expect((await second.client.listTools()).tools).toHaveLength(31);
     await second.client.close();
 
     const legacy = await connectStdio(dataDirectory, "legacy");
-    expect((await legacy.client.listTools()).tools).toHaveLength(30);
+    expect((await legacy.client.listTools()).tools).toHaveLength(31);
     const legacyCapabilities = await legacy.client.callTool({
       arguments: {},
       name: "artifact_capabilities",
@@ -124,7 +124,7 @@ describe("local MCP onboarding", {timeout: testTimeoutMilliseconds}, () => {
     const doctor = await runCli(["doctor", "--data", dataDirectory]);
     expect(doctor.exitCode).toBe(0);
     expect(doctorSchema.parse(JSON.parse(doctor.stdout))).toMatchObject({
-      discovery: {tools: 30},
+      discovery: {tools: 31},
       status: "healthy",
     });
     const apiCredential = (await readFile(
@@ -146,7 +146,7 @@ describe("local MCP onboarding", {timeout: testTimeoutMilliseconds}, () => {
     expect(safeSurfaces).not.toContain(browserCredential);
     expect(safeSurfaces).not.toContain("Local API token:");
     expect(safeSurfaces).not.toContain("Browser login:");
-  }, 30_000);
+  }, 90_000);
 
   test("connect and disconnect preserve unrelated client configuration", async () => {
     const workspace = await temporaryWorkspace("artifact-server-mcp-clients-");

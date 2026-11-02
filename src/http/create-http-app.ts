@@ -17,6 +17,7 @@ import {
   runApplicationEffect,
 } from "../application/application-runtime.js";
 import { StagedUploadService } from "../application/staged-upload.js";
+import { PublishArtifactService } from "../application/publish-artifact.js";
 import { AuthenticationService } from "../application/authentication.js";
 import {
   digestIdentitySecret,
@@ -222,10 +223,14 @@ const restoreVersionSchema = z.object({
   expectedCurrentVersionId: z.string().min(1).max(200),
   versionId: z.string().min(1).max(200),
 });
+const duplicateArtifactSchema = z.object({
+  versionId: z.string().min(1).max(200),
+}).strict();
 const changeAccessSchema = z.object({
   accessSetting: accessSettingSchema,
   expectedCurrentVersionId: z.string().min(1).max(200),
 });
+const setListingSchema = z.object({listed: z.boolean()}).strict();
 const changeTagsSchema = z.object({
   expectedCurrentVersionId: z.string().min(1).max(200),
   tags: artifactTagsSchema,
@@ -358,7 +363,10 @@ const pageQuerySchema = z.object({
   search: z.string().max(200).optional(),
 });
 const artifactPageQuerySchema = pageQuerySchema.extend({
+  access: z.array(z.enum(["private", "account_required", "public_link"])).max(3).default([]),
   comments: z.enum(["all", "with", "without"]).default("all"),
+  pinned: z.enum(["all", "only"]).default("all"),
+  scope: z.enum(["mine", "shared"]).default("mine"),
   sort: z.enum(["comments", "newest"]).default("newest"),
   tags: z.array(z.string().max(200)).max(20).default([]),
 });
@@ -389,6 +397,7 @@ const makePublicLinksPrivateSchema = z.object({
 });
 const pageCursorSchema = z.object({
   createdAt: z.string().min(1).max(100),
+  group: z.number().int().min(0).max(2).optional(),
   id: z.string().min(1).max(200),
   rank: z.number().int().nonnegative().optional(),
 }).strict();
@@ -539,6 +548,7 @@ export function createHttpApp(
     allowedOriginHostnames: mcpAllowedHostnames,
     applicationOrigin: dependencies.trustedApplicationOrigin,
     applicationRuntime: dependencies.applicationRuntime,
+    blobs: dependencies.blobs,
     contentDomain: dependencies.contentDomain,
     linkedArtifacts: dependencies.linkedArtifacts === true,
     mode: dependencies.trustedApplicationOrigin === null ? "local" : "remote",
@@ -1535,29 +1545,83 @@ export function createHttpApp(
   app.get("/api/v1/artifacts", async (context) => {
     const query = artifactPageQuerySchema.parse({
       ...context.req.query(),
+      access: context.req.queries("access") ?? [],
       tags: context.req.queries("tag") ?? [],
     });
-    const page = await runHttpApplicationEffect(
+    const {page, principals} = await runHttpApplicationEffect(
       context,
       dependencies,
-      ArtifactManagementService.use((management) =>
-        management.listArtifacts({
+      Effect.gen(function*() {
+        const management = yield* ArtifactManagementService;
+        const listed = yield* management.listArtifacts({
+          access: query.access,
           comments: query.comments,
           cursor: decodePageCursor(query.cursor),
           limit: query.limit,
+          pinned: query.pinned,
           principal: context.get("principal"),
           projectId: requestedProjectId(context),
+          scope: query.scope,
           search: query.search ?? null,
           sort: query.sort,
           tags: query.tags,
-        })
-      ),
+        });
+        return {
+          page: listed,
+          principals: yield* principalNames(
+            listed.items.map((item) => item.ownerPrincipalId),
+          ),
+        };
+      }),
     );
     return context.json(artifactPageResponse(
       responseApplicationUrl(context, dependencies),
       page,
+      principals,
     ));
   });
+
+  const setArtifactPinned = async (context: Context<HttpEnvironment, "/api/v1/artifacts/:artifactId/pin">, pinned: boolean) => {
+    await runHttpApplicationEffect(
+      context,
+      dependencies,
+      Effect.gen(function*() {
+        const management = yield* ArtifactManagementService;
+        yield* management.setPinned({
+          artifactId: context.req.param("artifactId"),
+          pinned,
+          principal: context.get("principal"),
+          projectId: requestedProjectId(context),
+        });
+      }),
+    );
+    return context.body(null, 204);
+  };
+
+  app.put("/api/v1/artifacts/:artifactId/pin", (context) => setArtifactPinned(context, true));
+
+  app.delete("/api/v1/artifacts/:artifactId/pin", (context) => setArtifactPinned(context, false));
+
+  app.put(
+    "/api/v1/artifacts/:artifactId/listing",
+    boundedJsonBody,
+    async (context) => {
+      const body = setListingSchema.parse(await context.req.json());
+      const artifact = await runHttpApplicationEffect(
+        context,
+        dependencies,
+        ArtifactManagementService.use((management) =>
+          management.setListing({
+            artifactId: context.req.param("artifactId"),
+            listed: body.listed,
+            principal: context.get("principal"),
+            projectId: requestedProjectId(context),
+          })
+        ),
+      );
+      return context.json({artifact});
+    },
+  );
 
   app.get("/api/v1/artifacts/:artifactId", async (context) => {
     const read = await runHttpApplicationEffect(
@@ -1567,6 +1631,7 @@ export function createHttpApp(
         const management = yield* ArtifactManagementService;
         const details = yield* management.getArtifact({
           artifactId: context.req.param("artifactId"),
+          openedInBrowser: context.get("authenticationMethod") === "session",
           principal: context.get("principal"),
           projectId: requestedProjectId(context),
         });
@@ -1581,7 +1646,11 @@ export function createHttpApp(
             projectId: details.artifact.projectId,
           })
           : null;
-        return {binding, details};
+        const principals = yield* principalNames([
+          details.artifact.ownerPrincipalId,
+          details.current.version.publisherPrincipalId,
+        ]);
+        return {binding, details, principals};
       }),
     );
     const requestUrl = responseApplicationUrl(context, dependencies);
@@ -1589,6 +1658,7 @@ export function createHttpApp(
       requestUrl,
       dependencies.contentDomain,
       read.details,
+      read.principals,
     );
     if (read.binding === null) return context.json(response);
     const live = liveLink(requestUrl, dependencies, read.details.artifact.id);
@@ -1600,20 +1670,28 @@ export function createHttpApp(
   });
 
   app.get("/api/v1/artifacts/:artifactId/versions", async (context) => {
-    const versions = await runHttpApplicationEffect(
+    const {principals, versions} = await runHttpApplicationEffect(
       context,
       dependencies,
-      ArtifactManagementService.use((management) =>
-        management.listVersions({
+      Effect.gen(function*() {
+        const management = yield* ArtifactManagementService;
+        const saved = yield* management.listVersions({
           artifactId: context.req.param("artifactId"),
           principal: context.get("principal"),
           projectId: requestedProjectId(context),
-        })
-      ),
+        });
+        return {
+          principals: yield* principalNames(
+            saved.map((version) => version.publisherPrincipalId),
+          ),
+          versions: saved,
+        };
+      }),
     );
     const requestUrl = responseApplicationUrl(context, dependencies);
     return context.json({
       artifactId: context.req.param("artifactId"),
+      principals,
       versions: versions.map((version) => versionResponse(
         requestUrl,
         dependencies.contentDomain,
@@ -1624,20 +1702,27 @@ export function createHttpApp(
 
   app.get("/api/v1/artifacts/:artifactId/actions", async (context) => {
     const query = pageQuerySchema.parse(context.req.query());
-    const page = await runHttpApplicationEffect(
+    const {page, principals} = await runHttpApplicationEffect(
       context,
       dependencies,
-      ArtifactManagementService.use((management) =>
-        management.listArtifactActions({
+      Effect.gen(function*() {
+        const management = yield* ArtifactManagementService;
+        const actions = yield* management.listArtifactActions({
           artifactId: context.req.param("artifactId"),
           cursor: decodePageCursor(query.cursor),
           limit: query.limit,
           principal: context.get("principal"),
           projectId: requestedProjectId(context),
-        })
-      ),
+        });
+        return {
+          page: actions,
+          principals: yield* principalNames(
+            actions.items.map((action) => action.principalId),
+          ),
+        };
+      }),
     );
-    return context.json(artifactActionPageResponse(page));
+    return context.json(artifactActionPageResponse(page, principals));
   });
 
   app.get(
@@ -2011,6 +2096,37 @@ export function createHttpApp(
         dependencies.contentDomain,
         state,
       ));
+    },
+  );
+
+  app.post(
+    "/api/v1/artifacts/:artifactId/duplicate",
+    boundedJsonBody,
+    async (context) => {
+      const body = duplicateArtifactSchema.parse(await context.req.json());
+      const result = await runHttpApplicationEffect(
+        context,
+        dependencies,
+        PublishArtifactService.use((publication) =>
+          publication.duplicateArtifact({
+            artifactId: context.req.param("artifactId"),
+            idempotencyKey: requiredIdempotencyKey(
+              context.req.header("idempotency-key"),
+            ),
+            principal: context.get("principal"),
+            projectId: requestedProjectId(context),
+            versionId: body.versionId,
+          })
+        ),
+      );
+      return context.json(
+        publishResponse(
+          responseApplicationUrl(context, dependencies),
+          dependencies.contentDomain,
+          result,
+        ),
+        result.replayed ? 200 : 201,
+      );
     },
   );
 
@@ -2900,6 +3016,7 @@ function artifactDetailsResponse(
   requestUrl: URL,
   contentDomain: string,
   details: ArtifactDetails,
+  principals: Readonly<Record<string, string>>,
 ) {
   return {
     artifact: details.artifact,
@@ -2911,15 +3028,24 @@ function artifactDetailsResponse(
         requestUrl,
       ).toString(),
     },
+    principals,
   };
+}
+
+/** Display names for ids taken from records the caller was already authorized to read. */
+function principalNames(principalIds: readonly string[]) {
+  return InstallationAccessService.use((access) =>
+    access.principalDisplayNames(principalIds)
+  ).pipe(Effect.map((names) => Object.fromEntries(names)));
 }
 
 function artifactPageResponse(
   requestUrl: URL,
   page: ArtifactPage,
+  principals: Readonly<Record<string, string>>,
 ) {
   return {
-    artifacts: page.items.map(({commentCount, versionCount, ...artifact}) => ({
+    artifacts: page.items.map(({commentCount, pinned, versionCount, ...artifact}) => ({
       artifact,
       commentCount,
       links: {
@@ -2929,9 +3055,11 @@ function artifactPageResponse(
           requestUrl,
         ).toString(),
       },
+      pinned,
       versionCount,
     })),
     nextCursor: encodePageCursor(page.nextCursor),
+    principals,
   };
 }
 
@@ -3194,10 +3322,14 @@ function updateCommentThreadCommand(
   return command;
 }
 
-function artifactActionPageResponse(page: ArtifactActionPage) {
+function artifactActionPageResponse(
+  page: ArtifactActionPage,
+  principals: Readonly<Record<string, string>>,
+) {
   return {
     actions: page.items,
     nextCursor: encodePageCursor(page.nextCursor),
+    principals,
   };
 }
 
@@ -3219,8 +3351,10 @@ function decodePageCursor(token: string | undefined): PageCursor | null {
     );
     const cursor = pageCursorSchema.safeParse(decoded);
     if (cursor.success) {
-      const {createdAt, id, rank} = cursor.data;
-      return rank === undefined ? {createdAt, id} : {createdAt, id, rank};
+      const {createdAt, group, id, rank} = cursor.data;
+      const position = {createdAt, id};
+      const grouped = group === undefined ? position : {...position, group};
+      return rank === undefined ? grouped : {...grouped, rank};
     }
   } catch {
     return invalidPageCursor();

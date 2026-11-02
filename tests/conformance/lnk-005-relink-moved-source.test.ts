@@ -51,6 +51,7 @@ const artifactBindingSchema = z.object({
 const versionListSchema = z.object({
   artifactId: z.string().min(1),
   versions: z.array(z.object({version: versionRecordSchema}).loose()),
+  principals: z.record(z.string(), z.string()),
 }).strict();
 const commentThreadSchema = z.object({
   artifactId: z.string().min(1),
@@ -75,6 +76,7 @@ const actionPageSchema = z.object({
     versionId: z.string().min(1),
   }).loose()),
   nextCursor: z.string().nullable(),
+  principals: z.record(z.string(), z.string()),
 }).strict();
 const failureSchema = z.object({
   error: z.object({code: z.string(), message: z.string()}).strict(),

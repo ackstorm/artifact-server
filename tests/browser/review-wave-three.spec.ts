@@ -204,15 +204,15 @@ test.describe("Artifact Server Review wave three", () => {
 
       const search = fixture.page.getByRole("searchbox", {name: "Search artifacts"});
       await search.fill("  DECISION   BOARD ");
-      await expect(fixture.page.getByRole("button", {name: /Decision Board Result/u}))
+      await expect(fixture.page.locator(".as-artifact-card").filter({hasText: "Decision Board Result"}))
         .toBeVisible();
-      await expect(fixture.page.getByRole("button", {name: /Selected historical plan/u}))
+      await expect(fixture.page.locator(".as-artifact-card").filter({hasText: "Selected historical plan"}))
         .toHaveCount(0);
       await expect(preview.getByRole("heading", {name: "Selected preview remains"}))
         .toBeVisible();
 
       await search.fill("HIDDEN-TARGET");
-      await expect(fixture.page.getByRole("button", {name: /Selected historical plan/u}))
+      await expect(fixture.page.locator(".as-artifact-card").filter({hasText: "Selected historical plan"}))
         .toBeVisible();
       await search.fill("hidden");
       await expect(fixture.page.getByText("No matching artifacts", {exact: true})).toBeVisible();

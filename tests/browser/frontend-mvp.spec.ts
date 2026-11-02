@@ -74,7 +74,7 @@ test.describe("Artifact Server frontend MVP", () => {
       await expect(previewHeader.locator("p")).toHaveCount(0);
       await expect(previewHeader.locator(".as-pill")).toHaveCount(0);
       await expect(
-        fixture.page.getByRole("button", {name: /Review fixture/u}),
+        fixture.page.locator(".as-artifact-card").filter({hasText: "Review fixture"}),
       ).toHaveAttribute("aria-current", "true");
       await expect(
         fixture.page.getByRole("button", {name: /Review fixture.*2 versions/u}),
@@ -344,22 +344,22 @@ test.describe("Artifact Server frontend MVP", () => {
       const filterPopover = fixture.page.locator(".as-catalog-filter-popover[data-open]");
       const catalogSort = fixture.page.getByRole("combobox", {name: "Sort artifacts"});
       await filterPopover.getByRole("radio", {name: "With comments"}).check();
-      await expect(fixture.page.getByRole("button", {name: /Review fixture/u})).toBeVisible();
-      await expect(fixture.page.getByRole("button", {name: /Quiet fixture/u})).toHaveCount(0);
+      await expect(fixture.page.locator(".as-artifact-card").filter({hasText: "Review fixture"})).toBeVisible();
+      await expect(fixture.page.locator(".as-artifact-card").filter({hasText: "Quiet fixture"})).toHaveCount(0);
       await filterPopover.getByRole("radio", {name: "No comments"}).check();
-      await expect(fixture.page.getByRole("button", {name: /Quiet fixture/u})).toBeVisible();
-      await expect(fixture.page.getByRole("button", {name: /Review fixture/u})).toHaveCount(0);
+      await expect(fixture.page.locator(".as-artifact-card").filter({hasText: "Quiet fixture"})).toBeVisible();
+      await expect(fixture.page.locator(".as-artifact-card").filter({hasText: "Review fixture"})).toHaveCount(0);
       await expect(preview.getByRole("heading", {name: "Review preview content"})).toBeVisible();
       await filterPopover.getByRole("radio", {name: "All artifacts"}).check();
       await filterPopover.getByRole("checkbox", {name: "quiet"}).check();
-      await expect(fixture.page.getByRole("button", {name: /Quiet fixture/u})).toBeVisible();
-      await expect(fixture.page.getByRole("button", {name: /Review fixture/u})).toHaveCount(0);
+      await expect(fixture.page.locator(".as-artifact-card").filter({hasText: "Quiet fixture"})).toBeVisible();
+      await expect(fixture.page.locator(".as-artifact-card").filter({hasText: "Review fixture"})).toHaveCount(0);
       await filterPopover.getByRole("checkbox", {name: "inspection"}).check();
-      await expect(fixture.page.getByRole("button", {name: /Quiet fixture/u})).toBeVisible();
-      await expect(fixture.page.getByRole("button", {name: /Review fixture/u})).toBeVisible();
+      await expect(fixture.page.locator(".as-artifact-card").filter({hasText: "Quiet fixture"})).toBeVisible();
+      await expect(fixture.page.locator(".as-artifact-card").filter({hasText: "Review fixture"})).toBeVisible();
       await filterPopover.getByRole("checkbox", {name: "quiet"}).uncheck();
-      await expect(fixture.page.getByRole("button", {name: /Quiet fixture/u})).toHaveCount(0);
-      await expect(fixture.page.getByRole("button", {name: /Review fixture/u})).toBeVisible();
+      await expect(fixture.page.locator(".as-artifact-card").filter({hasText: "Quiet fixture"})).toHaveCount(0);
+      await expect(fixture.page.locator(".as-artifact-card").filter({hasText: "Review fixture"})).toBeVisible();
       await filterPopover.getByRole("button", {name: "Any tag"}).click();
       await catalogSort.selectOption("comments");
       await expect(fixture.page.locator(".as-artifact-card").first())
@@ -380,7 +380,7 @@ test.describe("Artifact Server frontend MVP", () => {
       await expect(fixture.page.getByRole("heading", {exact: true, name: "Review fixture"}))
         .toBeVisible();
       await searchArtifacts.fill("");
-      await expect(fixture.page.getByRole("button", {name: /Quiet fixture/u})).toBeVisible();
+      await expect(fixture.page.locator(".as-artifact-card").filter({hasText: "Quiet fixture"})).toBeVisible();
 
       await fixture.page.locator(".as-preview-panel").focus();
       await fixture.page.keyboard.press("k");
@@ -441,7 +441,7 @@ test.describe("Artifact Server frontend MVP", () => {
         .fill("inspection, polished");
       await fixture.page.getByRole("button", {name: "Save tags"}).click();
       await expect(fixture.page.getByText("polished", {exact: true})).toBeVisible();
-      const updatedCatalogCard = fixture.page.getByRole("button", {name: /Review fixture/u});
+      const updatedCatalogCard = fixture.page.locator(".as-artifact-card").filter({hasText: "Review fixture"});
       await expect(updatedCatalogCard).toBeVisible();
       await expect(updatedCatalogCard).not.toContainText("polished");
       await catalogFilters.click();
@@ -594,7 +594,7 @@ test.describe("Artifact Server frontend MVP", () => {
       await expect(fixture.page.getByRole("complementary", {name: "Artifact catalog"}))
         .toBeVisible();
       await expect(fixture.page).toHaveURL(/\/review\?project=prj_default/u);
-      await fixture.page.getByRole("button", {name: /Review fixture/u}).click();
+      await fixture.page.locator(".as-artifact-card").filter({hasText: "Review fixture"}).click();
       await expect(
         fixture.page.getByRole("heading", {exact: true, name: "Review fixture"}),
       ).toBeVisible();
@@ -977,7 +977,7 @@ test.describe("Artifact Server frontend MVP", () => {
       await expect(fixture.page.getByRole("button", {
         name: /Exact target beyond catalog page.*2 versions/u,
       })).toHaveAttribute("aria-current", "true");
-      await expect(fixture.page.getByRole("button", {name: /Catalog decoy/u})).toBeVisible();
+      await expect(fixture.page.locator(".as-artifact-card").filter({hasText: "Catalog decoy"})).toBeVisible();
 
       const unavailable = new URL(target.body.links.review);
       unavailable.searchParams.set("version", "ver_missing-review-version");
@@ -1336,15 +1336,15 @@ test.describe("Artifact Server frontend MVP", () => {
       });
 
       await localLogin(fixture);
-      await expect(fixture.page.getByRole("button", {name: /Private fixture/u})).toBeVisible();
-      await expect(fixture.page.getByRole("button", {name: /Public fixture/u})).toBeVisible();
+      await expect(fixture.page.locator(".as-artifact-card").filter({hasText: "Private fixture"})).toBeVisible();
+      await expect(fixture.page.locator(".as-artifact-card").filter({hasText: "Public fixture"})).toBeVisible();
 
       await fixture.page.getByRole("searchbox", {name: "Search artifacts"}).fill("ready");
-      await expect(fixture.page.getByRole("button", {name: /Public fixture/u})).toBeVisible();
-      await expect(fixture.page.getByRole("button", {name: /Private fixture/u})).toHaveCount(0);
+      await expect(fixture.page.locator(".as-artifact-card").filter({hasText: "Public fixture"})).toBeVisible();
+      await expect(fixture.page.locator(".as-artifact-card").filter({hasText: "Private fixture"})).toHaveCount(0);
       await fixture.page.getByRole("searchbox", {name: "Search artifacts"}).fill("");
 
-      await fixture.page.getByRole("button", {name: /Public fixture/u}).click();
+      await fixture.page.locator(".as-artifact-card").filter({hasText: "Public fixture"}).click();
       const [publicPage] = await Promise.all([
         fixture.context.waitForEvent("page"),
         fixture.page.getByRole("button", {name: "Open raw artifact"}).click(),
@@ -1352,7 +1352,7 @@ test.describe("Artifact Server frontend MVP", () => {
       await expect(publicPage.locator("body")).toContainText("public browser content");
       await publicPage.close();
 
-      await fixture.page.getByRole("button", {name: /Private fixture/u}).click();
+      await fixture.page.locator(".as-artifact-card").filter({hasText: "Private fixture"}).click();
       const [privatePage] = await Promise.all([
         fixture.context.waitForEvent("page"),
         fixture.page.getByRole("button", {name: "Open raw artifact"}).click(),

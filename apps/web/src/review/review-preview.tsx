@@ -693,6 +693,7 @@ function reviewThemeTokens() {
     "--font-sans": '"Atkinson Hyperlegible Next", ui-sans-serif, sans-serif',
     "--foreground": value("--as-text"),
     "--input": value("--as-border"),
+    "--marker": value("--marker"),
     "--muted": value("--as-surface-raised"),
     "--muted-foreground": value("--as-subtle"),
     "--popover": value("--as-surface-raised"),

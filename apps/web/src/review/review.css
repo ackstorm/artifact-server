@@ -2015,6 +2015,54 @@ select:focus-visible {
   width: 0.85rem;
 }
 
+.as-more-menu {
+  background: var(--as-surface);
+  border: 1px solid var(--as-border);
+  box-shadow: 0 0.35rem 1.2rem rgb(0 0 0 / 24%);
+  color: var(--as-text);
+  outline: none;
+  padding: 0.35rem;
+  width: min(19rem, calc(100vw - 1rem));
+}
+
+.as-more-menu__item {
+  align-items: flex-start;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  gap: 0.65rem;
+  padding: 0.55rem 0.6rem;
+  text-align: left;
+  width: 100%;
+}
+
+.as-more-menu__item:hover:not(:disabled),
+.as-more-menu__item:focus-visible {
+  background: var(--as-surface-raised);
+}
+
+.as-more-menu__item:disabled {
+  cursor: progress;
+  opacity: 0.6;
+}
+
+.as-more-menu__item strong {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.as-more-menu__item small {
+  color: var(--as-subtle);
+  display: block;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  margin-top: 0.15rem;
+}
+
 .as-share-message {
   border: 1px solid var(--as-border);
   font-size: 0.72rem;
@@ -4001,4 +4049,146 @@ body:has(.as-settings) [data-slot="dialog-trigger"]:active:not(:disabled) {
 
 .as-app[data-focus-mode="true"] .as-markdown-preview__toolbar {
   padding-top: 4.5rem;
+}
+
+.as-principal-chip {
+  align-items: center;
+  display: inline-flex;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.as-principal-chip__avatar {
+  align-items: center;
+  background: var(--as-iris-soft);
+  border-radius: 50%;
+  color: var(--as-iris);
+  display: inline-flex;
+  flex: none;
+  font-size: 0.55rem;
+  font-weight: 700;
+  height: 1.25rem;
+  justify-content: center;
+  width: 1.25rem;
+}
+
+.as-principal-chip__name {
+  font-size: 0.75rem;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.as-principal-chip__via {
+  color: var(--as-muted);
+  font-size: 0.65rem;
+  white-space: nowrap;
+}
+
+.as-catalog-group__label {
+  background: var(--as-canvas);
+  border-bottom: 1px solid color-mix(in oklab, var(--as-border) 68%, transparent);
+  color: var(--as-subtle);
+  font-family: "Atkinson Hyperlegible Mono", monospace;
+  font-size: 0.61rem;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  margin: 0;
+  padding: 0.5rem 0.75rem 0.35rem;
+  text-transform: uppercase;
+}
+
+.as-artifact-card-row {
+  position: relative;
+}
+
+.as-artifact-card__pin {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: var(--as-muted);
+  cursor: pointer;
+  display: inline-flex;
+  height: 1.5rem;
+  justify-content: center;
+  opacity: 0;
+  position: absolute;
+  right: 0.4rem;
+  top: 0.4rem;
+  width: 1.5rem;
+}
+
+.as-artifact-card-row:hover .as-artifact-card__pin,
+.as-artifact-card__pin:focus-visible,
+.as-artifact-card__pin[data-pinned="true"] {
+  opacity: 1;
+}
+
+.as-artifact-card__pin:hover {
+  color: var(--as-text);
+}
+
+.as-artifact-card__pin:focus-visible {
+  outline: 2px solid var(--as-iris);
+  outline-offset: 1px;
+}
+
+.as-artifact-card__pin[data-pinned="true"] {
+  color: var(--as-iris);
+}
+
+.as-artifact-card-row .as-artifact-card__title-row {
+  padding-right: 1.9rem;
+}
+
+.as-catalog-tabs {
+  display: flex;
+  gap: 0.15rem;
+  margin-bottom: 0.5rem;
+}
+
+.as-catalog-tabs__tab {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--as-radius);
+  color: var(--as-iris);
+  cursor: pointer;
+  flex: 1;
+  font-size: 0.76rem;
+  min-height: 1.9rem;
+}
+
+.as-catalog-tabs__tab[aria-selected="true"] {
+  background: var(--as-surface);
+  border-color: var(--as-border);
+  color: var(--as-text);
+}
+
+.as-artifact-card__listed {
+  color: var(--as-iris);
+}
+
+.as-share-listing {
+  margin-top: 0.75rem;
+}
+
+.as-share-listing__row {
+  align-items: center;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+}
+
+.as-share-listing__title {
+  color: var(--as-text);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.as-share-listing > p {
+  color: var(--as-subtle);
+  font-size: 0.7rem;
+  line-height: 1.45;
+  margin: 0.4rem 0 0;
 }

@@ -13,11 +13,13 @@ Every artifact has an owner and one of three sharing levels:
 | Level | Wire value | Who opens it with the link | Who sees it in lists |
 | --- | --- | --- | --- |
 | Private | `private` | The owner | The owner |
-| Organization | `account_required` | Any principal of the installation with read authority | The owner |
-| Public | `public_link` | Anyone who can reach the server, signed in or not | The owner |
+| Organization | `account_required` | Any principal of the installation with read authority | The owner; other readers in Shared with me when listed or opened |
+| Public | `public_link` | Anyone who can reach the server, signed in or not | The owner; other readers in Shared with me when listed or opened |
 
 New artifacts are Private. The owner shares an artifact by raising its level and
-handing out the link. Nobody discovers another person's artifact by browsing.
+handing out the link. Nobody discovers another person's artifact by browsing,
+unless its owner lists it for the organization
+([decision 0035](./decisions/0035-owner-listed-and-opened-artifacts.md)).
 
 This replaces SCP-008, under which every admitted member reads and manages every
 artifact. The two existing wire values keep their names and their reach for a
@@ -71,8 +73,11 @@ thread is read through the comment surfaces above.
 
 `listArtifacts` returns only artifacts the principal owns. For a human
 administrator it also returns service-owned ones. Search and tag filters apply on
-top. An Organization or Public artifact owned by someone else is opened by link,
-never listed.
+top. An Organization or Public artifact owned by someone else is opened by link.
+It appears only in the reader's Shared with me list, when its owner listed it or
+the reader opened it
+([decision 0035](./decisions/0035-owner-listed-and-opened-artifacts.md),
+[Review catalog §4](./review-catalog-spec.md#4-shared-with-me)).
 
 ### Change
 
@@ -216,7 +221,6 @@ GENERAL ACCESS
 Each of these can be added later on top of this model:
 
 - links that expire
-- a "Shared with me" list
 - sharing with named people or groups
 - per-project membership
 - transfer of ownership

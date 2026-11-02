@@ -34,6 +34,7 @@ import type {
   CommitNewArtifact,
   IdGenerator,
   PublicationSource,
+  StagedUploadSource,
   StoredBlob,
 } from "../core/ports.js";
 import type {ManifestFailure} from "./parse-manifest.js";
@@ -43,6 +44,14 @@ import {
 } from "./authorization.js";
 import type { ApplicationClock } from "./application-clock.js";
 import { parseIdempotencyKey } from "./idempotency-key.js";
+import {
+  type ArtifactManagementFailure,
+  ArtifactManagementService,
+} from "./artifact-management.js";
+import {
+  type ProjectManagementFailure,
+  ProjectManagementService,
+} from "./project-management.js";
 import { PublicLinkPolicyService } from "./public-link-policy.js";
 import { parseArtifactTags } from "./artifact-tags.js";
 
@@ -65,7 +74,7 @@ export interface PublishPreparedNewArtifactCommand {
   readonly principal: Principal;
   readonly projectId: string;
   readonly reviewMode?: ReviewMode;
-  readonly source: PublicationSource;
+  readonly source: StagedUploadSource;
   readonly tags?: readonly string[];
 }
 
@@ -78,7 +87,16 @@ export interface PublishPreparedVersionCommand {
   readonly manifest: CanonicalManifest;
   readonly principal: Principal;
   readonly projectId: string;
-  readonly source: PublicationSource;
+  readonly source: StagedUploadSource;
+}
+
+/** Input for copying one readable saved version into a new Private artifact. */
+export interface DuplicateArtifactCommand {
+  readonly artifactId: string;
+  readonly idempotencyKey: string;
+  readonly principal: Principal;
+  readonly projectId: string | null;
+  readonly versionId: string;
 }
 
 type SourceReadinessFailure =
@@ -151,9 +169,14 @@ export type PublishArtifactFailure =
   | BlobStorageFailure
   | StagingStorageFailure
   | AuthorizationDenied
-  | PublicLinksDisabled;
+  | PublicLinksDisabled
+  | ArtifactManagementFailure
+  | ProjectManagementFailure;
 
 interface PublishArtifactOperations {
+  readonly duplicateArtifact: (
+    command: DuplicateArtifactCommand,
+  ) => Effect.Effect<PublishedVersion, PublishArtifactFailure>;
   readonly publishPreparedNew: (
     command: PublishPreparedNewArtifactCommand,
   ) => Effect.Effect<PublishedVersion, PublishArtifactFailure>;
@@ -173,14 +196,25 @@ export class PublishArtifactService extends Context.Service<
   ): Layer.Layer<
     PublishArtifactService,
     never,
-    AuthorizationService | PublicLinkPolicyService
+    ArtifactManagementService
+    | AuthorizationService
+    | ProjectManagementService
+    | PublicLinkPolicyService
   > =>
     Layer.effect(
       PublishArtifactService,
       Effect.gen(function*() {
         const authorization = yield* AuthorizationService;
         const publicLinks = yield* PublicLinkPolicyService;
-        return makePublishArtifactService(dependencies, authorization, publicLinks);
+        const management = yield* ArtifactManagementService;
+        const projects = yield* ProjectManagementService;
+        return makePublishArtifactService(
+          dependencies,
+          authorization,
+          publicLinks,
+          management,
+          projects,
+        );
       }),
     );
 }
@@ -188,10 +222,21 @@ export class PublishArtifactService extends Context.Service<
 const artifactNameSchema = Schema.Trim.check(Schema.isLengthBetween(1, 200));
 const decodeArtifactName = Schema.decodeUnknownEffect(artifactNameSchema);
 
+const copySuffix = " (copy)";
+
+/** "{name} (copy)", cut at a character boundary to fit the 200-character name limit. */
+function copyName(name: string): string {
+  const characters = Array.from(new Intl.Segmenter().segment(name), ({segment}) => segment);
+  while (characters.join("").length + copySuffix.length > 200) characters.pop();
+  return `${characters.join("")}${copySuffix}`;
+}
+
 function makePublishArtifactService(
   dependencies: PublishArtifactDependencies,
   authorization: AuthorizationOperations,
   publicLinks: PublicLinkPolicyService["Service"],
+  management: ArtifactManagementService["Service"],
+  projects: ProjectManagementService["Service"],
 ): PublishArtifactOperations {
   const storeFiles = Effect.fn("PublishArtifactService.storeFiles")(
     function*(
@@ -350,7 +395,61 @@ function makePublishArtifactService(
     });
   });
 
+  const duplicateArtifact = Effect.fn("PublishArtifactService.duplicateArtifact")(
+    function*(
+      command: DuplicateArtifactCommand,
+    ): Effect.fn.Return<PublishedVersion, PublishArtifactFailure> {
+      const project = command.projectId === null
+        ? yield* projects.resolveActiveProject({
+          principal: command.principal,
+          projectId: null,
+        })
+        : yield* projects.getProject({
+          principal: command.principal,
+          projectId: command.projectId,
+        });
+      const idempotencyKey = yield* parseIdempotencyKey(command.idempotencyKey);
+      const inputDigest = createHash("sha256").update(JSON.stringify({
+        duplicateOf: command.versionId,
+        principalId: command.principal.id,
+        projectId: project.id,
+      })).digest("hex");
+      const replayed = yield* dependencies.repository.findIdempotentPublication(
+        project.id,
+        idempotencyKey,
+        inputDigest,
+      );
+      if (replayed !== null) return replayed;
+      const source = yield* management.getVersionDetails({
+        artifactId: command.artifactId,
+        principal: command.principal,
+        projectId: project.id,
+        versionId: command.versionId,
+      });
+      yield* authorization.requireArtifactCreation(command.principal);
+      const projectId = source.artifact.projectId;
+      return yield* dependencies.repository.commitNewArtifact({
+        accessSetting: accessSettings.private,
+        artifactId: dependencies.ids.artifactId(),
+        authorizedByPrincipalId: command.principal.authorizedByPrincipalId,
+        contentToken: dependencies.ids.contentToken(),
+        createdAt: DateTime.formatIso(yield* dependencies.clock.now),
+        idempotencyKey,
+        inputDigest,
+        manifest: source.saved.manifest,
+        name: copyName(source.artifact.name),
+        principalId: command.principal.id,
+        projectId,
+        reviewMode: source.artifact.reviewMode,
+        source: {kind: "saved_version"},
+        tags: [],
+        versionId: dependencies.ids.versionId(),
+      });
+    },
+  );
+
   return PublishArtifactService.of({
+    duplicateArtifact,
     publishPreparedNew,
     publishPreparedVersion,
   });

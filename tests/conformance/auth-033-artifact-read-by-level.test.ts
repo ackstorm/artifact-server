@@ -63,6 +63,8 @@ interface ApplicationCookies {
 
 interface ReadTarget {
   readonly artifactId: string;
+  /** A Private artifact whose only file is binary, so artifact_read_file issues a URL. */
+  readonly binaryArtifactId: string;
   readonly firstVersionId: string;
   readonly secondVersionId: string;
   readonly threadId: string;
@@ -143,6 +145,15 @@ describe("artifact read authority by sharing level", () => {
       idempotencyKey: "auth-033-ada-second",
       projectId,
     });
+    const binary = await publishNew(server, adaInstallation, {
+      accessSetting: "private",
+      content: "\u0000PNG",
+      idempotencyKey: "auth-033-ada-binary",
+      mediaType: "image/png",
+      name: "Ada's private image",
+      path: "chart.png",
+      projectId,
+    });
     const thread = await new ApiClient(server, adaKey).openThread(
       second.body,
       "Only Ada should see this.",
@@ -150,11 +161,16 @@ describe("artifact read authority by sharing level", () => {
     );
     const target: ReadTarget = {
       artifactId: first.body.artifact.id,
+      binaryArtifactId: binary.body.artifact.id,
       firstVersionId: first.body.version.id,
       secondVersionId: second.body.version.id,
       threadId: thread.id,
     };
-    const missing: ReadTarget = {...target, artifactId: "art_auth033_missing"};
+    const missing: ReadTarget = {
+      ...target,
+      artifactId: "art_auth033_missing",
+      binaryArtifactId: "art_auth033_missing_binary",
+    };
 
     const ownerStatuses = [200, 200, 200, 200, 200, 415, 200, 200, 200, 200, 201, 201, 201];
     const ada = await Promise.all([
@@ -270,6 +286,8 @@ describe("artifact read authority by sharing level", () => {
       callTool(token, "comment_get", {artifactId, threadId: target.threadId}),
       callTool(token, "artifact_open", {artifactId}),
       callTool(token, "artifact_open", {artifactId, versionId: target.firstVersionId}),
+      callTool(token, "artifact_read_file", {artifactId, versionId: target.firstVersionId}),
+      callTool(token, "artifact_read_file", {artifactId: target.binaryArtifactId}),
       callMcp(server, token, "resources/read", manifest, {uri: manifest}),
     ]);
   }
