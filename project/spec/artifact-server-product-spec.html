@@ -1969,8 +1969,9 @@
             <p>
               Every artifact has an owner, the person or service principal that published its first
               version, and one of three sharing levels. The owner shares an artifact by raising its
-              level and handing out the link. Lists show each person only the artifacts they own, so
-              nobody discovers another person's artifact by browsing.
+              level and handing out the link. Lists show each person the artifacts they own. Another
+              person's artifact appears only in Shared with me, when its owner lists it for the
+              organization or the reader has opened its link.
             </p>
           </div>
 
@@ -1994,7 +1995,8 @@
                 <h3>2. Organization</h3>
                 <p>
                   Stored as <code>account_required</code>. Anyone admitted to this installation who
-                  has the link can open the item; it stays out of their lists. A person outside that
+                  has the link can open the item; it appears in their lists only in Shared with
+                  me, when its owner lists it or they have opened it. A person outside that
                   group cannot open it. An optional organization name labels this level in the
                   Review application. A workspace reference may grant a short-lived read-only
                   session for one exact artifact version without granting access to the project
@@ -2013,7 +2015,8 @@
                   send <code>X-Robots-Tag: noindex, nofollow</code> by default, but that is not an
                   access-control guarantee. The public link opens only the current version. Version
                   lists, comparisons, and earlier saved versions still require an account. Only the
-                  owner sees the item in lists.
+                  owner sees the item in lists, apart from Shared with me when the owner lists it or a
+                  signed-in reader has opened it.
                 </p>
               </div>
             </article>

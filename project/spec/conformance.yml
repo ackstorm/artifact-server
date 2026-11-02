@@ -1630,12 +1630,12 @@ requirements:
 
   - id: AUTH-034
     kind: security
-    behavior: Artifact lists and search return only the artifacts the reader owns, plus service-owned artifacts for a human administrator; an Organization or Public artifact owned by someone else is opened by link and never listed.
+    behavior: Artifact lists and search return only the artifacts the reader owns, plus service-owned artifacts for a human administrator; an Organization or Public artifact owned by someone else appears only in the reader's Shared with me list, when its owner listed it or the reader opened it.
     owner: authorization
     source: {file: artifact-sharing-levels-spec.md, anchor: conformance}
     acceptance:
       behavior: {id: AUTH-034-B, description: "Lists return the reader's own artifacts; an administrator's lists also contain service-owned ones."}
-      failure: {id: AUTH-034-F, description: "Another member's Organization and Public artifacts never appear in lists or search results."}
+      failure: {id: AUTH-034-F, description: "Another member's artifacts never appear in Mine lists or search results, and appear in Shared with me only when listed by their owner or opened by the reader."}
     deployments: *all
     status: behavior_verified
     depends_on: [AUTH-032]
@@ -1699,6 +1699,19 @@ requirements:
         result: pass
         run: project/evidence/browser.json
         recorded_at: "2026-10-30T22:00:13.840Z"
+
+  - id: AUTH-038
+    kind: security
+    behavior: Shared with me lists another principal's Organization or Public artifact only when its controller listed it or the reader opened it in the Review web app with a browser session; listing follows the raise rule, each listing change is an action record, and lowering to Private unlists with its own record.
+    owner: authorization
+    source: {file: review-catalog-spec.md, anchor: 4-shared-with-me}
+    acceptance:
+      behavior: {id: AUTH-038-B, description: "An owner lists an Organization artifact from the Share modal and a colleague finds it under Listed for the organization, next to an artifact the colleague opened by link."}
+      failure: {id: AUTH-038-F, description: "Shared with me never holds Private artifacts, service-owned ones for an administrator, or another reader's openings; non-controllers cannot change the listing and a Private artifact cannot be listed; each listing change and the unlisting by a lowering to Private writes one action record and a repeat writes none; API-key, member-bound-key and MCP OAuth-bearer reads record no openings, and a browser-session read does."}
+    deployments: *all
+    status: specified
+    depends_on: [AUTH-033, AUTH-034, AUTH-035]
+    evidence: []
 
   - id: SEC-001
     kind: security
