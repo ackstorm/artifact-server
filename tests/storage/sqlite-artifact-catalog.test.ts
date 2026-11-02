@@ -141,7 +141,7 @@ test("catalog access filter on SQLite keeps only the selected stored levels", as
 test("a schema-17 SQLite database gains artifact_pins without changing artifacts", async () => {
   new SqliteArtifactRepository(databasePath, "test-installation").close();
   const database = new DatabaseSync(databasePath);
-  database.exec("DROP TABLE artifact_pins; PRAGMA user_version = 17;");
+  database.exec("DROP TABLE artifact_openings; DROP TABLE artifact_pins; ALTER TABLE artifacts DROP COLUMN listed; PRAGMA user_version = 17;");
   database.close();
 
   const repository = new SqliteArtifactRepository(databasePath, "test-installation");

@@ -83,7 +83,7 @@ describe("artifact listing by owner", () => {
     expect(opened.status).toBe(200);
   });
 
-  test("AUTH-034-F: another member's Organization and Public artifacts never appear in lists or search results", async () => {
+  test("AUTH-034-F: another member's artifacts never appear in Mine lists or search results, and appear in Shared with me only when listed by their owner or opened by the reader", async () => {
     const {adaKey, bobKey, cookies} = await setUp();
     const organization = await publish(adaKey, "Ada quarterly plan", "account_required");
     await publish(adaKey, "Ada public notes", "public_link");

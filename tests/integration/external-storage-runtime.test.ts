@@ -339,6 +339,9 @@ describe.sequential("external-storage Postgres and S3 runtime", () => {
           // Roll back to schema 11: the migrator applies only migrations after
           // the newest recorded one, so later rows must go with review mode.
           yield* sql.unsafe("ALTER TABLE staged_uploads DROP COLUMN grant_digest");
+          yield* sql.unsafe("DROP TABLE artifact_openings");
+          yield* sql.unsafe("DROP TABLE artifact_pins");
+          yield* sql.unsafe("ALTER TABLE artifacts DROP COLUMN listed");
           yield* sql.unsafe("ALTER TABLE artifacts DROP COLUMN owner_principal_id");
           yield* sql.unsafe("ALTER TABLE artifact_installations DROP COLUMN public_links_enabled");
           yield* sql.unsafe("DELETE FROM artifact_server_postgres_migrations WHERE migration_id >= 12");
@@ -496,6 +499,9 @@ describe.sequential("external-storage Postgres and S3 runtime", () => {
         const sql = yield* SqlClient;
         yield* sql.withTransaction(Effect.gen(function*() {
           const statements = [
+            "DROP TABLE artifact_openings",
+            "DROP TABLE artifact_pins",
+            "ALTER TABLE artifacts DROP COLUMN listed",
             "ALTER TABLE artifacts DROP COLUMN owner_principal_id",
             `ALTER TABLE artifacts
               DROP CONSTRAINT artifacts_access_setting_check,
@@ -980,6 +986,9 @@ describe.sequential("external-storage Postgres and S3 runtime", () => {
       await database.run(Effect.gen(function*() {
         const sql = yield* SqlClient;
         const statements = [
+          "DROP TABLE artifact_openings",
+          "DROP TABLE artifact_pins",
+          "ALTER TABLE artifacts DROP COLUMN listed",
           `ALTER TABLE actions
             DROP CONSTRAINT actions_action_check,
             ADD CONSTRAINT actions_action_check
