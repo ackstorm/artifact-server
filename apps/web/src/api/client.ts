@@ -79,6 +79,7 @@ const artifactSchema = z.object({
   currentVersionId: z.string(),
   deletedAt: z.string().nullable(),
   id: z.string(),
+  listed: z.boolean(),
   name: z.string(),
   ownerPrincipalId: z.string(),
   projectId: z.string(),
@@ -261,9 +262,11 @@ export interface ArtifactAction {
     | "comment_update"
     | "delete"
     | "link"
+    | "list"
     | "publish"
     | "relink"
-    | "restore";
+    | "restore"
+    | "unlist";
   readonly artifactId: string;
   readonly authorizedByPrincipalId: string | null;
   readonly createdAt: string;
@@ -364,9 +367,11 @@ const actionSchema: z.ZodType<ArtifactAction> = z.object({
     "comment_update",
     "delete",
     "link",
+    "list",
     "publish",
     "relink",
     "restore",
+    "unlist",
   ]),
   artifactId: z.string(),
   authorizedByPrincipalId: z.string().nullable(),
@@ -909,6 +914,7 @@ export const api = {
       readonly access?: readonly AccessSetting[];
       readonly comments?: "all" | "with" | "without";
       readonly pinned?: "all" | "only";
+      readonly scope?: "mine" | "shared";
       readonly sort?: "comments" | "newest";
     } = {},
   ) => {
@@ -916,6 +922,7 @@ export const api = {
     query.set("comments", options.comments ?? "all");
     query.set("sort", options.sort ?? "newest");
     query.set("pinned", options.pinned ?? "all");
+    query.set("scope", options.scope ?? "mine");
     for (const level of options.access ?? []) query.append("access", level);
     if (cursor !== null) query.set("cursor", cursor);
     for (const tag of tags) query.append("tag", tag);
@@ -985,6 +992,11 @@ export const api = {
     `/api/v1/artifacts/${encodeURIComponent(artifactId)}/pin?${projectQuery(projectId)}`,
     { headers: mutationHeaders(), method: pinned ? "PUT" : "DELETE" },
   ),
+  setListing: (projectId: string, artifactId: string, listed: boolean) => request(
+    z.object({ artifact: artifactSchema }),
+    `/api/v1/artifacts/${encodeURIComponent(artifactId)}/listing?${projectQuery(projectId)}`,
+    { body: JSON.stringify({ listed }), headers: mutationHeaders(), method: "PUT" },
+  ).then(({ artifact }) => artifact),
   changeAccess: (
     projectId: string,
     artifactId: string,

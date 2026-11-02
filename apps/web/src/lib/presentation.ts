@@ -77,6 +77,8 @@ export function actionLabel(value: ArtifactAction["action"]): string {
       return "Captured linked file";
     case "link":
       return "Linked source file";
+    case "list":
+      return "Listed in Shared with me";
     case "relink":
       return "Relinked source file";
     case "change_access":
@@ -103,6 +105,8 @@ export function actionLabel(value: ArtifactAction["action"]): string {
       return "Published version";
     case "restore":
       return "Restored version";
+    case "unlist":
+      return "Removed from Shared with me";
   }
   return actionHandled(value);
 }

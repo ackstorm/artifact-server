@@ -88,6 +88,7 @@ type ArtifactListLoadResult = "failed" | "loaded" | "skipped";
 type CatalogCommentFilter = "all" | "with" | "without";
 type CatalogRefreshState = "complete" | "idle" | "loading";
 type CatalogSort = "comments" | "newest";
+type CatalogTab = "mine" | "shared";
 const catalogDefaultWidth = 336;
 const catalogMinimumWidth = 240;
 const catalogMaximumWidth = 520;
@@ -642,6 +643,7 @@ function ArtifactReview({
   const [catalogTagFilters, setCatalogTagFilters] = useState<readonly string[]>([]);
   const [catalogAccessFilters, setCatalogAccessFilters] = useState<readonly AccessSetting[]>([]);
   const [catalogPinnedOnly, setCatalogPinnedOnly] = useState(false);
+  const [catalogTab, setCatalogTab] = useState<CatalogTab>("mine");
   const [pinPendingId, setPinPendingId] = useState<string | null>(null);
   const [principalNames, setPrincipalNames] = useState<ReadonlyMap<string, string>>(new Map());
   const [catalogKnownTags, setCatalogKnownTags] = useState<readonly string[]>([]);
@@ -803,6 +805,16 @@ function ArtifactReview({
   };
   useWebmcp(webmcpRef);
 
+  const humanAdministrator = session.principal.kind === "human"
+    && session.principal.authorizedByPrincipalId === null
+    && session.principal.membershipRole === "administrator";
+  const ownerPrincipalId = details?.artifact.ownerPrincipalId;
+  const ownsArtifact = ownerPrincipalId === session.principal.id;
+  const controlsArtifact = ownsArtifact || (
+    humanAdministrator
+    && ownerPrincipalId !== undefined
+    && isServicePrincipalId(ownerPrincipalId)
+  );
   const selectedProject = projects.find((project) => project.id === projectId) ?? null;
   const catalogItems = useMemo<ArtifactPage["artifacts"]>(() => {
     if (
@@ -812,6 +824,7 @@ function ArtifactReview({
       || catalogTagFilters.length > 0
       || catalogAccessFilters.length > 0
       || catalogPinnedOnly
+      || controlsArtifact !== (catalogTab === "mine")
       || items.some(({artifact}) => artifact.id === details.artifact.id)
     ) return items;
     return [{
@@ -825,8 +838,10 @@ function ArtifactReview({
     catalogAccessFilters.length,
     catalogCommentFilter,
     catalogPinnedOnly,
+    catalogTab,
     catalogTagFilters.length,
     comments.threads.length,
+    controlsArtifact,
     details,
     items,
     searchQuery,
@@ -837,16 +852,41 @@ function ArtifactReview({
     || catalogTagFilters.length > 0
     || catalogAccessFilters.length > 0
     || catalogPinnedOnly;
+  const organization = session.installation.organizationName ?? "this Artifact Server";
   const pinnedItems = catalogItems.filter((item) => item.pinned);
   const restItems = catalogItems.filter((item) => !item.pinned);
-  const catalogGroups = [
+  const catalogGroups: readonly {
+    readonly items: ArtifactPage["artifacts"];
+    readonly label: string | null;
+    readonly note?: string;
+  }[] = (catalogTab === "mine" ? [
     {items: pinnedItems, label: "Pinned"},
     {items: restItems, label: pinnedItems.length > 0 ? "All" : null},
-  ].filter((group) => group.items.length > 0);
+  ] : [
+    {items: pinnedItems, label: "Pinned"},
+    {
+      items: restItems.filter(({artifact}) => artifact.listed),
+      label: `Listed for ${organization}`,
+      note: "Owners chose to list these.",
+    },
+    {
+      items: restItems.filter(({artifact}) => !artifact.listed),
+      label: "Opened by link",
+      note: "You opened these from a link.",
+    },
+  ]).filter((group) => group.items.length > 0);
   const selectedIndex = catalogItems.findIndex(
     ({artifact}) => artifact.id === selectedArtifactId,
   );
   const selectedItem = selectedIndex < 0 ? null : catalogItems[selectedIndex] ?? null;
+  const mergePrincipalNames = useCallback((
+    ...maps: readonly Readonly<Record<string, string>>[]
+  ): void => {
+    setPrincipalNames((current) => new Map([
+      ...current,
+      ...maps.flatMap((names) => Object.entries(names)),
+    ]));
+  }, []);
   const loadArtifacts = useCallback(async (
     cursor: string | null,
     replace: boolean,
@@ -860,9 +900,11 @@ function ArtifactReview({
         access: catalogAccessFilters,
         comments: catalogCommentFilter,
         pinned: catalogPinnedOnly ? "only" : "all",
+        scope: catalogTab,
         sort: catalogSort,
       });
       if (requestGeneration !== catalogRequestGenerationRef.current) return "skipped";
+      mergePrincipalNames(page.principals);
       setCatalogKnownTags((current) => {
         const next = new Set(current);
         for (const {artifact} of page.artifacts) {
@@ -895,7 +937,9 @@ function ArtifactReview({
     catalogCommentFilter,
     catalogPinnedOnly,
     catalogSort,
+    catalogTab,
     catalogTagFilters,
+    mergePrincipalNames,
     projectId,
     searchQuery,
   ]);
@@ -951,17 +995,8 @@ function ArtifactReview({
     selectedArtifactIdRef.current = selectedArtifactId;
   }, [selectedArtifactId]);
 
-  const mergePrincipalNames = useCallback((
-    ...maps: readonly Readonly<Record<string, string>>[]
-  ): void => {
-    setPrincipalNames((current) => new Map([
-      ...current,
-      ...maps.flatMap((names) => Object.entries(names)),
-    ]));
-  }, []);
 
   useEffect(() => {
-    setPrincipalNames(new Map());
     if (selectedArtifactId === null || projectId === "") {
       setDetails(null);
       setVersions([]);
@@ -1152,16 +1187,7 @@ function ArtifactReview({
     session.principal.kind === "human"
     && session.principal.authorizedByPrincipalId === null
   ) || session.principal.capabilities.includes("project:manage");
-  const humanAdministrator = session.principal.kind === "human"
-    && session.principal.authorizedByPrincipalId === null
-    && session.principal.membershipRole === "administrator";
-  const ownerPrincipalId = details?.artifact.ownerPrincipalId;
-  const ownsArtifact = ownerPrincipalId === session.principal.id;
-  const controlsArtifact = ownsArtifact || (
-    humanAdministrator
-    && ownerPrincipalId !== undefined
-    && isServicePrincipalId(ownerPrincipalId)
-  );
+  const ownerName = ownerPrincipalId === undefined ? null : principalNames.get(ownerPrincipalId) ?? null;
   const canManageArtifacts = selectedProject?.archivedAt === null
     && controlsArtifact
     && (
@@ -1220,6 +1246,7 @@ function ArtifactReview({
     updateArtifact(changed.artifact);
   };
   const updateArtifact = (artifact: ArtifactDetails["artifact"]): void => {
+    setActions([]);
     setCatalogKnownTags((current) => [...new Set([...current, ...artifact.tags])].toSorted());
     setDetails((current) => current?.artifact.id === artifact.id
       ? {...current, artifact}
@@ -1654,6 +1681,24 @@ function ArtifactReview({
         </header>
 
         <div className="as-catalog__tools">
+          <div aria-label="Artifact catalog scope" className="as-catalog-tabs" role="tablist">
+            {([["mine", "Mine"], ["shared", "Shared with me"]] as const).map(([tab, label]) => (
+              <button
+                aria-controls="review-catalog-panel"
+                aria-selected={catalogTab === tab}
+                className="as-catalog-tabs__tab"
+                key={tab}
+                onClick={() => {
+                  setCatalogTab(tab);
+                  setSelectedArtifactId(null);
+                }}
+                role="tab"
+                type="button"
+              >
+                {label}
+              </button>
+            ))}
+          </div>
           <div className="as-search-group">
             <label className="as-search">
               <span className="as-visually-hidden">Search artifacts</span>
@@ -1700,7 +1745,7 @@ function ArtifactReview({
           </div>
         </div>
 
-        <div className="as-catalog__list">
+        <div className="as-catalog__list" id="review-catalog-panel" role="tabpanel">
           {listError === null ? null : (
             <InlineState description={listError.message} title="Catalog unavailable" tone="error" />
           )}
@@ -1712,19 +1757,23 @@ function ArtifactReview({
               description={
                 filteredCatalog
                   ? "Try clearing a filter or using a wider search."
-                  : "Publish from the CLI to populate this project."
+                  : catalogTab === "shared"
+                    ? `Artifacts people list for ${organization}, and ones you open from a link, appear here.`
+                    : "Publish from the CLI to populate this project."
               }
               title={
                 filteredCatalog
                   ? "No matching artifacts"
-                  : "No artifacts yet"
+                  : catalogTab === "shared"
+                    ? "Nothing shared with you yet"
+                    : "No artifacts yet"
               }
             />
           ) : null}
           {catalogGroups.map((group) => (
             <section className="as-catalog-group" key={group.label ?? "all"}>
               {group.label === null ? null : (
-                <h2 className="as-catalog-group__label">{group.label}</h2>
+                <h2 className="as-catalog-group__label" title={group.note}>{group.label}</h2>
               )}
               {group.items.map(({artifact, commentCount, pinned, versionCount}) => {
                 const displayedCommentCount = artifact.id === selectedArtifactId && !comments.loading
@@ -1740,14 +1789,23 @@ function ArtifactReview({
                       type="button"
                     >
                       <span className="as-artifact-card__title-row">
-                        <strong>{artifact.name}</strong>
+                        <strong className="as-artifact-card__title">{artifact.name}</strong>
                         <AccessPill access={artifact.accessSetting} />
                       </span>
                       <span className="as-artifact-card__meta">
                         <span className="as-artifact-card__history">
-                          <time dateTime={artifact.createdAt}>{formatTimestamp(artifact.createdAt)}</time>
+                          {catalogTab === "shared" ? (
+                            <span className="as-artifact-card__owner">
+                              {principalNames.get(artifact.ownerPrincipalId) ?? "Unknown"}
+                            </span>
+                          ) : (
+                            <time dateTime={artifact.createdAt}>{formatTimestamp(artifact.createdAt)}</time>
+                          )}
                           <span aria-hidden="true">·</span>
                           <span>{versionCount} version{versionCount === 1 ? "" : "s"}</span>
+                          {catalogTab === "mine" && artifact.listed ? (
+                            <span className="as-artifact-card__listed">Listed</span>
+                          ) : null}
                         </span>
                         <span className="as-artifact-card__counts">
                           <span>
@@ -1892,6 +1950,7 @@ function ArtifactReview({
                     key={`focus-share-${details?.artifact.id ?? "empty"}`}
                     onArtifactChanged={updateArtifact}
                     organizationName={session.installation.organizationName}
+                    ownerName={ownerName}
                     publicLinksEnabled={session.installation.publicLinksEnabled}
                     selectedPath={selectedPath}
                     selectedVersion={selectedVersion}
@@ -2016,6 +2075,7 @@ function ArtifactReview({
                 key={`header-share-${details?.artifact.id ?? "empty"}`}
                 onArtifactChanged={updateArtifact}
                 organizationName={session.installation.organizationName}
+                ownerName={ownerName}
                 publicLinksEnabled={session.installation.publicLinksEnabled}
                 selectedPath={selectedPath}
                 selectedVersion={selectedVersion}

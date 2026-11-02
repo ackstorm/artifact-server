@@ -4093,3 +4093,54 @@ body:has(.as-settings) [data-slot="dialog-trigger"]:active:not(:disabled) {
 .as-artifact-card-row .as-artifact-card__title-row {
   padding-right: 1.9rem;
 }
+
+.as-catalog-tabs {
+  display: flex;
+  gap: 0.15rem;
+  margin-bottom: 0.5rem;
+}
+
+.as-catalog-tabs__tab {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--as-radius);
+  color: var(--as-iris);
+  cursor: pointer;
+  flex: 1;
+  font-size: 0.76rem;
+  min-height: 1.9rem;
+}
+
+.as-catalog-tabs__tab[aria-selected="true"] {
+  background: var(--as-surface);
+  border-color: var(--as-border);
+  color: var(--as-text);
+}
+
+.as-artifact-card__listed {
+  color: var(--as-iris);
+}
+
+.as-share-listing {
+  margin-top: 0.75rem;
+}
+
+.as-share-listing__row {
+  align-items: center;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+}
+
+.as-share-listing__title {
+  color: var(--as-text);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.as-share-listing > p {
+  color: var(--as-subtle);
+  font-size: 0.7rem;
+  line-height: 1.45;
+  margin: 0.4rem 0 0;
+}

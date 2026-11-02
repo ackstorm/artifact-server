@@ -30,13 +30,18 @@ export interface TeamFixture {
   readonly adaCookies: {readonly csrf: string; readonly header: string};
   readonly adaKey: string;
   readonly bob: Page;
+  /** An API key for Carol, a third member, when the fixture was started with her. */
+  readonly carolKey: string | null;
   readonly contexts: readonly BrowserContext[];
   readonly installation: TestInstallation;
   readonly oidc: RunningStubOidcProvider;
   readonly server: RunningTestServer;
 }
 
-export async function startTeamFixture(browser: Browser): Promise<TeamFixture> {
+export async function startTeamFixture(
+  browser: Browser,
+  options: {readonly withCarol?: boolean} = {},
+): Promise<TeamFixture> {
   const installation = await createTestInstallation();
   const oidc = await startStubOidcProvider({
     clientId: "artifact-server-team-fixture",
@@ -73,6 +78,15 @@ export async function startTeamFixture(browser: Browser): Promise<TeamFixture> {
     "Ada's agent",
     adaId,
   );
+  const carolKey = options.withCarol === true
+    ? await issueApiKey(
+      server,
+      administrator,
+      ["artifact:create", "artifact:read"],
+      "Carol's agent",
+      await admitMember(server, administrator, "Carol", "carol@example.test"),
+    )
+    : null;
   const adaCookies = await signInWithStubOidc(
     server.baseUrl,
     oidc,
@@ -90,6 +104,7 @@ export async function startTeamFixture(browser: Browser): Promise<TeamFixture> {
     adaCookies,
     adaKey,
     bob: await bobContext.newPage(),
+    carolKey,
     contexts: [adaContext, bobContext],
     installation,
     oidc,
