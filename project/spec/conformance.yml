@@ -2080,6 +2080,19 @@ requirements:
         run: project/evidence/local-foundation.json
         recorded_at: "2026-08-25T18:29:58.000Z"
 
+  - id: MCP-021
+    kind: security
+    behavior: artifact_read_file returns one file of a readable version without putting large or binary bytes in the agent context, as UTF-8 text up to 1 MiB checked against the manifest digest or as a short-lived credential-free preview-lease URL.
+    owner: mcp
+    source: {file: artifact-server-mcp-baseline.md, anchor: mcp-tools-and-resources}
+    acceptance:
+      behavior: {id: MCP-021-B, description: "Read the current and an exact earlier version inline, and fetch a binary file through its download URL with no credential after a server restart, matching the manifest digest."}
+      failure: {id: MCP-021-F, description: "A missing or traversing path, an unknown version or artifact, and an unauthenticated caller get no bytes and no URL; another member, a member-bound key, a service key and an administrator get ARTIFACT_NOT_FOUND for another member's Private text and binary files (AUTH-033 sweep)."}
+    deployments: *all
+    status: specified
+    depends_on: [AUTH-033, MCP-018]
+    evidence: []
+
   - id: SKL-001
     kind: behavior
     behavior: Artifact Server ships one portable artifact-server skill that routes routine artifact work and explicit server-operation work to separate internal references.

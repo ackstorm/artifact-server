@@ -19,6 +19,7 @@ import {AuthenticationService} from "../application/authentication.js";
 import {
   isArtifactServerFailure,
 } from "../core/errors.js";
+import type {BlobStore} from "../core/ports.js";
 import {
   membershipRoles,
   principalCapabilities,
@@ -57,6 +58,7 @@ export interface McpHttpAdapterDependencies {
   readonly allowedOriginHostnames: readonly string[];
   readonly applicationOrigin: string | null;
   readonly applicationRuntime: ApplicationRuntime;
+  readonly blobs: BlobStore;
   readonly contentDomain: string;
   readonly linkedArtifacts?: boolean;
   readonly mode: ArtifactMcpServerDependencies["mode"];
@@ -82,6 +84,7 @@ export function createMcpHttpAdapter(
         applicationOrigin: dependencies.applicationOrigin
           ?? requestOrigin(context.requestInfo),
         applicationRuntime: dependencies.applicationRuntime,
+        blobs: dependencies.blobs,
         contentDomain: dependencies.contentDomain,
         linkedArtifacts: dependencies.linkedArtifacts === true,
         mode: dependencies.mode,
