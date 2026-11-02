@@ -726,7 +726,7 @@ export class SqliteArtifactRepository implements
         command.name,
         normalizeArtifactSearchText(command.name),
         command.accessSetting,
-        command.reviewMode ?? reviewModes.annotate,
+        command.reviewMode ?? reviewModes.interact,
         command.createdAt,
         command.principalId,
         binding === null ? null : binding.path,
@@ -4484,6 +4484,10 @@ export class SqliteArtifactRepository implements
     this.#addStagedUploadGrantIfMissing();
     this.#addArtifactOwnerIfMissing();
     this.#addArtifactListingIfMissing();
+    if (previousSchemaVersion < 20) {
+      // Interact is the installation default; existing artifacts follow it once.
+      this.#database.exec("UPDATE artifacts SET review_mode = 'interact'");
+    }
     this.#database.exec(`
       CREATE INDEX IF NOT EXISTS projects_active_created
         ON projects (archived_at, created_at, id);
@@ -5074,7 +5078,6 @@ export class SqliteArtifactRepository implements
         END;
       `);
     });
-    this.#database.exec(`PRAGMA user_version = ${requiredSqliteSchemaVersion};`);
   }
 
   #addActionAuthorizerColumnIfMissing(): void {

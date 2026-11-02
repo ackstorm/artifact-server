@@ -21,11 +21,11 @@ test.describe("Artifact review mode", () => {
     {defaultMode: "interact", linkMode: "annotate", expected: "annotate"},
     {defaultMode: "interact", linkMode: null, expected: "interact"},
     {defaultMode: "interact", linkMode: "ANNOTATE", expected: "interact"},
-    {defaultMode: undefined, linkMode: "invalid", expected: "annotate"},
-    {defaultMode: undefined, linkMode: null, expected: "annotate"},
+    {defaultMode: undefined, linkMode: "invalid", expected: "interact"},
+    {defaultMode: undefined, linkMode: null, expected: "interact"},
   ] as const) {
     const primary = scenario.defaultMode === "annotate" && scenario.linkMode === "interact";
-    test(`${primary ? "PRV-006-B PRV-006-F: " : ""}artifact review mode: ${scenario.defaultMode ?? "legacy"} default with ${scenario.linkMode ?? "no"} override starts ${scenario.expected}`, async ({browser}) => {
+    test(`${primary ? "PRV-006-B PRV-006-F: " : ""}artifact review mode: ${scenario.defaultMode ?? "omitted"} default with ${scenario.linkMode ?? "no"} override starts ${scenario.expected}`, async ({browser}) => {
       const fixture = await startBrowserFixture(browser);
       try {
         const input: PublishNewInput = {

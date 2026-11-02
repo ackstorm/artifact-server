@@ -1202,7 +1202,7 @@ export function createArtifactMcpServer(
             ),
             kind: z.literal("new_artifact"),
             name: z.string().min(1).max(200),
-            reviewMode: z.enum(["annotate", "interact"]).default("annotate"),
+            reviewMode: z.enum(["annotate", "interact"]).optional(),
             tags: z.array(tagSchema).max(20).default([]),
           }).strict(),
           z.object({

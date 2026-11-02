@@ -299,7 +299,7 @@ describe.sequential("external-storage Postgres and S3 runtime", () => {
     }
   });
 
-  test("ART-012: populated PostgreSQL schema upgrades artifacts and historical retries to annotate", async () => {
+  test("ART-012: populated PostgreSQL schema upgrades artifacts to interact and replays historical retries as annotate", async () => {
     const identity = {apiToken: managedTestKey("postgres-review-upgrade"), installationId: "postgres-review-upgrade"};
     let server = await startInProcessExternalStorageServer(environment, identity);
     const content = "<h1>Pre-feature PostgreSQL artifact</h1>";
@@ -359,6 +359,10 @@ describe.sequential("external-storage Postgres and S3 runtime", () => {
     expect(replay.status).toBe(200);
     expect(await replay.json()).toMatchObject({artifact: {reviewMode: "annotate"}, replayed: true, version: publication.version});
     expect(await (await fetchContentThroughServer(server.baseUrl, publication.links.version)).text()).toBe(content);
+    const details = await fetch(new URL(`/api/v1/artifacts/${publication.artifact.id}`, server.baseUrl), {
+      headers: {Authorization: `Bearer ${identity.apiToken}`},
+    });
+    expect(await details.json()).toMatchObject({artifact: {reviewMode: "interact"}});
   });
 
   test("ART-012: PostgreSQL review mode persists across replicas and replays its original state", async () => {
@@ -754,7 +758,7 @@ describe.sequential("external-storage Postgres and S3 runtime", () => {
         ARTIFACT_SERVER_INSTALLATION_ID: identity.installationId,
       });
       expect(status.exitCode).toBe(0);
-      expect(JSON.parse(status.output)).toMatchObject({currentVersion: 18});
+      expect(JSON.parse(status.output)).toMatchObject({currentVersion: 19});
     } finally {
       Object.assign(oidcProvider.claims, previousClaims);
     }
@@ -887,7 +891,7 @@ describe.sequential("external-storage Postgres and S3 runtime", () => {
         ARTIFACT_SERVER_INSTALLATION_ID: identity.installationId,
       });
       expect(status.exitCode).toBe(0);
-      expect(JSON.parse(status.output)).toMatchObject({currentVersion: 18});
+      expect(JSON.parse(status.output)).toMatchObject({currentVersion: 19});
     } finally {
       Object.assign(oidcProvider.claims, previousClaims);
     }

@@ -405,7 +405,7 @@ requirements:
 
   - id: ART-012
     kind: behavior
-    behavior: Each artifact has an Annotate or Interact default Review mode, initialized to Annotate for legacy artifacts and mutable without changing any immutable version or file bytes.
+    behavior: Each artifact has an Annotate or Interact default Review mode, Interact when creation omits it and for artifacts that existed before the upgrade, and mutable without changing any immutable version or file bytes.
     owner: artifact-core
     source: {file: artifact-review-mode-spec.md, anchor: conformance}
     acceptance:
@@ -420,7 +420,7 @@ requirements:
         tests: [ART-012-B, ART-012-F]
         result: pass
         run: project/evidence/artifact-review-mode.json
-        recorded_at: "2026-10-10T04:56:30.471Z"
+        recorded_at: "2026-11-02T21:42:47.426Z"
 
   - id: ART-013
     kind: security

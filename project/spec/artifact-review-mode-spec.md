@@ -6,11 +6,13 @@
 
 ## Outcome
 
-An author can make an HTML prototype open ready for interaction while keeping Annotate as the default for existing artifacts. A reviewer can override the initial mode in a shared Review link and continue using the existing toggle and Escape shortcut.
+Artifacts open in Interact by default, so an HTML prototype accepts clicks at once. An author can choose Annotate for a page meant for comments. A reviewer can override the initial mode in a shared Review link and continue using the existing toggle and Escape shortcut.
 
 ## Artifact metadata
 
-`ArtifactRecord.reviewMode` is required and is either `annotate` or `interact`. Creation inputs may omit it; omission means `annotate`. The default belongs to the artifact, not a version or manifest, and survives new versions, restoration, and reads from SQLite or PostgreSQL. Each adapter follows its existing migration scheme to initialize legacy artifacts to `annotate`.
+`ArtifactRecord.reviewMode` is required and is either `annotate` or `interact`. Creation inputs may omit it; omission means `interact`. The default belongs to the artifact, not a version or manifest, and survives new versions, restoration, and reads from SQLite or PostgreSQL. Upgrading to SQLite schema 20 or PostgreSQL migration `0019_review_mode_interact` sets every existing artifact to `interact` once; the upgrade records no action, and later changes are kept.
+
+The publication idempotency digest is keyed on the mode the caller sent and hashes an omitted mode like `annotate`, so a retry saved before the default changed still replays its original result. A retry that names `interact` under a key first used without a mode is a conflict.
 
 Staged HTTP upload commit and MCP `artifact_commit_upload` accept `target.reviewMode` only for `target.kind: new_artifact`. CLI `publish --review-mode annotate|interact` forwards that creation choice. Combining an explicit CLI option with `--artifact` is rejected rather than silently changing existing metadata.
 
@@ -36,7 +38,7 @@ Interact allows actual clicks to reach the isolated HTML frame; Annotate retains
 
 | ID | Contract |
 | --- | --- |
-| `ART-012` | Persist the artifact default, migrate existing artifacts to Annotate, expose creation and management through supported adapters, preserve versions, and enforce normal authorization, concurrency, and idempotency. |
+| `ART-012` | Persist the artifact default, migrate existing artifacts to Interact, expose creation and management through supported adapters, preserve versions, and enforce normal authorization, concurrency, and idempotency. |
 | `PRV-006` | Resolve initial HTML mode from URL and artifact metadata, allow real interaction, retain URL overrides through navigation and history, and preserve manual choices during refresh and version loading. |
 
 Requirements are `behavior_verified` with passing local evidence. A local run cannot establish live behavior on every supported deployment.

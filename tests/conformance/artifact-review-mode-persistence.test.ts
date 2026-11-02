@@ -63,12 +63,12 @@ describe("artifact review mode persistence", () => {
     principalId: "publisher", projectId, reviewMode,
   });
 
-  test("publication defaults to annotate and survives a restart", async () => {
+  test("publication defaults to interact and survives a restart", async () => {
     const {result} = await publish();
-    expect(result.artifact.reviewMode).toBe("annotate");
+    expect(result.artifact.reviewMode).toBe("interact");
     repository.close();
     repository = new SqliteArtifactRepository(databasePath);
-    expect(await repository.findArtifact(projectId, "art_review")).toMatchObject({reviewMode: "annotate"});
+    expect(await repository.findArtifact(projectId, "art_review")).toMatchObject({reviewMode: "interact"});
   });
 
   test("interact publication, mutation replay, and immutable version identity are durable", async () => {
@@ -125,7 +125,7 @@ describe("artifact review mode persistence", () => {
     } finally {database.close();}
   });
 
-  test("pre-feature rows and saved retries migrate to annotate without changing versions", async () => {
+  test("pre-feature rows migrate to interact, and saved retries replay their original annotate result", async () => {
     const {command, result} = await publish();
     repository.close();
     const database = new DatabaseSync(databasePath);
@@ -133,8 +133,23 @@ describe("artifact review mode persistence", () => {
       database.exec("ALTER TABLE artifacts DROP COLUMN review_mode; ALTER TABLE idempotency_records DROP COLUMN review_mode; PRAGMA user_version = 12;");
     } finally {database.close();}
     repository = new SqliteArtifactRepository(databasePath);
-    expect(await repository.findArtifact(projectId, "art_review")).toMatchObject({reviewMode: "annotate", currentVersionId: result.version.id});
+    expect(await repository.findArtifact(projectId, "art_review")).toMatchObject({reviewMode: "interact", currentVersionId: result.version.id});
     expect(await repository.commitNewArtifact(command)).toMatchObject({artifact: {reviewMode: "annotate"}, replayed: true, version: result.version});
-    await expect(repository.changeReviewMode(change("interact", "after_migration"))).resolves.toMatchObject({artifact: {reviewMode: "interact"}});
+    await expect(repository.changeReviewMode(change("annotate", "after_migration"))).resolves.toMatchObject({artifact: {reviewMode: "annotate"}});
+  });
+
+  test("a schema-19 database moves every artifact to interact once, and later choices survive restarts", async () => {
+    const {result} = await publish("annotate");
+    repository.close();
+    const database = new DatabaseSync(databasePath);
+    try {database.exec("PRAGMA user_version = 19;");} finally {database.close();}
+    repository = new SqliteArtifactRepository(databasePath);
+    expect(await repository.findArtifact(projectId, "art_review")).toMatchObject({reviewMode: "interact", currentVersionId: result.version.id});
+    const actions = await repository.listArtifactActions({artifactId: "art_review", cursor: null, limit: 20, projectId});
+    expect(actions.items.filter((action) => action.action === "change_review_mode")).toHaveLength(0);
+    await repository.changeReviewMode(change("annotate", "after_upgrade"));
+    repository.close();
+    repository = new SqliteArtifactRepository(databasePath);
+    expect(await repository.findArtifact(projectId, "art_review")).toMatchObject({reviewMode: "annotate"});
   });
 });

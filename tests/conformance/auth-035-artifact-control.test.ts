@@ -332,13 +332,13 @@ describe("artifact control by owner", () => {
       {
         accessSetting: "account_required",
         currentVersionId: organization.currentVersionId,
-        reviewMode: "annotate",
+        reviewMode: "interact",
         tags: [],
       },
       {
         accessSetting: "private",
         currentVersionId: hidden.currentVersionId,
-        reviewMode: "annotate",
+        reviewMode: "interact",
         tags: [],
       },
     ]);
@@ -452,7 +452,7 @@ describe("artifact control by owner", () => {
       }, key("restore")),
       await send(credential, "PATCH", `${target.artifactId}/review-mode`, {
         expectedCurrentVersionId,
-        reviewMode: "interact",
+        reviewMode: "annotate",
       }, key("review-mode")),
       await send(credential, "PATCH", `${target.artifactId}/access`, {
         accessSetting: raiseTo,
@@ -499,7 +499,7 @@ describe("artifact control by owner", () => {
       callTool(token, "artifact_set_review_mode", {
         ...common,
         idempotencyKey: key("review-mode"),
-        reviewMode: "interact",
+        reviewMode: "annotate",
       }),
     ]);
   }

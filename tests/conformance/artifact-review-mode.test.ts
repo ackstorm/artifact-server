@@ -34,34 +34,34 @@ describe("artifact review mode", () => {
     const legacy = await publishNew(server, installation, {
       accessSetting: "account_required", content: "legacy", idempotencyKey: "artifact_review_mode_default",
     });
-    expect(legacy.body.artifact.reviewMode).toBe("annotate");
+    expect(legacy.body.artifact.reviewMode).toBe("interact");
     const published = await publishNew(server, installation, {
-      accessSetting: "account_required", content: "<button>Interact</button>",
-      idempotencyKey: "artifact_review_mode_interact", reviewMode: "interact",
+      accessSetting: "account_required", content: "<p>Annotate</p>",
+      idempotencyKey: "artifact_review_mode_annotate", reviewMode: "annotate",
     });
-    expect(published.body.artifact.reviewMode).toBe("interact");
+    expect(published.body.artifact.reviewMode).toBe("annotate");
     const url = `${server.baseUrl}/api/v1/artifacts/${published.body.artifact.id}/review-mode`;
-    const input = {expectedCurrentVersionId: published.body.version.id, reviewMode: "annotate"};
+    const input = {expectedCurrentVersionId: published.body.version.id, reviewMode: "interact"};
     const change = () => fetch(url, {
       body: JSON.stringify(input), headers: apiHeaders(installation, "artifact_review_mode_update"), method: "PATCH",
     });
     const response = await change();
     expect(response.status).toBe(200);
     expect(stateSchema.parse(await response.json())).toMatchObject({
-      artifact: {reviewMode: "annotate"}, replayed: false, version: {id: published.body.version.id},
+      artifact: {reviewMode: "interact"}, replayed: false, version: {id: published.body.version.id},
     });
     expect(stateSchema.parse(await (await change()).json()).replayed).toBe(true);
     const version = await publishVersion(server, installation, {
       artifactId: published.body.artifact.id, content: "<button>Updated</button>",
       expectedCurrentVersionId: published.body.version.id, idempotencyKey: "artifact_review_mode_version",
     });
-    expect(version.body.artifact.reviewMode).toBe("annotate");
+    expect(version.body.artifact.reviewMode).toBe("interact");
     await server.stop();
     server = await startTestServer(installation);
     const details = await fetch(`${server.baseUrl}/api/v1/artifacts/${published.body.artifact.id}`, {
       headers: apiHeaders(installation, "artifact_review_read_001"),
     });
-    expect(await details.json()).toMatchObject({artifact: {reviewMode: "annotate"}});
+    expect(await details.json()).toMatchObject({artifact: {reviewMode: "interact"}});
   });
 
   test("ART-012-F: invalid, stale, and unauthenticated mode mutations leave the artifact unchanged", async () => {
@@ -70,8 +70,8 @@ describe("artifact review mode", () => {
     });
     const url = `${server.baseUrl}/api/v1/artifacts/${published.body.artifact.id}/review-mode`;
     await Promise.all(([
-      ["artifact_review_invalid_mode", "INTERACT", published.body.version.id, 422],
-      ["artifact_review_stale_mode", "interact", "ver_stale", 409],
+      ["artifact_review_invalid_mode", "ANNOTATE", published.body.version.id, 422],
+      ["artifact_review_stale_mode", "annotate", "ver_stale", 409],
     ] as const).map(async ([key, mode, versionId, expected]) => {
       const response = await fetch(url, {
         body: JSON.stringify({expectedCurrentVersionId: versionId, reviewMode: mode}),
@@ -80,22 +80,22 @@ describe("artifact review mode", () => {
       expect(response.status).toBe(expected);
     }));
     const denied = await fetch(url, {
-      body: JSON.stringify({expectedCurrentVersionId: published.body.version.id, reviewMode: "interact"}),
+      body: JSON.stringify({expectedCurrentVersionId: published.body.version.id, reviewMode: "annotate"}),
       headers: {"Content-Type": "application/json"}, method: "PATCH",
     });
     expect(denied.status).toBe(401);
     const details = await fetch(`${server.baseUrl}/api/v1/artifacts/${published.body.artifact.id}`, {
       headers: apiHeaders(installation, "artifact_review_read_002"),
     });
-    expect(await details.json()).toMatchObject({artifact: {reviewMode: "annotate"}});
+    expect(await details.json()).toMatchObject({artifact: {reviewMode: "interact"}});
   });
 
   test("a conflicting publication retry cannot change the original review default", async () => {
     const input = {accessSetting: "account_required" as const, content: "same bytes", idempotencyKey: "artifact_review_mode_retry"};
     const first = await publishNew(server, installation, input);
-    const explicit = await publishNew(server, installation, {...input, reviewMode: "annotate"});
-    expect(explicit.body.replayed).toBe(true);
-    expect(explicit.body.artifact.id).toBe(first.body.artifact.id);
+    expect(first.body.artifact.reviewMode).toBe("interact");
+    const omitted = await publishNew(server, installation, input);
+    expect(omitted.body).toMatchObject({artifact: {id: first.body.artifact.id, reviewMode: "interact"}, replayed: true});
     await expect(publishNew(server, installation, {...input, reviewMode: "interact"}))
       .rejects.toThrow("HTTP 409");
   });
@@ -112,7 +112,7 @@ describe("artifact review mode", () => {
       accessSetting: "account_required", content: "scoped credential", idempotencyKey: "review_mode_scoped_001",
     });
     const denied = await fetch(`${server.baseUrl}/api/v1/artifacts/${published.body.artifact.id}/review-mode`, {
-      body: JSON.stringify({expectedCurrentVersionId: published.body.version.id, reviewMode: "interact"}),
+      body: JSON.stringify({expectedCurrentVersionId: published.body.version.id, reviewMode: "annotate"}),
       headers: {
         Authorization: `Bearer ${token}`, "Content-Type": "application/json", "Idempotency-Key": "review_mode_scoped_denied",
       },
@@ -123,6 +123,6 @@ describe("artifact review mode", () => {
     const details = await fetch(`${server.baseUrl}/api/v1/artifacts/${published.body.artifact.id}`, {
       headers: apiHeaders(installation, "review_mode_scoped_read"),
     });
-    expect(await details.json()).toMatchObject({artifact: {reviewMode: "annotate"}});
+    expect(await details.json()).toMatchObject({artifact: {reviewMode: "interact"}});
   });
 });
