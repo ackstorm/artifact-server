@@ -97,6 +97,7 @@ describe("Shared with me", () => {
       mcpOAuthResource: {
         authorizationServerMetadata: authorizationServer.metadata,
         resource: mcpResource,
+        scopes: ["openid"],
       },
       port,
     });

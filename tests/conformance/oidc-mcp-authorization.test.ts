@@ -71,6 +71,7 @@ describe("generic OIDC MCP authorization", () => {
       mcpOAuthResource: {
         authorizationServerMetadata: authorizationServer.metadata,
         resource,
+        scopes: ["openid", "email", "profile"],
       },
     });
   });
@@ -128,6 +129,9 @@ describe("generic OIDC MCP authorization", () => {
       authorization_servers: [issuer],
       bearer_methods_supported: ["header"],
       resource,
+      // An MCP client requests these when the 401 names none; Dex refuses a
+      // request without openid.
+      scopes_supported: ["openid", "email", "profile"],
     });
 
     const authorizationMetadata = await fetch(
@@ -357,6 +361,7 @@ describe("generic OIDC MCP authorization", () => {
       scopes: "openid email profile",
     });
     expect(hosted.mcpOAuthResource.resource).toBe(resource);
+    expect(hosted.mcpOAuthResource.scopes).toEqual(["openid", "email", "profile"]);
     expect(hosted.mcpOAuthResource.authorizationServerMetadata)
       .toMatchObject({issuer});
     await expect(verifiedSubject(hosted.externalMcpOAuthVerifier, await

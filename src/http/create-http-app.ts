@@ -502,6 +502,8 @@ export interface ApiOAuthResourceConfiguration {
 export interface McpOAuthResourceConfiguration {
   readonly authorizationServerMetadata: OAuthMetadata;
   readonly resource: string;
+  /** Scopes MCP clients request; an issuer such as Dex refuses a request without openid. */
+  readonly scopes: readonly string[];
 }
 
 /** Machine-readable result of one declared runtime dependency probe. */
@@ -552,7 +554,7 @@ export function createHttpApp(
     contentDomain: dependencies.contentDomain,
     linkedArtifacts: dependencies.linkedArtifacts === true,
     mode: dependencies.trustedApplicationOrigin === null ? "local" : "remote",
-    oauthResource: dependencies.mcpOAuthResource?.resource ?? null,
+    oauthResource: dependencies.mcpOAuthResource ?? null,
   });
   const boundedJsonBody = bodyLimit({
     maxSize: maximumJsonRequestBytes,
@@ -609,6 +611,7 @@ export function createHttpApp(
     const protectedMetadata = {
       ...buildOAuthProtectedResourceMetadata(metadataOptions),
       bearer_methods_supported: ["header"],
+      scopes_supported: [...dependencies.mcpOAuthResource.scopes],
     };
     const protectedMetadataPath = new URL(
       getOAuthProtectedResourceMetadataUrl(resourceServerUrl),
