@@ -106,6 +106,7 @@ test.describe("Artifact review mode", () => {
         accessSetting: "account_required",
         content: interactiveArtifact,
         idempotencyKey: "review-mode-refresh-first",
+        reviewMode: "annotate",
       });
       await publishVersion(fixture.server, fixture.installation, {
         artifactId: first.body.artifact.id,
@@ -196,6 +197,7 @@ test.describe("Artifact review mode", () => {
         content: interactiveArtifact,
         idempotencyKey: "review-mode-artifact-first",
         name: "Annotate fixture",
+        reviewMode: "annotate",
       });
       await publishNew(fixture.server, fixture.installation, {
         accessSetting: "account_required",

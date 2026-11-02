@@ -48,6 +48,7 @@ test.describe("Artifact Server frontend MVP", () => {
         content: "<!doctype html><html lang=\"en\"><title>Review fixture</title><main><h1 id=\"review-target\">Review preview content</h1><p id=\"review-theme-target\">Theme target</p><button id=\"review-native-action\" onclick=\"this.dataset.clicked = 'true'\">Artifact action</button></main></html>",
         idempotencyKey: "frontend-review-fixture",
         name: "Review fixture",
+        reviewMode: "annotate",
         tags: ["inspection", "prototype"],
       });
       await publishVersion(fixture.server, fixture.installation, {

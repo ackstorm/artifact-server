@@ -136,6 +136,7 @@ test.describe("Review fragment links", () => {
         content: anchorArtifact,
         idempotencyKey: "review-fragment-annotation",
         name: "Fragment annotation",
+        reviewMode: "annotate",
       });
       await localLogin(fixture);
       await fixture.page.goto(

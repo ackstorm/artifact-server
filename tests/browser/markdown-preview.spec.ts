@@ -24,7 +24,7 @@ test.describe("Native Markdown review", () => {
       const first = (await publishNew(fixture.server, fixture.installation, {
         accessSetting: "account_required", content: richSource,
         idempotencyKey: "markdown-preview-rich", mediaType: "text/markdown; charset=utf-8",
-        name: "Native Markdown", path: "docs/readme.md",
+        name: "Native Markdown", path: "docs/readme.md", reviewMode: "annotate",
       })).body;
       const second = (await publishVersion(fixture.server, fixture.installation, {
         artifactId: first.artifact.id, content: "# Second immutable version\n",
@@ -139,7 +139,7 @@ test.describe("Native Markdown review", () => {
       const staged = await createStagedUpload(fixture.server, fixture.installation, "docs/readme.md", files);
       for (const response of await uploadEveryStagedFile(fixture.installation, staged.body, files)) expect(response.ok).toBe(true);
       const publication = (await commitStagedUpload(fixture.installation, staged.body, "markdown-preview-bundle", {
-        accessSetting: "account_required", kind: "new_artifact", name: "Markdown bundle",
+        accessSetting: "account_required", kind: "new_artifact", name: "Markdown bundle", reviewMode: "annotate",
       })).body;
       const next = (await publishVersion(fixture.server, fixture.installation, {
         artifactId: publication.artifact.id, content: "# New document\n\nNo previous feedback.\n",
