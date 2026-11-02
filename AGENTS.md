@@ -40,3 +40,7 @@ guide does not cover, search through the source code in `node_modules/effect/src
 ## Before handing off work
 
 Run `pnpm verify:iteration`. Report any requirement that is still specified but not proved; do not mark it verified optimistically.
+
+## Releasing
+
+Release with `make release VERSION=X.Y.Z`. [docs/releasing.md](docs/releasing.md) describes the steps, requirements, and failure recovery.
