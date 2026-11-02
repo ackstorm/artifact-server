@@ -66,6 +66,7 @@ import {
 } from "@/lib/presentation";
 import artifactServerAnimationUrl from "./assets/artifact-server.svg";
 import {ArtifactMark} from "./artifact-mark.tsx";
+import {ArtifactMoreMenu} from "./artifact-more-menu.tsx";
 import {
   useReviewComments,
   ReviewCommentsInspector,
@@ -1363,6 +1364,23 @@ function ArtifactReview({
       setDetailError(caught instanceof Error ? caught : new Error("Live artifact opening failed."));
     }
   };
+  const duplicateArtifact = async (idempotencyKey: string): Promise<string | null> => {
+    if (details === null) return null;
+    try {
+      const copy = await api.duplicate(
+        details.artifact.projectId,
+        details.artifact.id,
+        details.current.version.id,
+        idempotencyKey,
+      );
+      selectArtifact(copy.artifact.id, copy.version.id);
+      if (catalogTab === "mine") await loadArtifacts(null, true);
+      else setCatalogTab("mine");
+      return null;
+    } catch (caught) {
+      return caught instanceof Error ? caught.message : "Duplicating failed.";
+    }
+  };
   const tombstoneArtifact = async (): Promise<boolean> => {
     if (details === null) return false;
     setDetailError(null);
@@ -2085,6 +2103,7 @@ function ArtifactReview({
                 className="as-button as-button--secondary"
                 download={download}
               />
+              <ArtifactMoreMenu disabled={details === null} onDuplicate={duplicateArtifact} />
               <button
                 aria-label="Full screen"
                 aria-keyshortcuts="F"

@@ -2015,6 +2015,54 @@ select:focus-visible {
   width: 0.85rem;
 }
 
+.as-more-menu {
+  background: var(--as-surface);
+  border: 1px solid var(--as-border);
+  box-shadow: 0 0.35rem 1.2rem rgb(0 0 0 / 24%);
+  color: var(--as-text);
+  outline: none;
+  padding: 0.35rem;
+  width: min(19rem, calc(100vw - 1rem));
+}
+
+.as-more-menu__item {
+  align-items: flex-start;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  gap: 0.65rem;
+  padding: 0.55rem 0.6rem;
+  text-align: left;
+  width: 100%;
+}
+
+.as-more-menu__item:hover:not(:disabled),
+.as-more-menu__item:focus-visible {
+  background: var(--as-surface-raised);
+}
+
+.as-more-menu__item:disabled {
+  cursor: progress;
+  opacity: 0.6;
+}
+
+.as-more-menu__item strong {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.as-more-menu__item small {
+  color: var(--as-subtle);
+  display: block;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  margin-top: 0.15rem;
+}
+
 .as-share-message {
   border: 1px solid var(--as-border);
   font-size: 0.72rem;

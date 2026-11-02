@@ -886,6 +886,66 @@ describe.sequential("external-storage Postgres and S3 runtime", () => {
     }
   });
 
+  test("duplicate on Postgres: a copy made by another member through one process serves the source bytes through another", async () => {
+    const previousClaims = {...oidcProvider.claims};
+    const identity = {
+      apiToken: managedTestKey("postgres-duplicate"),
+      installationId: "postgres-duplicate-installation",
+    };
+    const [first, second] = await Promise.all([
+      startExternalStorageProcess(environment, identity),
+      startExternalStorageProcess(environment, identity),
+    ]);
+    try {
+      const content = "<h1>duplicate source</h1>";
+      const source = await publishNew(first.baseUrl, identity.apiToken, {
+        content,
+        idempotencyKey: `duplicate-source-${randomUUID()}`,
+        name: "Source",
+      });
+      expect(source.response.status).toBe(201);
+      const sourceState = async () => Promise.all(["versions", "actions"].map(async (route) =>
+        (await fetch(
+          `${second.baseUrl}/api/v1/artifacts/${source.body.artifact.id}/${route}?projectId=${defaultProjectId}`,
+          {headers: bearerHeaders(identity.apiToken)},
+        )).json()));
+      const before = await sourceState();
+
+      oidcProvider.claims.email = oidcAdministratorEmail;
+      oidcProvider.claims.subject = "postgres-duplicate-administrator";
+      const login = await oidcBrowserLogin(first.baseUrl);
+      expect(login.status).toBe(303);
+      const cookies = applicationCookies(login.headers.getSetCookie());
+      const key = `duplicate-copy-${randomUUID()}`;
+      const duplicate = (baseUrl: string) => {
+        const headers = browserMutationHeaders("https://artifacts.example.com", cookies);
+        headers.set("Idempotency-Key", key);
+        return fetch(
+          `${baseUrl}/api/v1/artifacts/${source.body.artifact.id}/duplicate?projectId=${defaultProjectId}`,
+          {
+            body: JSON.stringify({versionId: source.body.version.id}),
+            headers,
+            method: "POST",
+          },
+        );
+      };
+      const created = await duplicate(first.baseUrl);
+      expect(created.status).toBe(201);
+      const copy = publishResponseSchema.parse(await created.json());
+      expect(copy.artifact).toMatchObject({accessSetting: "private", name: "Source (copy)"});
+      expect(copy.artifact.id).not.toBe(source.body.artifact.id);
+
+      const replay = await duplicate(second.baseUrl);
+      expect(replay.status).toBe(200);
+      expect(publishResponseSchema.parse(await replay.json()).artifact.id).toBe(copy.artifact.id);
+      expect(await (await fetchContentThroughServer(second.baseUrl, copy.links.version)).text())
+        .toBe(content);
+      expect(await sourceState()).toEqual(before);
+    } finally {
+      Object.assign(oidcProvider.claims, previousClaims);
+    }
+  });
+
   test("a populated Postgres v1 installation migrates without changing identity or bytes", async () => {
     const databaseName = `artifactserver_project_migration_${randomUUID().replaceAll("-", "")}`;
     await createPostgresDatabase(environment, databaseName);

@@ -988,6 +988,20 @@ export const api = {
       method: "POST",
     },
   ),
+  duplicate: (
+    projectId: string,
+    artifactId: string,
+    versionId: string,
+    idempotencyKey: string,
+  ) => request(
+    artifactStateSchema,
+    `/api/v1/artifacts/${encodeURIComponent(artifactId)}/duplicate?${projectQuery(projectId)}`,
+    {
+      body: JSON.stringify({ versionId }),
+      headers: mutationHeaders(idempotencyKey),
+      method: "POST",
+    },
+  ),
   pin: (projectId: string, artifactId: string, pinned: boolean) => requestNoContent(
     `/api/v1/artifacts/${encodeURIComponent(artifactId)}/pin?${projectQuery(projectId)}`,
     { headers: mutationHeaders(), method: pinned ? "PUT" : "DELETE" },
