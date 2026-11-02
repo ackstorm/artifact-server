@@ -117,6 +117,7 @@ import type {
   UpdateCommentReply,
   UpdateCommentThread,
   PublicationSource,
+  StagedUploadSource,
   ProjectRepository,
   RenameProject,
   RestoreArtifactVersion,
@@ -576,7 +577,9 @@ export class SqliteArtifactRepository implements
     commitTime: string,
   ): Promise<void> {
     return Promise.resolve().then(() => {
-      this.#assertStagedUploadReady(source, manifestDigest, commitTime);
+      if (source.kind === "staged_upload") {
+        this.#assertStagedUploadReady(source, manifestDigest, commitTime);
+      }
       return undefined;
     });
   }
@@ -701,11 +704,13 @@ export class SqliteArtifactRepository implements
     );
     if (replayed !== null) return replayed;
     this.#assertProjectActive(command.projectId);
-    this.#assertStagedUploadReady(
-      command.source,
-      command.manifest.digest,
-      command.createdAt,
-    );
+    if (command.source.kind === "staged_upload") {
+      this.#assertStagedUploadReady(
+        command.source,
+        command.manifest.digest,
+        command.createdAt,
+      );
+    }
 
     this.#database
       .prepare(
@@ -763,7 +768,9 @@ export class SqliteArtifactRepository implements
       command.versionId,
       command.createdAt,
     );
-    this.#sealStagedUpload(command.source, command.versionId);
+    if (command.source.kind === "staged_upload") {
+      this.#sealStagedUpload(command.source, command.versionId);
+    }
 
     return this.#readPublishedVersion(command.projectId, command.versionId, false);
   }
@@ -2572,7 +2579,7 @@ export class SqliteArtifactRepository implements
   }
 
   #assertStagedUploadReady(
-    source: PublicationSource,
+    source: StagedUploadSource,
     manifestDigest: string,
     commitTime: string,
   ): void {
@@ -2613,7 +2620,7 @@ export class SqliteArtifactRepository implements
     }
   }
 
-  #sealStagedUpload(source: PublicationSource, versionId: string): void {
+  #sealStagedUpload(source: StagedUploadSource, versionId: string): void {
     const update = this.#database
       .prepare(
         `UPDATE staged_uploads

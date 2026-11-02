@@ -394,3 +394,52 @@ async function publishNew(
     versionId: `ver_${artifactId}_1`,
   });
 }
+
+test("a saved-version commit on SQLite creates a new artifact that shares the source manifest and leaves the source untouched", async () => {
+  const repository = new SqliteArtifactRepository(databasePath, "test-installation");
+  try {
+    await publishNew(repository, "src", "account_required", "2026-10-31T08:00:00.000Z");
+    const sourceVersion = await repository.findVersionRecord(defaultProjectId, "src", "ver_src_1");
+    if (sourceVersion === null) throw new Error("source version missing");
+    const before = {
+      actions: await repository.listArtifactActions({artifactId: "src", cursor: null, limit: 50, projectId: defaultProjectId}),
+      current: await repository.findCurrentVersion(defaultProjectId, "src"),
+      versions: await repository.listArtifactVersions(defaultProjectId, "src"),
+    };
+    const copy = {
+      accessSetting: "private" as const,
+      artifactId: "copy",
+      authorizedByPrincipalId: null,
+      contentToken: "content_copy",
+      createdAt: "2026-10-31T08:05:00.000Z",
+      idempotencyKey: "duplicate_copy",
+      inputDigest: "digest_copy",
+      manifest: sourceVersion.manifest,
+      name: "src (copy)",
+      principalId: "bob",
+      projectId: defaultProjectId,
+      source: {kind: "saved_version" as const},
+      tags: [],
+      versionId: "ver_copy_1",
+    };
+    const published = await repository.commitNewArtifact(copy);
+
+    expect((await repository.findArtifact(defaultProjectId, "copy"))?.ownerPrincipalId).toBe("bob");
+    const copied = await repository.findVersionRecord(defaultProjectId, "copy", "ver_copy_1");
+    expect(copied?.manifest.digest).toBe(sourceVersion.manifest.digest);
+    expect(copied?.manifest.entries).toEqual(sourceVersion.manifest.entries);
+    const bytes = await repository.findVersionContent("content_copy", "index.html", "none");
+    const sourceBytes = await repository.findVersionContent("content_src", "index.html", "none");
+    expect(bytes?.entry.sha256).toBe(sourceBytes?.entry.sha256);
+    expect({
+      actions: await repository.listArtifactActions({artifactId: "src", cursor: null, limit: 50, projectId: defaultProjectId}),
+      current: await repository.findCurrentVersion(defaultProjectId, "src"),
+      versions: await repository.listArtifactVersions(defaultProjectId, "src"),
+    }).toEqual(before);
+    const replayed = await repository.commitNewArtifact(copy);
+    expect(replayed.artifact.id).toBe(published.artifact.id);
+    expect(replayed.version.id).toBe(published.version.id);
+  } finally {
+    repository.close();
+  }
+});

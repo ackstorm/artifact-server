@@ -102,6 +102,7 @@ import type {
   MarkDispatchDelivered,
   MarkDispatchFailed,
   PublicationSource,
+  StagedUploadSource,
   ProjectRepository,
   RecordAgentActivity,
   RegisterAgent,
@@ -577,6 +578,7 @@ export class PostgresArtifactRepository implements
     manifestDigest: string,
     commitTime: string,
   ): Promise<void> {
+    if (source.kind !== "staged_upload") return;
     await this.#database.run(this.#assertStagedUploadReady(
       source,
       manifestDigest,
@@ -602,11 +604,13 @@ export class PostgresArtifactRepository implements
         );
         if (replayed !== null) return replayed;
         yield* this.#assertProjectActive(command.projectId);
-        yield* this.#assertStagedUploadReady(
-          command.source,
-          command.manifest.digest,
-          command.createdAt,
-        );
+        if (command.source.kind === "staged_upload") {
+          yield* this.#assertStagedUploadReady(
+            command.source,
+            command.manifest.digest,
+            command.createdAt,
+          );
+        }
         yield* sql`INSERT INTO artifacts (
           installation_id, project_id, id, name, search_name, access_setting, review_mode,
           current_version_id, created_at, deleted_at, owner_principal_id
@@ -642,7 +646,9 @@ export class PostgresArtifactRepository implements
           tagsJson: null,
           versionId: command.versionId,
         });
-        yield* this.#sealStagedUpload(command.source, command.versionId);
+        if (command.source.kind === "staged_upload") {
+          yield* this.#sealStagedUpload(command.source, command.versionId);
+        }
         return yield* this.#readPublishedVersion(
           command.projectId,
           command.versionId,
@@ -3448,7 +3454,7 @@ export class PostgresArtifactRepository implements
   }
 
   #assertStagedUploadReady(
-    source: PublicationSource,
+    source: StagedUploadSource,
     manifestDigest: string,
     commitTime: string,
   ): Effect.Effect<void, unknown, SqlClient> {
@@ -3511,7 +3517,7 @@ export class PostgresArtifactRepository implements
   }
 
   #sealStagedUpload(
-    source: PublicationSource,
+    source: StagedUploadSource,
     versionId: string,
   ): Effect.Effect<void, unknown, SqlClient> {
     const installationId = this.#installationId;

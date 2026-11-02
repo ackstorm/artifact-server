@@ -10,7 +10,7 @@ import {
   defaultProjectId,
   type CanonicalManifest,
 } from "../../src/core/model.js";
-import type {PublicationSource} from "../../src/core/ports.js";
+import type {StagedUploadSource} from "../../src/core/ports.js";
 import {createManifest} from "../../src/manifest/create-manifest.js";
 import {SqliteArtifactRepository} from "../../src/storage/sqlite-artifact-repository.js";
 
@@ -250,7 +250,7 @@ async function stageUpload(
   manifest: CanonicalManifest,
   uploadId: string,
   createdAt: string,
-): Promise<PublicationSource> {
+): Promise<StagedUploadSource> {
   const files = manifest.entries.map((entry, index) => ({
     entry,
     storageToken: `${uploadId}-file-${index}`,

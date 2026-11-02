@@ -95,12 +95,19 @@ export interface ExpiredStagedUpload {
   readonly id: string;
 }
 
-export interface PublicationSource {
+export interface StagedUploadSource {
   readonly kind: "staged_upload";
   readonly principalId: string;
   readonly projectId: string;
   readonly uploadId: string;
 }
+
+/** A version 1 whose manifest comes from an existing saved version; its blobs are already stored. */
+export interface SavedVersionSource {
+  readonly kind: "saved_version";
+}
+
+export type PublicationSource = SavedVersionSource | StagedUploadSource;
 
 export interface CommitNewArtifact {
   readonly reviewMode?: ReviewMode;
@@ -132,7 +139,7 @@ export interface CommitArtifactVersion {
   readonly principalId: string;
   readonly projectId: string;
   readonly authorizedByPrincipalId: string | null;
-  readonly source: PublicationSource;
+  readonly source: StagedUploadSource;
   readonly versionId: string;
 }
 

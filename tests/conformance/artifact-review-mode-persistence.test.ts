@@ -101,7 +101,7 @@ describe("artifact review mode persistence", () => {
     const second = await repository.commitVersion({
       ...command, contentToken: "content_second", expectedCurrentVersionId: result.version.id,
       idempotencyKey: "publish_second", inputDigest: "publish_second",
-      source: {...command.source, uploadId: "upl_second"}, versionId: "ver_second",
+      source: {kind: "staged_upload", principalId: "publisher", projectId, uploadId: "upl_second"}, versionId: "ver_second",
     });
     expect(second.artifact.reviewMode).toBe("interact");
     const management = {...change("interact", "management"), expectedCurrentVersionId: second.version.id};

@@ -1033,8 +1033,17 @@ export function createApplicationLayer(
     Layer.provideMerge(authorizationLayer),
   );
 
+  const managementLayer = ArtifactManagementService.layer(
+    managementDependencies,
+  ).pipe(
+    Layer.provideMerge(
+      Layer.mergeAll(authorizationLayer, identityLayer, policyLayer, projectLayer),
+    ),
+  );
   const publishLayer = PublishArtifactService.layer(publishDependencies).pipe(
-    Layer.provideMerge(Layer.mergeAll(authorizationLayer, policyLayer)),
+    Layer.provideMerge(
+      Layer.mergeAll(authorizationLayer, policyLayer, managementLayer, projectLayer),
+    ),
   );
   const stagedLayer = StagedUploadService.layer(stagedDependencies).pipe(
     Layer.provideMerge(Layer.mergeAll(publishLayer, projectLayer)),
@@ -1051,13 +1060,6 @@ export function createApplicationLayer(
   });
   const contentLayer = ContentAccessService.layer(contentDependencies).pipe(
     Layer.provideMerge(Layer.mergeAll(authorizationLayer, policyLayer, projectLayer)),
-  );
-  const managementLayer = ArtifactManagementService.layer(
-    managementDependencies,
-  ).pipe(
-    Layer.provideMerge(
-      Layer.mergeAll(authorizationLayer, identityLayer, policyLayer, projectLayer),
-    ),
   );
   const linked = adapters.linked;
   const linkedLayer = linked === undefined

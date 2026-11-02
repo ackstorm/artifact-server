@@ -17,6 +17,7 @@ import {
   runApplicationEffect,
 } from "../application/application-runtime.js";
 import { StagedUploadService } from "../application/staged-upload.js";
+import { PublishArtifactService } from "../application/publish-artifact.js";
 import { AuthenticationService } from "../application/authentication.js";
 import {
   digestIdentitySecret,
@@ -222,6 +223,9 @@ const restoreVersionSchema = z.object({
   expectedCurrentVersionId: z.string().min(1).max(200),
   versionId: z.string().min(1).max(200),
 });
+const duplicateArtifactSchema = z.object({
+  versionId: z.string().min(1).max(200),
+}).strict();
 const changeAccessSchema = z.object({
   accessSetting: accessSettingSchema,
   expectedCurrentVersionId: z.string().min(1).max(200),
@@ -2091,6 +2095,37 @@ export function createHttpApp(
         dependencies.contentDomain,
         state,
       ));
+    },
+  );
+
+  app.post(
+    "/api/v1/artifacts/:artifactId/duplicate",
+    boundedJsonBody,
+    async (context) => {
+      const body = duplicateArtifactSchema.parse(await context.req.json());
+      const result = await runHttpApplicationEffect(
+        context,
+        dependencies,
+        PublishArtifactService.use((publication) =>
+          publication.duplicateArtifact({
+            artifactId: context.req.param("artifactId"),
+            idempotencyKey: requiredIdempotencyKey(
+              context.req.header("idempotency-key"),
+            ),
+            principal: context.get("principal"),
+            projectId: requestedProjectId(context),
+            versionId: body.versionId,
+          })
+        ),
+      );
+      return context.json(
+        publishResponse(
+          responseApplicationUrl(context, dependencies),
+          dependencies.contentDomain,
+          result,
+        ),
+        result.replayed ? 200 : 201,
+      );
     },
   );
 
