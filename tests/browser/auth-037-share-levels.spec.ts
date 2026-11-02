@@ -1,121 +1,12 @@
-import {Redacted} from "effect";
-import {expect, test, type Browser, type BrowserContext, type Page} from "@playwright/test";
+import {expect, test} from "@playwright/test";
+import type {Page} from "@playwright/test";
 
-import {
-  browserLoginKinds,
-  privateTeamBrowserAccess,
-} from "../../src/core/browser-access.js";
-import {createOidcIdentityProvider} from
-  "../../src/identity/oidc-identity-provider.js";
-import {admitMember, issueApiKey} from "../support/agent-dispatch.js";
 import {publishNew, type PublishResponse} from "../support/publishing.js";
-import {
-  createTestInstallation,
-  removeTestInstallation,
-  reserveLoopbackPort,
-  type RunningTestServer,
-  startTestServer,
-  type TestInstallation,
-} from "../support/runtime-harness.js";
-import {
-  type RunningStubOidcProvider,
-  signInWithStubOidc,
-  startStubOidcProvider,
-} from "../support/stub-oidc-provider.js";
+import {startTeamFixture, stopTeamFixture, type TeamFixture} from "./team-fixture.js";
 
-const clientSecret = "stub-oidc-client-secret-with-entropy";
 const organizationName = "myOrg";
 const loweringWarning =
   "Content sessions already issued keep serving their version for up to 15 minutes.";
-
-/** One OIDC installation with two signed-in members: Ada owns, Bob reads. */
-interface TeamFixture {
-  readonly ada: Page;
-  readonly adaKey: string;
-  readonly bob: Page;
-  readonly contexts: readonly BrowserContext[];
-  readonly installation: TestInstallation;
-  readonly oidc: RunningStubOidcProvider;
-  readonly server: RunningTestServer;
-}
-
-async function startTeamFixture(browser: Browser): Promise<TeamFixture> {
-  const installation = await createTestInstallation();
-  const oidc = await startStubOidcProvider({
-    clientId: "artifact-server-auth-037",
-    clientSecret,
-  });
-  const port = await reserveLoopbackPort();
-  const applicationOrigin = `http://127.0.0.1:${port}`;
-  const server = await startTestServer(installation, {
-    applicationOrigin,
-    bootstrapAdministratorEmail: "administrator@example.test",
-    browserAccess: privateTeamBrowserAccess(browserLoginKinds.oidc),
-    interactiveIdentityProvider: createOidcIdentityProvider({
-      applicationOrigin,
-      clientId: oidc.clientId,
-      clientSecret: Redacted.make(clientSecret, {label: "oidc-client-secret"}),
-      issuer: oidc.issuer,
-      scopes: "openid email profile",
-    }),
-    organizationName,
-    port,
-  });
-  const administrator = await signInWithStubOidc(
-    server.baseUrl,
-    oidc,
-    "administrator@example.test",
-    "auth-037-administrator",
-  );
-  const adaId = await admitMember(server, administrator, "Ada", "ada@example.test");
-  await admitMember(server, administrator, "Bob", "bob@example.test");
-  const adaKey = await issueApiKey(
-    server,
-    administrator,
-    ["artifact:create", "artifact:read"],
-    "Ada's agent",
-    adaId,
-  );
-  const adaContext = await signedInContext(browser, server, oidc, "ada");
-  const bobContext = await signedInContext(browser, server, oidc, "bob");
-  return {
-    ada: await adaContext.newPage(),
-    adaKey,
-    bob: await bobContext.newPage(),
-    contexts: [adaContext, bobContext],
-    installation,
-    oidc,
-    server,
-  };
-}
-
-async function signedInContext(
-  browser: Browser,
-  server: RunningTestServer,
-  oidc: RunningStubOidcProvider,
-  name: string,
-): Promise<BrowserContext> {
-  const cookies = await signInWithStubOidc(
-    server.baseUrl,
-    oidc,
-    `${name}@example.test`,
-    `auth-037-${name}`,
-  );
-  const context = await browser.newContext();
-  await context.addCookies(cookies.header.split("; ").map((pair) => ({
-    name: pair.slice(0, pair.indexOf("=")),
-    url: server.baseUrl,
-    value: pair.slice(pair.indexOf("=") + 1),
-  })));
-  return context;
-}
-
-async function stopTeamFixture(fixture: TeamFixture): Promise<void> {
-  await Promise.all(fixture.contexts.map((context) => context.close()));
-  await fixture.server.stop();
-  await fixture.oidc.stop();
-  await removeTestInstallation(fixture.installation);
-}
 
 async function publishAsAda(
   fixture: TeamFixture,

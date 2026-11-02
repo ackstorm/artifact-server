@@ -27,6 +27,7 @@ import {
   Link01Icon,
   Moon02Icon,
   PanelRightIcon,
+  PinIcon,
   RefreshIcon,
   Search01Icon,
   Settings02Icon,
@@ -44,6 +45,7 @@ import {
   api,
   ApiError,
   type AccessContext,
+  type AccessSetting,
   type ArtifactAction,
   type ArtifactComparison,
   type ArtifactDetails,
@@ -69,6 +71,7 @@ import {
   ReviewCommentsInspector,
   type ReviewCommentsInspectorHandle,
 } from "./review-comments.tsx";
+import {PrincipalChip} from "./principal-chip.tsx";
 import { ReviewPreview } from "./review-preview.tsx";
 import {ReviewProjectPicker} from "./review-project-picker.tsx";
 import {isSettingsPath} from "./review-routes.ts";
@@ -184,22 +187,42 @@ interface ReviewLocation {
   readonly view: "focus" | null;
 }
 
+const accessFilterLabels: readonly (readonly [AccessSetting, string])[] = [
+  ["private", "Private"],
+  ["account_required", "Organization"],
+  ["public_link", "Public"],
+];
+
 function CatalogFilters({
+  accessFilters,
   commentFilter,
   knownTags,
+  onAccessFiltersChange,
   onCommentFilterChange,
+  onPinnedOnlyChange,
   onTagFiltersChange,
+  pinnedOnly,
   tagFilters,
 }: {
+  readonly accessFilters: readonly AccessSetting[];
   readonly commentFilter: CatalogCommentFilter;
   readonly knownTags: readonly string[];
+  readonly onAccessFiltersChange: (levels: readonly AccessSetting[]) => void;
   readonly onCommentFilterChange: (filter: CatalogCommentFilter) => void;
+  readonly onPinnedOnlyChange: (pinnedOnly: boolean) => void;
   readonly onTagFiltersChange: (tags: readonly string[]) => void;
+  readonly pinnedOnly: boolean;
   readonly tagFilters: readonly string[];
 }) {
-  const activeFilterCount = Number(commentFilter !== "all") + tagFilters.length;
+  const activeFilterCount = Number(commentFilter !== "all")
+    + tagFilters.length
+    + accessFilters.length
+    + Number(pinnedOnly);
+  const sharingFilterCount = accessFilters.length + Number(pinnedOnly);
   let triggerLabel = "All artifacts";
-  if (commentFilter === "all" && tagFilters.length === 1) {
+  if (sharingFilterCount > 0) {
+    triggerLabel = `${activeFilterCount} filter${activeFilterCount === 1 ? "" : "s"}`;
+  } else if (commentFilter === "all" && tagFilters.length === 1) {
     triggerLabel = tagFilters[0] ?? "1 tag";
   } else if (commentFilter === "all" && tagFilters.length > 1) {
     triggerLabel = `${tagFilters.length} tags`;
@@ -250,7 +273,9 @@ function CatalogFilters({
                 <button
                   className="as-catalog-filter-popover__clear"
                   onClick={() => {
+                    onAccessFiltersChange([]);
                     onCommentFilterChange("all");
+                    onPinnedOnlyChange(false);
                     onTagFiltersChange([]);
                   }}
                   type="button"
@@ -259,6 +284,40 @@ function CatalogFilters({
                 </button>
               </div>
             )}
+            <fieldset>
+              <legend>Sharing</legend>
+              {accessFilterLabels.map(([value, label]) => (
+                <label className="as-catalog-filter-option" data-selected={accessFilters.includes(value)} key={value}>
+                  <input
+                    checked={accessFilters.includes(value)}
+                    name="catalog-access-filter"
+                    onChange={() => onAccessFiltersChange(
+                      accessFilters.includes(value)
+                        ? accessFilters.filter((selected) => selected !== value)
+                        : [...accessFilters, value],
+                    )}
+                    type="checkbox"
+                    value={value}
+                  />
+                  <span>{label}</span>
+                  {accessFilters.includes(value) ? (
+                    <HugeiconsIcon aria-hidden="true" icon={Tick02Icon} strokeWidth={2} />
+                  ) : null}
+                </label>
+              ))}
+              <label className="as-catalog-filter-option" data-selected={pinnedOnly}>
+                <input
+                  checked={pinnedOnly}
+                  name="catalog-pinned-filter"
+                  onChange={() => onPinnedOnlyChange(!pinnedOnly)}
+                  type="checkbox"
+                />
+                <span>Pinned only</span>
+                {pinnedOnly ? (
+                  <HugeiconsIcon aria-hidden="true" icon={Tick02Icon} strokeWidth={2} />
+                ) : null}
+              </label>
+            </fieldset>
             <fieldset>
               <legend>Comments</legend>
               {([
@@ -581,6 +640,10 @@ function ArtifactReview({
   const searchQuery = useDeferredValue(query.trim());
   const [catalogCommentFilter, setCatalogCommentFilter] = useState<CatalogCommentFilter>("all");
   const [catalogTagFilters, setCatalogTagFilters] = useState<readonly string[]>([]);
+  const [catalogAccessFilters, setCatalogAccessFilters] = useState<readonly AccessSetting[]>([]);
+  const [catalogPinnedOnly, setCatalogPinnedOnly] = useState(false);
+  const [pinPendingId, setPinPendingId] = useState<string | null>(null);
+  const [principalNames, setPrincipalNames] = useState<ReadonlyMap<string, string>>(new Map());
   const [catalogKnownTags, setCatalogKnownTags] = useState<readonly string[]>([]);
   const [catalogSort, setCatalogSort] = useState<CatalogSort>("newest");
   const [listLoading, setListLoading] = useState(true);
@@ -648,6 +711,7 @@ function ArtifactReview({
   const commentsInspectorRef = useRef<ReviewCommentsInspectorHandle>(null);
   const catalogRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const catalogRequestGenerationRef = useRef(0);
+  const selectedArtifactIdRef = useRef(selectedArtifactId);
   const catalogWidthApplyRef = useRef<(width: number) => void>(() => undefined);
   const inspectorWidthApplyRef = useRef<(width: number) => void>(() => undefined);
   const catalogResize = useReviewResizablePanel({
@@ -746,6 +810,8 @@ function ArtifactReview({
       || searchQuery !== ""
       || catalogCommentFilter !== "all"
       || catalogTagFilters.length > 0
+      || catalogAccessFilters.length > 0
+      || catalogPinnedOnly
       || items.some(({artifact}) => artifact.id === details.artifact.id)
     ) return items;
     return [{
@@ -756,7 +822,9 @@ function ArtifactReview({
       versionCount: versions.length,
     }, ...items];
   }, [
+    catalogAccessFilters.length,
     catalogCommentFilter,
+    catalogPinnedOnly,
     catalogTagFilters.length,
     comments.threads.length,
     details,
@@ -764,6 +832,17 @@ function ArtifactReview({
     searchQuery,
     versions.length,
   ]);
+  const filteredCatalog = query !== ""
+    || catalogCommentFilter !== "all"
+    || catalogTagFilters.length > 0
+    || catalogAccessFilters.length > 0
+    || catalogPinnedOnly;
+  const pinnedItems = catalogItems.filter((item) => item.pinned);
+  const restItems = catalogItems.filter((item) => !item.pinned);
+  const catalogGroups = [
+    {items: pinnedItems, label: "Pinned"},
+    {items: restItems, label: pinnedItems.length > 0 ? "All" : null},
+  ].filter((group) => group.items.length > 0);
   const selectedIndex = catalogItems.findIndex(
     ({artifact}) => artifact.id === selectedArtifactId,
   );
@@ -778,7 +857,9 @@ function ArtifactReview({
     setListError(null);
     try {
       const page = await api.artifacts(projectId, cursor, catalogTagFilters, searchQuery, {
+        access: catalogAccessFilters,
         comments: catalogCommentFilter,
+        pinned: catalogPinnedOnly ? "only" : "all",
         sort: catalogSort,
       });
       if (requestGeneration !== catalogRequestGenerationRef.current) return "skipped";
@@ -809,7 +890,27 @@ function ArtifactReview({
         setListLoading(false);
       }
     }
-  }, [catalogCommentFilter, catalogSort, catalogTagFilters, projectId, searchQuery]);
+  }, [
+    catalogAccessFilters,
+    catalogCommentFilter,
+    catalogPinnedOnly,
+    catalogSort,
+    catalogTagFilters,
+    projectId,
+    searchQuery,
+  ]);
+
+  const togglePin = async (artifactId: string, pinned: boolean): Promise<void> => {
+    setPinPendingId(artifactId);
+    try {
+      await api.pin(projectId, artifactId, pinned);
+      await loadArtifacts(null, true);
+    } catch (caught) {
+      setListError(caught instanceof Error ? caught : new Error("Pinning failed."));
+    } finally {
+      setPinPendingId(null);
+    }
+  };
 
   const refreshArtifacts = useCallback(async (): Promise<void> => {
     if (listLoading) return;
@@ -847,6 +948,20 @@ function ArtifactReview({
   }, [loadArtifacts]);
 
   useEffect(() => {
+    selectedArtifactIdRef.current = selectedArtifactId;
+  }, [selectedArtifactId]);
+
+  const mergePrincipalNames = useCallback((
+    ...maps: readonly Readonly<Record<string, string>>[]
+  ): void => {
+    setPrincipalNames((current) => new Map([
+      ...current,
+      ...maps.flatMap((names) => Object.entries(names)),
+    ]));
+  }, []);
+
+  useEffect(() => {
+    setPrincipalNames(new Map());
     if (selectedArtifactId === null || projectId === "") {
       setDetails(null);
       setVersions([]);
@@ -870,7 +985,8 @@ function ArtifactReview({
         ]);
         if (!current) return;
         setDetails(loadedDetails);
-        setVersions(loadedVersions);
+        setVersions(loadedVersions.versions);
+        mergePrincipalNames(loadedDetails.principals, loadedVersions.principals);
         setSelectedVersionId((selected) => {
           return selected ?? loadedDetails.current.version.id;
         });
@@ -894,11 +1010,13 @@ function ArtifactReview({
   const refreshLinkedDetails = useCallback(async (): Promise<void> => {
     if (selectedArtifactId === null || projectId === "") return;
     try {
-      setDetails(await api.artifact(projectId, selectedArtifactId));
+      const refreshed = await api.artifact(projectId, selectedArtifactId);
+      setDetails(refreshed);
+      mergePrincipalNames(refreshed.principals);
     } catch {
       // Ambient freshness never replaces the last readable artifact state.
     }
-  }, [projectId, selectedArtifactId]);
+  }, [mergePrincipalNames, projectId, selectedArtifactId]);
 
   useCommentPoll(
     refreshLinkedDetails,
@@ -911,14 +1029,16 @@ function ArtifactReview({
     setActivityError(null);
     try {
       const page = await api.actions(projectId, selectedArtifactId, cursor);
+      if (selectedArtifactIdRef.current !== selectedArtifactId) return;
       setActions((current) => cursor === null ? page.actions : [...current, ...page.actions]);
+      mergePrincipalNames(page.principals);
       setActionNextCursor(page.nextCursor);
     } catch (caught) {
       setActivityError(caught instanceof Error ? caught : new Error("Activity loading failed."));
     } finally {
       setActivityLoading(false);
     }
-  }, [projectId, selectedArtifactId]);
+  }, [mergePrincipalNames, projectId, selectedArtifactId]);
 
   useEffect(() => {
     if (inspectorTab === "activity" && actions.length === 0 && !activityLoading) {
@@ -1128,7 +1248,8 @@ function ArtifactReview({
         api.versions(details.artifact.projectId, details.artifact.id),
       ]);
       setDetails(loadedDetails);
-      setVersions(loadedVersions);
+      setVersions(loadedVersions.versions);
+      mergePrincipalNames(loadedDetails.principals, loadedVersions.principals);
       return true;
     } catch (caught) {
       if (caught instanceof ApiError && caught.status === 409) {
@@ -1138,7 +1259,8 @@ function ArtifactReview({
             api.versions(details.artifact.projectId, details.artifact.id),
           ]);
           setDetails(loadedDetails);
-          setVersions(loadedVersions);
+          setVersions(loadedVersions.versions);
+          mergePrincipalNames(loadedDetails.principals, loadedVersions.principals);
           updateArtifact(loadedDetails.artifact);
         } catch {
           // Keep the original conflict visible when refreshing pointer state fails.
@@ -1188,7 +1310,8 @@ function ArtifactReview({
         api.versions(details.artifact.projectId, details.artifact.id),
       ]);
       setDetails(loadedDetails);
-      setVersions(loadedVersions);
+      setVersions(loadedVersions.versions);
+      mergePrincipalNames(loadedDetails.principals, loadedVersions.principals);
       setSelectedVersionId(captured.version.id);
       updateArtifact(loadedDetails.artifact);
     } catch (caught) {
@@ -1549,10 +1672,14 @@ function ArtifactReview({
             </label>
             <div className="as-catalog-query-controls">
               <CatalogFilters
+                accessFilters={catalogAccessFilters}
                 commentFilter={catalogCommentFilter}
                 knownTags={catalogKnownTags}
+                onAccessFiltersChange={setCatalogAccessFilters}
                 onCommentFilterChange={setCatalogCommentFilter}
+                onPinnedOnlyChange={setCatalogPinnedOnly}
                 onTagFiltersChange={setCatalogTagFilters}
+                pinnedOnly={catalogPinnedOnly}
                 tagFilters={catalogTagFilters}
               />
               <label>
@@ -1583,50 +1710,70 @@ function ArtifactReview({
           {!listLoading && listError === null && catalogItems.length === 0 ? (
             <InlineState
               description={
-                query !== "" || catalogCommentFilter !== "all" || catalogTagFilters.length > 0
+                filteredCatalog
                   ? "Try clearing a filter or using a wider search."
                   : "Publish from the CLI to populate this project."
               }
               title={
-                query !== "" || catalogCommentFilter !== "all" || catalogTagFilters.length > 0
+                filteredCatalog
                   ? "No matching artifacts"
                   : "No artifacts yet"
               }
             />
           ) : null}
-          {catalogItems.map(({artifact, commentCount, versionCount}) => {
-            const displayedCommentCount = artifact.id === selectedArtifactId && !comments.loading
-              ? comments.threads.length
-              : commentCount;
-            return (
-              <button
-                aria-current={artifact.id === selectedArtifactId ? "true" : undefined}
-                className="as-artifact-card"
-                data-selected={artifact.id === selectedArtifactId}
-                key={artifact.id}
-                onClick={() => selectArtifact(artifact.id, artifact.currentVersionId)}
-                type="button"
-              >
-                <span className="as-artifact-card__title-row">
-                  <strong>{artifact.name}</strong>
-                  <AccessPill access={artifact.accessSetting} />
-                </span>
-                <span className="as-artifact-card__meta">
-                  <span className="as-artifact-card__history">
-                    <time dateTime={artifact.createdAt}>{formatTimestamp(artifact.createdAt)}</time>
-                    <span aria-hidden="true">·</span>
-                    <span>{versionCount} version{versionCount === 1 ? "" : "s"}</span>
-                  </span>
-                  <span className="as-artifact-card__counts">
-                    <span>
-                      <HugeiconsIcon aria-hidden="true" icon={Comment01Icon} strokeWidth={1.8} />
-                      {displayedCommentCount} comment{displayedCommentCount === 1 ? "" : "s"}
-                    </span>
-                  </span>
-                </span>
-              </button>
-            );
-          })}
+          {catalogGroups.map((group) => (
+            <section className="as-catalog-group" key={group.label ?? "all"}>
+              {group.label === null ? null : (
+                <h2 className="as-catalog-group__label">{group.label}</h2>
+              )}
+              {group.items.map(({artifact, commentCount, pinned, versionCount}) => {
+                const displayedCommentCount = artifact.id === selectedArtifactId && !comments.loading
+                  ? comments.threads.length
+                  : commentCount;
+                return (
+                  <div className="as-artifact-card-row" key={artifact.id}>
+                    <button
+                      aria-current={artifact.id === selectedArtifactId ? "true" : undefined}
+                      className="as-artifact-card"
+                      data-selected={artifact.id === selectedArtifactId}
+                      onClick={() => selectArtifact(artifact.id, artifact.currentVersionId)}
+                      type="button"
+                    >
+                      <span className="as-artifact-card__title-row">
+                        <strong>{artifact.name}</strong>
+                        <AccessPill access={artifact.accessSetting} />
+                      </span>
+                      <span className="as-artifact-card__meta">
+                        <span className="as-artifact-card__history">
+                          <time dateTime={artifact.createdAt}>{formatTimestamp(artifact.createdAt)}</time>
+                          <span aria-hidden="true">·</span>
+                          <span>{versionCount} version{versionCount === 1 ? "" : "s"}</span>
+                        </span>
+                        <span className="as-artifact-card__counts">
+                          <span>
+                            <HugeiconsIcon aria-hidden="true" icon={Comment01Icon} strokeWidth={1.8} />
+                            {displayedCommentCount} comment{displayedCommentCount === 1 ? "" : "s"}
+                          </span>
+                        </span>
+                      </span>
+                    </button>
+                    <button
+                      aria-label={`${pinned ? "Unpin" : "Pin"} ${artifact.name}`}
+                      aria-pressed={pinned}
+                      className="as-artifact-card__pin"
+                      data-pinned={pinned}
+                      disabled={pinPendingId === artifact.id}
+                      onClick={() => void togglePin(artifact.id, !pinned)}
+                      title={pinned ? "Unpin" : "Pin to the top"}
+                      type="button"
+                    >
+                      <HugeiconsIcon aria-hidden="true" icon={PinIcon} size={14} strokeWidth={1.8} />
+                    </button>
+                  </div>
+                );
+              })}
+            </section>
+          ))}
         </div>
 
         <footer className="as-app-footer as-catalog__footer">
@@ -2077,6 +2224,7 @@ function ArtifactReview({
                 canManage={canManageArtifacts}
                 details={details}
                 linkedArtifacts={session.capabilities.linkedArtifacts}
+                names={principalNames}
                 onCapture={captureLinkedArtifact}
                 onOpenLive={openLinkedArtifact}
                 onTagsChange={changeTags}
@@ -2103,6 +2251,7 @@ function ArtifactReview({
                 canManage={canManageArtifacts}
                 comparisonLoading={comparisonLoading}
                 currentVersionId={details.artifact.currentVersionId}
+                names={principalNames}
                 onCompare={compareVersions}
                 onMakeCurrent={makeVersionCurrent}
                 onSelect={(versionId) => {
@@ -2118,6 +2267,7 @@ function ArtifactReview({
                 actions={actions}
                 error={activityError}
                 loading={activityLoading}
+                names={principalNames}
                 nextCursor={actionNextCursor}
                 onLoadMore={() => void loadActions(actionNextCursor)}
               />
@@ -2193,6 +2343,7 @@ function DetailsInspector({
   canManage,
   details,
   linkedArtifacts,
+  names,
   onCapture,
   onOpenLive,
   onTagsChange,
@@ -2203,6 +2354,7 @@ function DetailsInspector({
   readonly canManage: boolean;
   readonly details: ArtifactDetails;
   readonly linkedArtifacts: boolean;
+  readonly names: ReadonlyMap<string, string>;
   readonly onCapture: () => Promise<void>;
   readonly onOpenLive: () => Promise<void>;
   readonly onTagsChange: (tags: readonly string[]) => Promise<void>;
@@ -2214,8 +2366,13 @@ function DetailsInspector({
     : sourceDriftDescription(details.sourceBinding.status, "captured");
   return (
     <div className="as-inspector-stack">
-      <InspectorSection count={5} title="Artifact">
+      <InspectorSection count={6} title="Artifact">
         <InspectorRow label="name" title={details.artifact.name} value={details.artifact.name} />
+        <InspectorRow
+          label="owner"
+          title={details.artifact.ownerPrincipalId}
+          value={<PrincipalChip name={principalLabel(names, details.artifact.ownerPrincipalId)} />}
+        />
         <InspectorRow
           label="access"
           value={<AccessPill access={details.artifact.accessSetting} />}
@@ -2224,8 +2381,13 @@ function DetailsInspector({
         <InspectorRow label="artifact id" mono title={details.artifact.id} value={details.artifact.id} />
         <InspectorRow label="project id" mono title={details.artifact.projectId} value={details.artifact.projectId} />
       </InspectorSection>
-      <InspectorSection count={5} title="Version">
+      <InspectorSection count={6} title="Version">
         <InspectorRow label="number" title={String(version.version.number)} value={String(version.version.number)} />
+        <InspectorRow
+          label="published by"
+          title={version.version.publisherPrincipalId}
+          value={<PrincipalChip name={principalLabel(names, version.version.publisherPrincipalId)} />}
+        />
         <InspectorRow label="saved" title={formatTimestamp(version.version.createdAt)} value={formatTimestamp(version.version.createdAt)} />
         <InspectorRow label="entry" mono title={version.manifest.entryPath} value={version.manifest.entryPath} />
         <InspectorRow label="routing" title={version.version.routingMode} value={version.version.routingMode} />
@@ -2400,6 +2562,7 @@ function VersionsInspector({
   canManage,
   comparisonLoading,
   currentVersionId,
+  names,
   onCompare,
   onMakeCurrent,
   onSelect,
@@ -2409,6 +2572,7 @@ function VersionsInspector({
   readonly canManage: boolean;
   readonly comparisonLoading: boolean;
   readonly currentVersionId: string;
+  readonly names: ReadonlyMap<string, string>;
   readonly onCompare: (fromVersionId: string, toVersionId: string) => Promise<void>;
   readonly onMakeCurrent: (
     versionId: string,
@@ -2466,6 +2630,7 @@ function VersionsInspector({
                   <span>
                     <strong>Version {version.number}</strong>
                     <time dateTime={version.createdAt}>{formatTimestamp(version.createdAt)}</time>
+                    <PrincipalChip name={principalLabel(names, version.publisherPrincipalId)} />
                   </span>
                   <span className="as-version-list__state">
                     {version.id === currentVersionId ? "current" : compactId(version.id)}
@@ -2491,12 +2656,14 @@ function ActivityInspector({
   actions,
   error,
   loading,
+  names,
   nextCursor,
   onLoadMore,
 }: {
   readonly actions: readonly ArtifactAction[];
   readonly error: Error | null;
   readonly loading: boolean;
+  readonly names: ReadonlyMap<string, string>;
   readonly nextCursor: string | null;
   readonly onLoadMore: () => void;
 }) {
@@ -2511,7 +2678,12 @@ function ActivityInspector({
             <li key={action.id}>
               <strong>{actionLabel(action.action)}</strong>
               <time dateTime={action.createdAt}>{formatTimestamp(action.createdAt)}</time>
-              <code title={action.principalId}>{compactId(action.principalId)}</code>
+              <span title={action.principalId}>
+                <PrincipalChip
+                  name={principalLabel(names, action.principalId)}
+                  via={action.authorizedByPrincipalId === null ? null : "API key"}
+                />
+              </span>
             </li>
           ))}
         </ol>
@@ -2770,9 +2942,17 @@ function IconButton({
   );
 }
 
-// Mirrors `isServicePrincipalId` in src/core/identity.ts, which this bundle cannot import.
+// Mirrors `localApiTokenPrincipalId` and `isServicePrincipalId` in src/core/identity.ts,
+// which this bundle cannot import.
+const localApiTokenPrincipalId = "local-api-token";
+
 function isServicePrincipalId(id: string): boolean {
-  return id.startsWith("service:") || id === "local-api-token";
+  return id.startsWith("service:") || id === localApiTokenPrincipalId;
+}
+
+function principalLabel(names: ReadonlyMap<string, string>, principalId: string): string {
+  if (principalId === localApiTokenPrincipalId) return "You · local CLI";
+  return names.get(principalId) ?? compactId(principalId);
 }
 
 function AccessPill({access}: {readonly access: ArtifactDetails["artifact"]["accessSetting"]}) {

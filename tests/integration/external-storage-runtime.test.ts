@@ -679,6 +679,79 @@ describe.sequential("external-storage Postgres and S3 runtime", () => {
     }
   });
 
+  test("catalog pins and names on Postgres: one process pins and names, another process reads the same order and names", async () => {
+    const previousClaims = {...oidcProvider.claims};
+    const identity = {
+      apiToken: managedTestKey("postgres-catalog-pins"),
+      installationId: "postgres-catalog-pins-installation",
+    };
+    const [first, second] = await Promise.all([
+      startExternalStorageProcess(environment, identity),
+      startExternalStorageProcess(environment, identity),
+    ]);
+    try {
+      const older = await publishNew(first.baseUrl, identity.apiToken, {
+        content: "<h1>older</h1>",
+        idempotencyKey: `catalog-pins-older-${randomUUID()}`,
+        name: "Older artifact",
+      });
+      const newer = await publishNew(first.baseUrl, identity.apiToken, {
+        content: "<h1>newer</h1>",
+        idempotencyKey: `catalog-pins-newer-${randomUUID()}`,
+        name: "Newer artifact",
+      });
+      expect([older.response.status, newer.response.status]).toEqual([201, 201]);
+
+      oidcProvider.claims.email = oidcAdministratorEmail;
+      oidcProvider.claims.subject = "postgres-catalog-pins-administrator";
+      const login = await oidcBrowserLogin(first.baseUrl);
+      expect(login.status).toBe(303);
+      const cookies = applicationCookies(login.headers.getSetCookie());
+      const listing = z.object({
+        artifacts: z.array(z.object({
+          artifact: z.object({id: z.string()}),
+          pinned: z.boolean(),
+        })),
+        principals: z.record(z.string(), z.string()),
+      });
+      const listOrder = async (baseUrl: string) => listing.parse(await (await fetch(
+        `${baseUrl}/api/v1/artifacts?projectId=${defaultProjectId}`,
+        {headers: {Cookie: cookies.header}},
+      )).json()).artifacts.map(({artifact, pinned}) => ({id: artifact.id, pinned}));
+
+      expect(await listOrder(second.baseUrl)).toEqual([
+        {id: newer.body.artifact.id, pinned: false},
+        {id: older.body.artifact.id, pinned: false},
+      ]);
+      const pinned = await fetch(
+        `${first.baseUrl}/api/v1/artifacts/${older.body.artifact.id}/pin?projectId=${defaultProjectId}`,
+        {headers: browserMutationHeaders("https://artifacts.example.com", cookies), method: "PUT"},
+      );
+      expect(pinned.status).toBe(204);
+      expect(await listOrder(second.baseUrl)).toEqual([
+        {id: older.body.artifact.id, pinned: true},
+        {id: newer.body.artifact.id, pinned: false},
+      ]);
+
+      const details = await fetch(
+        `${second.baseUrl}/api/v1/artifacts/${older.body.artifact.id}?projectId=${defaultProjectId}`,
+        {headers: {Cookie: cookies.header}},
+      );
+      expect(details.status).toBe(200);
+      expect(z.object({principals: z.record(z.string(), z.string())}).parse(await details.json()).principals)
+        .toEqual({[managedTestPrincipal(identity.apiToken).principalId]: "Installation bootstrap key"});
+
+      const status = await runExternalCli(["migrate", "status"], {
+        ARTIFACT_SERVER_DATABASE_URL: environment.databaseUrl,
+        ARTIFACT_SERVER_INSTALLATION_ID: identity.installationId,
+      });
+      expect(status.exitCode).toBe(0);
+      expect(JSON.parse(status.output)).toMatchObject({currentVersion: 17});
+    } finally {
+      Object.assign(oidcProvider.claims, previousClaims);
+    }
+  });
+
   test("a populated Postgres v1 installation migrates without changing identity or bytes", async () => {
     const databaseName = `artifactserver_project_migration_${randomUUID().replaceAll("-", "")}`;
     await createPostgresDatabase(environment, databaseName);

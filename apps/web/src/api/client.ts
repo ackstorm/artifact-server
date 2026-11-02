@@ -244,6 +244,7 @@ export interface ArtifactDetails {
   };
   /** Present only on a local deployment that linked this artifact to a file. */
   readonly sourceBinding?: SourceBinding | undefined;
+  readonly principals: Readonly<Record<string, string>>;
 }
 
 export interface ArtifactAction {
@@ -331,6 +332,7 @@ const artifactDetailsSchema: z.ZodType<ArtifactDetails> = z.object({
     management: z.url(),
   }),
   sourceBinding: sourceBindingSchema.optional(),
+  principals: z.record(z.string(), z.string()),
 });
 
 /** The link and capture answer: a published version plus the binding it read. */
@@ -904,13 +906,17 @@ export const api = {
     tags: readonly string[],
     search = "",
     options: {
+      readonly access?: readonly AccessSetting[];
       readonly comments?: "all" | "with" | "without";
+      readonly pinned?: "all" | "only";
       readonly sort?: "comments" | "newest";
     } = {},
   ) => {
     const query = new URLSearchParams({ limit: "25", projectId });
     query.set("comments", options.comments ?? "all");
     query.set("sort", options.sort ?? "newest");
+    query.set("pinned", options.pinned ?? "all");
+    for (const level of options.access ?? []) query.append("access", level);
     if (cursor !== null) query.set("cursor", cursor);
     for (const tag of tags) query.append("tag", tag);
     if (search.trim() !== "") query.set("search", search.trim());
@@ -927,9 +933,10 @@ export const api = {
         links: z.object({ review: z.url(), version: z.url() }),
         version: versionSchema,
       })),
+      principals: z.record(z.string(), z.string()),
     }),
     `/api/v1/artifacts/${encodeURIComponent(artifactId)}/versions?${projectQuery(projectId)}`,
-  ).then(({ versions }) => versions),
+  ).then(({ principals, versions }) => ({ principals, versions })),
   version: (projectId: string, artifactId: string, versionId: string) => request(
     artifactVersionSchema,
     `/api/v1/artifacts/${encodeURIComponent(artifactId)}/versions/${encodeURIComponent(versionId)}?${projectQuery(projectId)}`,
@@ -941,6 +948,7 @@ export const api = {
       z.object({
         actions: z.array(actionSchema),
         nextCursor: z.string().nullable(),
+        principals: z.record(z.string(), z.string()),
       }),
       `/api/v1/artifacts/${encodeURIComponent(artifactId)}/actions?${query}`,
     );
@@ -972,6 +980,10 @@ export const api = {
       headers: mutationHeaders(idempotencyKey),
       method: "POST",
     },
+  ),
+  pin: (projectId: string, artifactId: string, pinned: boolean) => requestNoContent(
+    `/api/v1/artifacts/${encodeURIComponent(artifactId)}/pin?${projectQuery(projectId)}`,
+    { headers: mutationHeaders(), method: pinned ? "PUT" : "DELETE" },
   ),
   changeAccess: (
     projectId: string,
