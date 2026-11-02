@@ -19,7 +19,7 @@ test.describe("ART-014 catalog filters and pins", () => {
         {
           accessSetting,
           content: `<!doctype html><title>${name}</title><h1>${name}</h1>`,
-          idempotencyKey: `art-014-${accessSetting}`,
+          idempotencyKey: `art-014-catalog-pins-${accessSetting}`,
           name,
           projectId: "prj_default",
         },

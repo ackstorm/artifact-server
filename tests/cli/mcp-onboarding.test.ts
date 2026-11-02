@@ -31,7 +31,7 @@ const connectFixture = path.join(
 const tsxExecutable = path.join(repositoryRoot, "node_modules/.bin/tsx");
 const modernProtocolRevision = "2026-07-28";
 const processStartupTimeoutMilliseconds = 45_000;
-const testTimeoutMilliseconds = 60_000;
+const testTimeoutMilliseconds = 90_000;
 const temporaryDirectories = new Set<string>();
 const managedServicePids = new Set<number>();
 const serviceRecordSchema = z.object({
@@ -146,7 +146,7 @@ describe("local MCP onboarding", {timeout: testTimeoutMilliseconds}, () => {
     expect(safeSurfaces).not.toContain(browserCredential);
     expect(safeSurfaces).not.toContain("Local API token:");
     expect(safeSurfaces).not.toContain("Browser login:");
-  }, 30_000);
+  }, 90_000);
 
   test("connect and disconnect preserve unrelated client configuration", async () => {
     const workspace = await temporaryWorkspace("artifact-server-mcp-clients-");

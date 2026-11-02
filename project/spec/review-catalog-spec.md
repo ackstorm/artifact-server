@@ -1,6 +1,6 @@
 # Review catalog: names, pins, Shared with me and Duplicate
 
-**Status:** Proposed
+**Status:** Accepted; implemented — ART-013, ART-014, ART-015, and AUTH-038 behavior-verified on the local deployment (November 2, 2026)
 **Date:** November 2, 2026
 **Companion documents:** [Artifact sharing levels](./artifact-sharing-levels-spec.md),
 [Decision 0035](./decisions/0035-owner-listed-and-opened-artifacts.md),

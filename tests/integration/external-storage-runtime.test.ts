@@ -63,6 +63,7 @@ const runningInProcessServers = new Set<InProcessExternalStorageServer>();
 
 const publishResponseSchema = z.object({
   artifact: z.object({
+    accessSetting: z.string().optional(),
     currentVersionId: z.string(),
     id: z.string(),
     name: z.string(),
@@ -944,8 +945,34 @@ describe.sequential("external-storage Postgres and S3 runtime", () => {
       const replay = await duplicate(second.baseUrl);
       expect(replay.status).toBe(200);
       expect(publishResponseSchema.parse(await replay.json()).artifact.id).toBe(copy.artifact.id);
-      expect(await (await fetchContentThroughServer(second.baseUrl, copy.links.version)).text())
-        .toBe(content);
+
+      const bootstrapResponse = await fetch(
+        `${second.baseUrl}/api/v1/artifacts/${copy.artifact.id}/content-sessions?projectId=${defaultProjectId}`,
+        {
+          headers: browserMutationHeaders("https://artifacts.example.com", cookies),
+          method: "POST",
+        },
+      );
+      expect(bootstrapResponse.status).toBe(201);
+      const bootstrap = z.object({bootstrapUrl: z.url()}).parse(
+        await bootstrapResponse.json(),
+      );
+      const exchange = await fetchContentThroughServer(
+        second.baseUrl,
+        bootstrap.bootstrapUrl,
+      );
+      expect(exchange.status).toBe(200);
+      const contentCookie = exchange.headers.get("set-cookie")?.split(";", 1)[0];
+      if (contentCookie === undefined) {
+        throw new Error("The private-content exchange did not issue a cookie.");
+      }
+      expect(
+        await (
+          await fetchContentThroughServer(second.baseUrl, copy.links.version, {
+            Cookie: contentCookie,
+          })
+        ).text(),
+      ).toBe(content);
       expect(await sourceState()).toEqual(before);
     } finally {
       Object.assign(oidcProvider.claims, previousClaims);

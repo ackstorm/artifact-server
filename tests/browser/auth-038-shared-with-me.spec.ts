@@ -18,7 +18,7 @@ async function publishAs(
     {
       accessSetting: "account_required",
       content: `<!doctype html><title>${name}</title><h1>${name}</h1>`,
-      idempotencyKey: `auth-038-${name}`,
+      idempotencyKey: `auth-038-shared-${name}`,
       name,
       projectId: "prj_default",
     },
@@ -41,7 +41,7 @@ async function openShare(page: Page, fixture: TeamFixture, published: PublishRes
     .getByRole("button", {exact: true, name: "Share"})
     .click();
   const share = page.locator(".as-share-popover[data-open]");
-  await expect(share.getByRole("heading", {name: published.artifact.name})).toBeVisible();
+  await expect(share.getByRole("heading", {exact: true, name: published.artifact.name})).toBeVisible();
   return {
     access: share.getByRole("combobox", {name: "General access"}),
     listing: share.getByRole("switch", {name: listingLabel}),

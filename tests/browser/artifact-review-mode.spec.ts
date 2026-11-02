@@ -207,10 +207,10 @@ test.describe("Artifact review mode", () => {
       await localLogin(fixture);
       await fixture.page.goto(normalReviewUrl(first.body.links.review).href);
       await expect(fixture.page.getByRole("button", {name: /^Annotate mode/u})).toBeVisible();
-      await fixture.page.getByRole("button", {name: /Interact fixture/u}).click();
+      await fixture.page.locator(".as-artifact-card").filter({hasText: "Interact fixture"}).click();
       await expect(fixture.page.getByRole("button", {name: /^Interact mode/u})).toBeVisible();
       await fixture.page.getByRole("button", {name: /^Interact mode/u}).click();
-      await fixture.page.getByRole("button", {name: /Annotate fixture/u}).click();
+      await fixture.page.locator(".as-artifact-card").filter({hasText: "Annotate fixture"}).click();
       await expect(fixture.page.getByRole("button", {name: /^Annotate mode/u})).toBeVisible();
     } finally {
       await stopBrowserFixture(fixture);
