@@ -4,7 +4,7 @@ fullnameOverride: ""
 
 image:
   repository: ghcr.io/ackstorm/artifact-server
-  tag: "0.5.0"
+  tag: "0.5.1"
   digest: ""
   allowMutableTag: false
   pullPolicy: IfNotPresent
