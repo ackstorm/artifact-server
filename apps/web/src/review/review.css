@@ -2415,6 +2415,11 @@ select:focus-visible {
   font-weight: 600;
 }
 
+/* At 18% the dark red tint leaves the red label below 4.5:1; 10% measures 4.7:1. */
+.dark .as-button--danger {
+  background: color-mix(in oklab, var(--as-love) 10%, transparent);
+}
+
 .as-tag-editor {
   display: grid;
   gap: 0.5rem;
