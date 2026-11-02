@@ -226,9 +226,11 @@ export interface ArtifactPage {
       readonly artifact: string;
       readonly management: string;
     };
+    readonly pinned: boolean;
     readonly versionCount: number;
   }[];
   readonly nextCursor: string | null;
+  readonly principals: Readonly<Record<string, string>>;
 }
 
 export interface ArtifactDetails {
@@ -313,9 +315,11 @@ const artifactPageSchema: z.ZodType<ArtifactPage> = z.object({
     artifact: artifactSchema,
     commentCount: z.number().int().nonnegative(),
     links: z.object({ artifact: z.url(), management: z.url() }),
+    pinned: z.boolean(),
     versionCount: z.number().int().positive(),
   })),
   nextCursor: z.string().nullable(),
+  principals: z.record(z.string(), z.string()),
 });
 
 const artifactDetailsSchema: z.ZodType<ArtifactDetails> = z.object({

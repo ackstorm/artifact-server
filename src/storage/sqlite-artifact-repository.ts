@@ -50,6 +50,7 @@ import {
   type ArtifactActionPage,
   type ArtifactActionRecord,
   type ArtifactDeletion,
+  type ArtifactListItem,
   type ArtifactPage,
   type ArtifactRecord,
   type ArtifactState,
@@ -118,6 +119,7 @@ import type {
   ProjectRepository,
   RenameProject,
   RestoreArtifactVersion,
+  SetArtifactPin,
   SetProjectArchive,
   SourceBindingRepository,
   SourceBindingWrite,
@@ -254,7 +256,9 @@ const artifactRowSchema = z.object({
   projectId: z.string(),
 });
 const artifactListRowSchema = artifactRowSchema.extend({
+  catalogGroup: z.number().int(),
   commentCount: z.number().int().nonnegative(),
+  pinned: z.number().int(),
   versionCount: z.number().int().positive(),
 });
 const artifactTagRowSchema = z.object({
@@ -1264,7 +1268,8 @@ export class SqliteArtifactRepository implements
         : command.comments === "without"
           ? "commentCount = 0"
           : "1 = 1";
-      const cursorSql = command.sort === "comments"
+      const cursorGroup = command.cursor?.group ?? null;
+      const positionSql = command.sort === "comments"
         ? `(
           ? IS NULL
           OR commentCount < ?
@@ -1277,18 +1282,31 @@ export class SqliteArtifactRepository implements
           OR createdAt < ?
           OR (createdAt = ? AND id < ?)
         )`;
-      const cursorParameters = command.sort === "comments"
-        ? [cursorRank, cursorRank, cursorRank, cursorCreatedAt, cursorCreatedAt, cursorId]
-        : [cursorCreatedAt, cursorCreatedAt, cursorCreatedAt, cursorId];
+      const cursorSql = `(
+        ? IS NULL
+        OR catalogGroup > ?
+        OR (catalogGroup = ? AND ${positionSql})
+      )`;
+      const cursorParameters = [
+        cursorGroup,
+        cursorGroup,
+        cursorGroup,
+        ...(command.sort === "comments"
+          ? [cursorRank, cursorRank, cursorRank, cursorCreatedAt, cursorCreatedAt, cursorId]
+          : [cursorCreatedAt, cursorCreatedAt, cursorCreatedAt, cursorId]),
+      ];
       const orderSql = command.sort === "comments"
-        ? "commentCount DESC, createdAt DESC, id DESC"
-        : "createdAt DESC, id DESC";
+        ? "catalogGroup ASC, commentCount DESC, createdAt DESC, id DESC"
+        : "catalogGroup ASC, createdAt DESC, id DESC";
+      const accessFilterJson = command.access.length === 0
+        ? null
+        : JSON.stringify(command.access);
       const tagFilterJson = command.tags.length === 0
         ? null
         : JSON.stringify(command.tags);
       const rows = this.#database
         .prepare(
-          `SELECT * FROM (
+          `SELECT *, CASE WHEN pinned = 1 THEN 0 ELSE 1 END AS catalogGroup FROM (
             SELECT
               id,
               project_id AS projectId,
@@ -1307,10 +1325,15 @@ export class SqliteArtifactRepository implements
                 SELECT COUNT(*) FROM versions
                 WHERE versions.project_id = artifacts.project_id
                   AND versions.artifact_id = artifacts.id
-              ) AS versionCount
+              ) AS versionCount,
+              EXISTS (
+                SELECT 1 FROM artifact_pins p
+                WHERE p.artifact_id = artifacts.id AND p.principal_id = ?
+              ) AS pinned
             FROM artifacts
             WHERE project_id = ?
               AND deleted_at IS NULL
+              AND (? IS NULL OR access_setting IN (SELECT value FROM json_each(?)))
               AND (
                 owner_principal_id = ?
                 OR (? = 1 AND (owner_principal_id LIKE ? OR owner_principal_id = ?))
@@ -1333,12 +1356,15 @@ export class SqliteArtifactRepository implements
                 )
               )
           ) AS artifact_catalog
-          WHERE ${commentFilterSql} AND ${cursorSql}
+          WHERE ${commentFilterSql} AND (? = 0 OR pinned = 1) AND ${cursorSql}
           ORDER BY ${orderSql}
           LIMIT ?`,
         )
         .all(
+          command.viewer.principalId,
           command.projectId,
+          accessFilterJson,
+          accessFilterJson,
           command.viewer.principalId,
           command.viewer.includeServiceOwned ? 1 : 0,
           `${servicePrincipalIdPrefix}%`,
@@ -1348,14 +1374,36 @@ export class SqliteArtifactRepository implements
           command.search ?? null,
           tagFilterJson,
           tagFilterJson,
+          command.pinned === "only" ? 1 : 0,
           ...cursorParameters,
           command.limit + 1,
       );
-      return pageFromRows(
-        this.#withTagsForArtifacts(z.array(artifactListRowSchema).parse(rows)),
-        command.limit,
-        command.sort === "comments" ? ({commentCount}) => commentCount : null,
-      );
+      const parsed = z.array(artifactListRowSchema).parse(rows);
+      const items = parsed.slice(0, command.limit);
+      const last = items.at(-1);
+      return {
+        items: this.#withTagsForArtifacts(items).map(listItemFromRow),
+        nextCursor: parsed.length > command.limit && last !== undefined
+          ? listCursor(last, command.sort)
+          : null,
+      };
+    });
+  }
+
+  setArtifactPin(command: SetArtifactPin): Promise<void> {
+    return Promise.resolve().then(() => {
+      if (command.pinned) {
+        this.#database
+          .prepare(
+            "INSERT INTO artifact_pins (principal_id, artifact_id) VALUES (?, ?) ON CONFLICT DO NOTHING",
+          )
+          .run(command.principalId, command.artifactId);
+      } else {
+        this.#database
+          .prepare("DELETE FROM artifact_pins WHERE principal_id = ? AND artifact_id = ?")
+          .run(command.principalId, command.artifactId);
+      }
+      return undefined;
     });
   }
 
@@ -4279,6 +4327,12 @@ export class SqliteArtifactRepository implements
         public_links_enabled INTEGER NOT NULL CHECK (public_links_enabled IN (0, 1))
       ) STRICT;
 
+      CREATE TABLE IF NOT EXISTS artifact_pins (
+        principal_id TEXT NOT NULL,
+        artifact_id TEXT NOT NULL REFERENCES artifacts(id),
+        PRIMARY KEY (principal_id, artifact_id)
+      ) STRICT;
+
       CREATE INDEX IF NOT EXISTS versions_artifact_id
         ON versions (artifact_id, number);
       CREATE INDEX IF NOT EXISTS artifacts_active_created
@@ -5383,6 +5437,20 @@ function changedDuringManagement(): ArtifactMutationConflict {
   return new ArtifactMutationConflict({
     message: "The artifact changed during the management operation.",
   });
+}
+
+function listItemFromRow(
+  {catalogGroup: _catalogGroup, pinned, ...item}: z.infer<typeof artifactListRowSchema> & Pick<ArtifactRecord, "tags">,
+): ArtifactListItem {
+  return {...item, pinned: pinned === 1};
+}
+
+function listCursor(
+  last: z.infer<typeof artifactListRowSchema>,
+  sort: "comments" | "newest",
+): PageCursor {
+  const cursor = {createdAt: last.createdAt, group: last.catalogGroup, id: last.id};
+  return sort === "comments" ? {...cursor, rank: last.commentCount} : cursor;
 }
 
 function pageFromRows<Item extends PageCursor>(

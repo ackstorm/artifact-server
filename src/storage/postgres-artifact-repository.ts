@@ -41,6 +41,7 @@ import {
   type ArtifactActionPage,
   type ArtifactActionRecord,
   type ArtifactDeletion,
+  type ArtifactListItem,
   type ArtifactPage,
   type ArtifactRecord,
   type ArtifactState,
@@ -105,6 +106,7 @@ import type {
   RegisterAgent,
   RenameProject,
   RestoreArtifactVersion,
+  SetArtifactPin,
   SetProjectArchive,
   StagedUploadGrantRecord,
   StagedUploadRepository,
@@ -176,7 +178,9 @@ const artifactRowSchema = z.object({
   projectId: z.string(),
 });
 const artifactListRowSchema = artifactRowSchema.extend({
+  catalogGroup: z.coerce.number().int(),
   commentCount: z.coerce.number().int().nonnegative(),
+  pinned: z.boolean(),
   versionCount: z.coerce.number().int().positive(),
 });
 const artifactTagRowSchema = z.object({artifactId: z.string(), tag: z.string()});
@@ -991,7 +995,7 @@ export class PostgresArtifactRepository implements
         : command.comments === "without"
           ? `"commentCount" = 0`
           : "TRUE";
-      const cursorSql = command.sort === "comments"
+      const positionSql = command.sort === "comments"
         ? `($7::int IS NULL OR "commentCount" < $7
           OR ("commentCount" = $7 AND (
             "createdAt" < $5::text OR ("createdAt" = $5::text AND id < $6)
@@ -999,8 +1003,8 @@ export class PostgresArtifactRepository implements
         : `($5::text IS NULL OR "createdAt" < $5::text
           OR ("createdAt" = $5::text AND id < $6))`;
       const orderSql = command.sort === "comments"
-        ? `"commentCount" DESC, "createdAt" DESC, id DESC`
-        : `"createdAt" DESC, id DESC`;
+        ? `"catalogGroup" ASC, "commentCount" DESC, "createdAt" DESC, id DESC`
+        : `"catalogGroup" ASC, "createdAt" DESC, id DESC`;
       const tagFilterJson = command.tags.length === 0
         ? null
         : JSON.stringify(command.tags);
@@ -1034,9 +1038,19 @@ export class PostgresArtifactRepository implements
         command.viewer.includeServiceOwned,
         `${servicePrincipalIdPrefix}%`,
         localApiTokenPrincipalId,
+        command.access.length === 0 ? null : JSON.stringify(command.access),
+        command.pinned === "only",
+        command.cursor?.group ?? null,
       );
+      const accessPlaceholder = `$${viewer + 5}`;
+      const pinnedOnlyPlaceholder = `$${viewer + 6}`;
+      const groupPlaceholder = `$${viewer + 7}`;
+      const cursorSql = `(${groupPlaceholder}::int IS NULL
+        OR "catalogGroup" > ${groupPlaceholder}
+        OR ("catalogGroup" = ${groupPlaceholder} AND ${positionSql}))`;
       const rows = yield* sql.unsafe<object>(
         `SELECT * FROM (
+          SELECT *, CASE WHEN pinned THEN 0 ELSE 1 END::int AS "catalogGroup" FROM (
           SELECT id, project_id AS "projectId", name,
             review_mode AS "reviewMode", access_setting AS "accessSetting",
             current_version_id AS "currentVersionId",
@@ -1053,10 +1067,18 @@ export class PostgresArtifactRepository implements
               WHERE versions.installation_id = artifacts.installation_id
                 AND versions.project_id = artifacts.project_id
                 AND versions.artifact_id = artifacts.id
-            ) AS "versionCount"
+            ) AS "versionCount",
+            EXISTS (
+              SELECT 1 FROM artifact_pins
+              WHERE artifact_pins.installation_id = artifacts.installation_id
+                AND artifact_pins.artifact_id = artifacts.id
+                AND artifact_pins.principal_id = $${viewer + 1}
+            ) AS pinned
           FROM artifacts
           WHERE installation_id = $1 AND project_id = $2
             AND deleted_at IS NULL
+            AND (${accessPlaceholder}::jsonb IS NULL
+              OR access_setting IN (SELECT jsonb_array_elements_text(${accessPlaceholder}::jsonb)))
             AND ${viewerSql}
             AND ($3::text IS NULL
               OR strpos(search_name, $3) > 0
@@ -1072,18 +1094,41 @@ export class PostgresArtifactRepository implements
                 AND artifact_tags.artifact_id = artifacts.id
                 AND artifact_tags.tag IN (SELECT jsonb_array_elements_text($4::jsonb))
             ))
+          ) AS artifact_pinned
         ) AS artifact_catalog
-        WHERE ${commentFilterSql} AND ${cursorSql}
+        WHERE ${commentFilterSql} AND (NOT ${pinnedOnlyPlaceholder}::boolean OR pinned)
+          AND ${cursorSql}
         ORDER BY ${orderSql}
         LIMIT ${limitPlaceholder}`,
         queryParameters,
       );
-      const artifacts = z.array(artifactListRowSchema).parse(rows);
-      return pageFromRows(
-        yield* this.#withTagsForArtifacts(artifacts),
-        command.limit,
-        command.sort === "comments" ? ({commentCount}) => commentCount : null,
-      );
+      const parsed = z.array(artifactListRowSchema).parse(rows);
+      const items = parsed.slice(0, command.limit);
+      const last = items.at(-1);
+      const tagged = yield* this.#withTagsForArtifacts(items);
+      return {
+        items: tagged.map(listItemFromRow),
+        nextCursor: parsed.length > command.limit && last !== undefined
+          ? listCursor(last, command.sort)
+          : null,
+      };
+    }));
+  }
+
+  async setArtifactPin(command: SetArtifactPin): Promise<void> {
+    const installationId = this.#installationId;
+    await this.#database.run(Effect.gen(function*() {
+      const sql = yield* SqlClient;
+      if (command.pinned) {
+        yield* sql`INSERT INTO artifact_pins (installation_id, principal_id, artifact_id)
+          VALUES (${installationId}, ${command.principalId}, ${command.artifactId})
+          ON CONFLICT DO NOTHING`;
+      } else {
+        yield* sql`DELETE FROM artifact_pins
+          WHERE installation_id = ${installationId}
+            AND principal_id = ${command.principalId}
+            AND artifact_id = ${command.artifactId}`;
+      }
     }));
   }
 
@@ -4190,6 +4235,20 @@ function changedDuringManagement(): ArtifactMutationConflict {
   return new ArtifactMutationConflict({
     message: "The artifact changed during the management operation.",
   });
+}
+
+function listItemFromRow(
+  {catalogGroup: _catalogGroup, ...item}: z.infer<typeof artifactListRowSchema> & Pick<ArtifactRecord, "tags">,
+): ArtifactListItem {
+  return item;
+}
+
+function listCursor(
+  last: z.infer<typeof artifactListRowSchema>,
+  sort: "comments" | "newest",
+): PageCursor {
+  const cursor = {createdAt: last.createdAt, group: last.catalogGroup, id: last.id};
+  return sort === "comments" ? {...cursor, rank: last.commentCount} : cursor;
 }
 
 function pageFromRows<Item extends PageCursor>(

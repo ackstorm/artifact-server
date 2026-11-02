@@ -726,6 +726,17 @@ const dropGitHistory = Effect.gen(function*() {
     git_history_provider_identity`);
 });
 
+const addArtifactPins = Effect.gen(function*() {
+  const sql = yield* SqlClient;
+  yield* sql.unsafe(`CREATE TABLE artifact_pins (
+    installation_id TEXT NOT NULL,
+    principal_id TEXT NOT NULL,
+    artifact_id TEXT NOT NULL,
+    PRIMARY KEY (installation_id, principal_id, artifact_id),
+    FOREIGN KEY (installation_id, artifact_id) REFERENCES artifacts(installation_id, id)
+  )`);
+});
+
 const migrationLoader = Migrator.fromRecord({
   "0001_initial_shared_schema": initialSchema,
   "0002_project_scoped_artifacts": addProjectScope,
@@ -743,10 +754,11 @@ const migrationLoader = Migrator.fromRecord({
   "0014_artifact_owner": addArtifactOwner,
   "0015_public_link_policy": addPublicLinkPolicy,
   "0016_drop_git_history": dropGitHistory,
+  "0017_artifact_pins": addArtifactPins,
 });
 
 /** Schema revision required by this Artifact Server build. */
-export const requiredPostgresSchemaVersion = 16;
+export const requiredPostgresSchemaVersion = 17;
 
 /** Migration compatibility observed without changing Postgres. */
 export interface PostgresMigrationStatus {
@@ -849,6 +861,9 @@ export const readPostgresMigrationStatus = Effect.gen(function*() {
   }, {
     migration_id: 16,
     name: "drop_git_history",
+  }, {
+    migration_id: 17,
+    name: "artifact_pins",
   }] as const;
   const observedRequiredHistory = rows.filter(
     (row) => row.migration_id <= requiredPostgresSchemaVersion,

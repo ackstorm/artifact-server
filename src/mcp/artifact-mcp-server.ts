@@ -2640,21 +2640,28 @@ function errorProjection(cause: unknown) {
   };
 }
 
-function encodePageCursor(cursor: {readonly createdAt: string; readonly id: string} | null): string | null {
+function encodePageCursor(
+  cursor: {readonly createdAt: string; readonly group?: number; readonly id: string} | null,
+): string | null {
   return cursor === null
     ? null
     : Buffer.from(JSON.stringify(cursor), "utf8").toString("base64url");
 }
 
-function decodePageCursor(token: string | null): {readonly createdAt: string; readonly id: string} | null {
+function decodePageCursor(
+  token: string | null,
+): {readonly createdAt: string; readonly group?: number; readonly id: string} | null {
   if (token === null) return null;
   try {
-    return z.object({
+    const cursor = z.object({
       createdAt: z.string().min(1).max(100),
+      group: z.number().int().min(0).max(2).optional(),
       id: z.string().min(1).max(200),
     }).strict().parse(
       JSON.parse(Buffer.from(token, "base64url").toString("utf8")),
     );
+    const position = {createdAt: cursor.createdAt, id: cursor.id};
+    return cursor.group === undefined ? position : {...position, group: cursor.group};
   } catch {
     throw new InvalidPagination({
       message: "The artifact page cursor is invalid.",

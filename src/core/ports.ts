@@ -202,9 +202,12 @@ export interface DeleteArtifact {
 
 /** Values used to read one bounded page of active artifacts. */
 export interface ListArtifacts {
+  /** Stored levels to keep; empty keeps every level. */
+  readonly access: readonly AccessSetting[];
   readonly comments: "all" | "with" | "without";
   readonly cursor: PageCursor | null;
   readonly limit: number;
+  readonly pinned: "all" | "only";
   readonly projectId: string;
   /** Normalized name-substring or exact-tag search, when supplied. */
   readonly search?: string | null;
@@ -216,6 +219,14 @@ export interface ListArtifacts {
     readonly includeServiceOwned: boolean;
     readonly principalId: string;
   };
+}
+
+/** Values used to pin or unpin one artifact for one principal. */
+export interface SetArtifactPin {
+  readonly artifactId: string;
+  readonly pinned: boolean;
+  readonly principalId: string;
+  readonly projectId: string;
 }
 
 /** Values used to read one bounded page of artifact actions. */
@@ -693,6 +704,7 @@ export interface ArtifactRepository {
     artifactId: string,
   ): Promise<readonly VersionRecord[]>;
   restoreVersion(command: RestoreArtifactVersion): Promise<ArtifactState>;
+  setArtifactPin(command: SetArtifactPin): Promise<void>;
 }
 
 /** Persistent capabilities required by private browser content sessions. */

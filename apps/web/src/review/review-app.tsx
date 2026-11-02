@@ -752,6 +752,7 @@ function ArtifactReview({
       artifact: details.artifact,
       commentCount: comments.threads.length,
       links: details.links,
+      pinned: false,
       versionCount: versions.length,
     }, ...items];
   }, [

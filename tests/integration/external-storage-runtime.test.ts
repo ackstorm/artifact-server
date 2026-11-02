@@ -547,9 +547,11 @@ describe.sequential("external-storage Postgres and S3 runtime", () => {
         sort: "comments" | "newest" = "newest",
       ) =>
         (await repository.listArtifacts({
+          access: [],
           comments: "all",
           cursor: null,
           limit: 10,
+          pinned: "all",
           projectId: defaultProjectId,
           sort,
           tags: [],

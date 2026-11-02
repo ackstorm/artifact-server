@@ -485,6 +485,11 @@ export function createApplicationLayer(
           try: () => adapters.repository.listArtifacts(command),
           catch: (cause) => repositoryFailure("listArtifacts", cause),
         }),
+      setArtifactPin: (command) =>
+        Effect.tryPromise({
+          try: () => adapters.repository.setArtifactPin(command),
+          catch: (cause) => repositoryFailure("setArtifactPin", cause),
+        }),
       restoreVersion: (command) =>
         Effect.tryPromise({
           try: () => adapters.repository.restoreVersion(command),

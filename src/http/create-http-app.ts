@@ -358,7 +358,9 @@ const pageQuerySchema = z.object({
   search: z.string().max(200).optional(),
 });
 const artifactPageQuerySchema = pageQuerySchema.extend({
+  access: z.array(z.enum(["private", "account_required", "public_link"])).max(3).default([]),
   comments: z.enum(["all", "with", "without"]).default("all"),
+  pinned: z.enum(["all", "only"]).default("all"),
   sort: z.enum(["comments", "newest"]).default("newest"),
   tags: z.array(z.string().max(200)).max(20).default([]),
 });
@@ -389,6 +391,7 @@ const makePublicLinksPrivateSchema = z.object({
 });
 const pageCursorSchema = z.object({
   createdAt: z.string().min(1).max(100),
+  group: z.number().int().min(0).max(2).optional(),
   id: z.string().min(1).max(200),
   rank: z.number().int().nonnegative().optional(),
 }).strict();
@@ -1535,6 +1538,7 @@ export function createHttpApp(
   app.get("/api/v1/artifacts", async (context) => {
     const query = artifactPageQuerySchema.parse({
       ...context.req.query(),
+      access: context.req.queries("access") ?? [],
       tags: context.req.queries("tag") ?? [],
     });
     const {page, principals} = await runHttpApplicationEffect(
@@ -1543,9 +1547,11 @@ export function createHttpApp(
       Effect.gen(function*() {
         const management = yield* ArtifactManagementService;
         const listed = yield* management.listArtifacts({
+          access: query.access,
           comments: query.comments,
           cursor: decodePageCursor(query.cursor),
           limit: query.limit,
+          pinned: query.pinned,
           principal: context.get("principal"),
           projectId: requestedProjectId(context),
           search: query.search ?? null,
@@ -1566,6 +1572,27 @@ export function createHttpApp(
       principals,
     ));
   });
+
+  const setArtifactPinned = async (context: Context<HttpEnvironment, "/api/v1/artifacts/:artifactId/pin">, pinned: boolean) => {
+    await runHttpApplicationEffect(
+      context,
+      dependencies,
+      Effect.gen(function*() {
+        const management = yield* ArtifactManagementService;
+        yield* management.setPinned({
+          artifactId: context.req.param("artifactId"),
+          pinned,
+          principal: context.get("principal"),
+          projectId: requestedProjectId(context),
+        });
+      }),
+    );
+    return context.body(null, 204);
+  };
+
+  app.put("/api/v1/artifacts/:artifactId/pin", (context) => setArtifactPinned(context, true));
+
+  app.delete("/api/v1/artifacts/:artifactId/pin", (context) => setArtifactPinned(context, false));
 
   app.get("/api/v1/artifacts/:artifactId", async (context) => {
     const read = await runHttpApplicationEffect(
@@ -2957,7 +2984,7 @@ function artifactPageResponse(
   principals: Readonly<Record<string, string>>,
 ) {
   return {
-    artifacts: page.items.map(({commentCount, versionCount, ...artifact}) => ({
+    artifacts: page.items.map(({commentCount, pinned, versionCount, ...artifact}) => ({
       artifact,
       commentCount,
       links: {
@@ -2967,6 +2994,7 @@ function artifactPageResponse(
           requestUrl,
         ).toString(),
       },
+      pinned,
       versionCount,
     })),
     nextCursor: encodePageCursor(page.nextCursor),
@@ -3262,8 +3290,10 @@ function decodePageCursor(token: string | undefined): PageCursor | null {
     );
     const cursor = pageCursorSchema.safeParse(decoded);
     if (cursor.success) {
-      const {createdAt, id, rank} = cursor.data;
-      return rank === undefined ? {createdAt, id} : {createdAt, id, rank};
+      const {createdAt, group, id, rank} = cursor.data;
+      const position = {createdAt, id};
+      const grouped = group === undefined ? position : {...position, group};
+      return rank === undefined ? grouped : {...grouped, rank};
     }
   } catch {
     return invalidPageCursor();

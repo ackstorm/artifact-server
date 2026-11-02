@@ -431,6 +431,7 @@ export class ArtifactRepositoryFailure extends Schema.TaggedError<ArtifactReposi
       "registerAgent",
       "removeExpiredStagedUpload",
       "restoreVersion",
+      "setArtifactPin",
       "setPublicLinksEnabled",
       "updateCommentReply",
       "updateCommentThread",

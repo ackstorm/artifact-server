@@ -51,6 +51,7 @@ import type {
   ListArtifactActions,
   ListArtifacts,
   RestoreArtifactVersion,
+  SetArtifactPin,
 } from "../core/ports.js";
 
 const maximumPageSize = 100;
@@ -115,14 +116,21 @@ export interface ChangeArtifactTagsCommand extends ReadArtifactCommand {
 
 /** Input for listing active artifacts visible to one principal. */
 export interface ListArtifactsCommand {
+  readonly access?: readonly AccessSetting[];
   readonly comments?: "all" | "with" | "without";
   readonly cursor: PageCursor | null;
   readonly limit: number;
+  readonly pinned?: "all" | "only";
   readonly principal: Principal;
   readonly projectId: string | null;
   readonly search: string | null;
   readonly sort?: "comments" | "newest";
   readonly tags: readonly string[];
+}
+
+/** Input for pinning or unpinning one artifact for its reader. */
+export interface SetArtifactPinnedCommand extends ReadArtifactCommand {
+  readonly pinned: boolean;
 }
 
 /** Input for listing one artifact's attributed mutation history. */
@@ -208,6 +216,9 @@ export interface ArtifactManagementRepository {
     | VersionNotFound
     | ArtifactRepositoryFailure
   >;
+  readonly setArtifactPin: (
+    command: SetArtifactPin,
+  ) => Effect.Effect<void, ArtifactRepositoryFailure>;
 }
 
 /** Dependencies used to construct artifact management operations. */
@@ -264,6 +275,9 @@ interface ArtifactManagementOperations {
   readonly restoreVersion: (
     command: RestoreArtifactVersionCommand,
   ) => Effect.Effect<ArtifactState, ArtifactManagementFailure>;
+  readonly setPinned: (
+    command: SetArtifactPinnedCommand,
+  ) => Effect.Effect<void, ArtifactManagementFailure>;
 }
 
 /** Reads and mutates artifact metadata without changing committed versions. */
@@ -469,6 +483,11 @@ function makeArtifactManagementService(
           message: "The artifact page cursor does not match the selected sort.",
         });
       }
+      if (command.cursor !== null && command.cursor.group === undefined) {
+        return yield* new InvalidPagination({
+          message: "The artifact page cursor is invalid or no longer supported.",
+        });
+      }
       yield* authorization.requireArtifactListing(command.principal);
       const tags = yield* parseArtifactTags(command.tags);
       const search = normalizeArtifactSearch(command.search);
@@ -477,9 +496,11 @@ function makeArtifactManagementService(
         command.projectId,
       );
       return yield* dependencies.repository.listArtifacts({
+        access: command.access ?? [],
         comments,
         cursor: command.cursor,
         limit,
+        pinned: command.pinned ?? "all",
         projectId: project.id,
         search,
         sort,
@@ -488,6 +509,21 @@ function makeArtifactManagementService(
           includeServiceOwned: isHumanAdministrator(command.principal),
           principalId: command.principal.id,
         },
+      });
+    },
+  );
+
+  const setPinned = Effect.fn("ArtifactManagementService.setPinned")(
+    function*(command: SetArtifactPinnedCommand) {
+      const project = yield* resolveProjectForRead(command.principal, command.projectId);
+      const artifact = yield* requireArtifact(project.id, command.artifactId);
+      yield* authorization.requireArtifactVisible(command.principal, artifact);
+      yield* authorization.requireArtifactRead(command.principal);
+      yield* dependencies.repository.setArtifactPin({
+        artifactId: artifact.id,
+        pinned: command.pinned,
+        principalId: command.principal.id,
+        projectId: project.id,
       });
     },
   );
@@ -702,6 +738,7 @@ function makeArtifactManagementService(
     listArtifacts,
     listVersions,
     restoreVersion,
+    setPinned,
   });
 }
 
