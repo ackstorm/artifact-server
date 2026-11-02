@@ -859,6 +859,10 @@ export function createApplicationLayer(
         "listMembers",
         () => identityRepository.listMembers(installationId),
       ),
+      findPrincipalDisplayNames: (installationId, principalIds) => identityEffect(
+        "findPrincipalDisplayNames",
+        () => identityRepository.findPrincipalDisplayNames(installationId, principalIds),
+      ),
       revokeApiKey: (installationId, keyId, revokedAt) => identityEffectWithNotFound(
         "revokeApiKey",
         () => identityRepository.revokeApiKey(installationId, keyId, revokedAt),

@@ -165,6 +165,33 @@ export class PostgresIdentityRepository implements BootstrapManagedApiKeyReposit
     }));
   }
 
+  async findPrincipalDisplayNames(
+    installationId: string,
+    principalIds: readonly string[],
+  ): Promise<ReadonlyMap<string, string>> {
+    this.#assertInstallationScope(installationId);
+    if (principalIds.length === 0) return new Map();
+    const ids = [...new Set(principalIds)];
+    return this.#database.run(Effect.gen(function*() {
+      const sql = yield* SqlClient;
+      const rowSchema = z.array(z.object({id: z.string(), name: z.string()}));
+      const members = rowSchema.parse(yield* sql.unsafe<object>(
+        `SELECT id, display_name AS name FROM installation_members
+         WHERE installation_id = $1 AND id = ANY($2::text[])`,
+        [installationId, ids],
+      ));
+      // A rotated service key keeps its principal id, so the newest key names it.
+      const keys = rowSchema.parse(yield* sql.unsafe<object>(
+        `SELECT principal_id AS id, name FROM managed_api_keys
+         WHERE installation_id = $1 AND principal_kind = 'service'
+           AND principal_id = ANY($2::text[])
+         ORDER BY created_at, id`,
+        [installationId, ids],
+      ));
+      return new Map([...keys, ...members].map(({id, name}) => [id, name]));
+    }));
+  }
+
   async findMember(
     installationId: string,
     memberId: string,

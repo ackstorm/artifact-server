@@ -91,6 +91,11 @@ export interface IdentityRepository {
   hasMembers(installationId: string): Promise<boolean>;
   listApiKeys(installationId: string): Promise<readonly ManagedApiKey[]>;
   listMembers(installationId: string): Promise<readonly InstallationMember[]>;
+  /** Names of the given principals this installation knows; other ids are left out. */
+  findPrincipalDisplayNames(
+    installationId: string,
+    principalIds: readonly string[],
+  ): Promise<ReadonlyMap<string, string>>;
   revokeApiKey(
     installationId: string,
     keyId: string,

@@ -1537,11 +1537,12 @@ export function createHttpApp(
       ...context.req.query(),
       tags: context.req.queries("tag") ?? [],
     });
-    const page = await runHttpApplicationEffect(
+    const {page, principals} = await runHttpApplicationEffect(
       context,
       dependencies,
-      ArtifactManagementService.use((management) =>
-        management.listArtifacts({
+      Effect.gen(function*() {
+        const management = yield* ArtifactManagementService;
+        const listed = yield* management.listArtifacts({
           comments: query.comments,
           cursor: decodePageCursor(query.cursor),
           limit: query.limit,
@@ -1550,12 +1551,19 @@ export function createHttpApp(
           search: query.search ?? null,
           sort: query.sort,
           tags: query.tags,
-        })
-      ),
+        });
+        return {
+          page: listed,
+          principals: yield* principalNames(
+            listed.items.map((item) => item.ownerPrincipalId),
+          ),
+        };
+      }),
     );
     return context.json(artifactPageResponse(
       responseApplicationUrl(context, dependencies),
       page,
+      principals,
     ));
   });
 
@@ -1581,7 +1589,11 @@ export function createHttpApp(
             projectId: details.artifact.projectId,
           })
           : null;
-        return {binding, details};
+        const principals = yield* principalNames([
+          details.artifact.ownerPrincipalId,
+          details.current.version.publisherPrincipalId,
+        ]);
+        return {binding, details, principals};
       }),
     );
     const requestUrl = responseApplicationUrl(context, dependencies);
@@ -1589,6 +1601,7 @@ export function createHttpApp(
       requestUrl,
       dependencies.contentDomain,
       read.details,
+      read.principals,
     );
     if (read.binding === null) return context.json(response);
     const live = liveLink(requestUrl, dependencies, read.details.artifact.id);
@@ -1600,20 +1613,28 @@ export function createHttpApp(
   });
 
   app.get("/api/v1/artifacts/:artifactId/versions", async (context) => {
-    const versions = await runHttpApplicationEffect(
+    const {principals, versions} = await runHttpApplicationEffect(
       context,
       dependencies,
-      ArtifactManagementService.use((management) =>
-        management.listVersions({
+      Effect.gen(function*() {
+        const management = yield* ArtifactManagementService;
+        const saved = yield* management.listVersions({
           artifactId: context.req.param("artifactId"),
           principal: context.get("principal"),
           projectId: requestedProjectId(context),
-        })
-      ),
+        });
+        return {
+          principals: yield* principalNames(
+            saved.map((version) => version.publisherPrincipalId),
+          ),
+          versions: saved,
+        };
+      }),
     );
     const requestUrl = responseApplicationUrl(context, dependencies);
     return context.json({
       artifactId: context.req.param("artifactId"),
+      principals,
       versions: versions.map((version) => versionResponse(
         requestUrl,
         dependencies.contentDomain,
@@ -1624,20 +1645,27 @@ export function createHttpApp(
 
   app.get("/api/v1/artifacts/:artifactId/actions", async (context) => {
     const query = pageQuerySchema.parse(context.req.query());
-    const page = await runHttpApplicationEffect(
+    const {page, principals} = await runHttpApplicationEffect(
       context,
       dependencies,
-      ArtifactManagementService.use((management) =>
-        management.listArtifactActions({
+      Effect.gen(function*() {
+        const management = yield* ArtifactManagementService;
+        const actions = yield* management.listArtifactActions({
           artifactId: context.req.param("artifactId"),
           cursor: decodePageCursor(query.cursor),
           limit: query.limit,
           principal: context.get("principal"),
           projectId: requestedProjectId(context),
-        })
-      ),
+        });
+        return {
+          page: actions,
+          principals: yield* principalNames(
+            actions.items.map((action) => action.principalId),
+          ),
+        };
+      }),
     );
-    return context.json(artifactActionPageResponse(page));
+    return context.json(artifactActionPageResponse(page, principals));
   });
 
   app.get(
@@ -2900,6 +2928,7 @@ function artifactDetailsResponse(
   requestUrl: URL,
   contentDomain: string,
   details: ArtifactDetails,
+  principals: Readonly<Record<string, string>>,
 ) {
   return {
     artifact: details.artifact,
@@ -2911,12 +2940,21 @@ function artifactDetailsResponse(
         requestUrl,
       ).toString(),
     },
+    principals,
   };
+}
+
+/** Display names for ids taken from records the caller was already authorized to read. */
+function principalNames(principalIds: readonly string[]) {
+  return InstallationAccessService.use((access) =>
+    access.principalDisplayNames(principalIds)
+  ).pipe(Effect.map((names) => Object.fromEntries(names)));
 }
 
 function artifactPageResponse(
   requestUrl: URL,
   page: ArtifactPage,
+  principals: Readonly<Record<string, string>>,
 ) {
   return {
     artifacts: page.items.map(({commentCount, versionCount, ...artifact}) => ({
@@ -2932,6 +2970,7 @@ function artifactPageResponse(
       versionCount,
     })),
     nextCursor: encodePageCursor(page.nextCursor),
+    principals,
   };
 }
 
@@ -3194,10 +3233,14 @@ function updateCommentThreadCommand(
   return command;
 }
 
-function artifactActionPageResponse(page: ArtifactActionPage) {
+function artifactActionPageResponse(
+  page: ArtifactActionPage,
+  principals: Readonly<Record<string, string>>,
+) {
   return {
     actions: page.items,
     nextCursor: encodePageCursor(page.nextCursor),
+    principals,
   };
 }
 
