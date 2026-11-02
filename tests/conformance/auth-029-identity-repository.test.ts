@@ -24,6 +24,7 @@ describe("status-inclusive admission lookups", () => {
     });
     await repository.bindExternalIdentity({
       boundAt: "2026-10-09T00:00:00.000Z",
+      displayName: null,
       email: "member@example.test",
       memberId: "member-one",
       provider: "oidc:https://issuer-one.example.test",
@@ -69,6 +70,7 @@ describe("status-inclusive admission lookups", () => {
     );
     await repository.bindExternalIdentity({
       boundAt: "2026-10-09T02:00:00.000Z",
+      displayName: null,
       email: "changed@example.test",
       memberId: "member-one",
       provider: "oidc:https://issuer-one.example.test",
@@ -96,6 +98,7 @@ describe("status-inclusive admission lookups", () => {
     });
     await repository.bindExternalIdentity({
       boundAt: "2026-10-09T00:00:00.000Z",
+      displayName: null,
       email: "member@example.test",
       memberId: "member-two",
       provider: "oidc:https://issuer-two.example.test",

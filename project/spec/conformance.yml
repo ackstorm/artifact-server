@@ -1766,6 +1766,19 @@ requirements:
         run: project/evidence/local-foundation.json
         recorded_at: "2026-11-02T12:18:18.212Z"
 
+  - id: AUTH-039
+    kind: behavior
+    behavior: Each successful browser OIDC sign-in, and the first MCP bearer sign-in that binds an identity, replaces a member's stored display name with the identity provider's name when they differ, while a provider without a name never replaces it.
+    owner: authorization
+    source: {file: oidc-auto-admission-spec.md, anchor: display-names}
+    acceptance:
+      behavior: {id: AUTH-039-B, description: "A member admitted under the email's local part signs in and takes the provider's name; a later rename at the provider replaces it, and so does a bearer sign-in that binds the identity."}
+      failure: {id: AUTH-039-F, description: "An empty name or the email fallback keeps the stored name, and a deactivated member's refused sign-in renames nothing."}
+    deployments: *all
+    status: specified
+    depends_on: [AUTH-029, ART-013]
+    evidence: []
+
   - id: SEC-001
     kind: security
     behavior: Published websites are treated as untrusted arbitrary browser JavaScript.

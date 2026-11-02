@@ -303,6 +303,18 @@ export class PostgresIdentityRepository implements BootstrapManagedApiKeyReposit
         RETURNING member_id`;
       }));
       if (changed.length !== 1) throw identityBindingConflict();
+      if (
+        command.displayName !== null &&
+        command.displayName !== existingMember.displayName
+      ) {
+        const displayName = command.displayName;
+        await this.#database.run(Effect.gen(function*() {
+          const sql = yield* SqlClient;
+          yield* sql`UPDATE installation_members
+            SET display_name = ${displayName}, updated_at = ${command.boundAt}
+            WHERE installation_id = ${installationId} AND id = ${command.memberId}`;
+        }));
+      }
     } catch (cause) {
       if (cause instanceof IdentityConflict) throw cause;
       if (isConstraintFailure(cause)) throw identityBindingConflict();

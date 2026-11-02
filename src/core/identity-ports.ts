@@ -19,6 +19,8 @@ export interface AdmitMemberRecord {
 /** Values persisted when binding one external identity to a member. */
 export interface BindExternalIdentityRecord {
   readonly boundAt: string;
+  /** The identity provider's name for the member; when set, it replaces the stored one. */
+  readonly displayName: string | null;
   readonly email: string;
   readonly memberId: string;
   readonly provider: string;

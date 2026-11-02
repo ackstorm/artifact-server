@@ -1637,6 +1637,36 @@ describe.sequential("external-storage Postgres and S3 runtime", () => {
     }
   });
 
+  test("AUTH-039 on Postgres: binding an identity takes the provider's name, and an absent name keeps it", async () => {
+    const identity = {
+      apiToken: managedTestKey("identity-provider-names"),
+      installationId: "external-storage-identity-provider-names",
+    };
+    const server = await startExternalStorageProcess(environment, identity);
+    try {
+      const database = await PostgresDatabase.open({maxConnections: 2, url: Redacted.make(environment.databaseUrl)}, "validate");
+      try {
+        const repository = new PostgresIdentityRepository(database, identity.installationId);
+        const member = await repository.admitMember({
+          createdAt: new Date().toISOString(), displayName: "jose.romero", email: "jose.romero@ackstorm.com",
+          id: "member_postgres_names", installationId: identity.installationId, role: "member",
+        });
+        const bind = (displayName: string | null) => repository.bindExternalIdentity({
+          boundAt: new Date().toISOString(), displayName, email: member.email, memberId: member.id,
+          provider: "oidc:https://issuer.example.test", subject: "postgres-names",
+        });
+        await bind("José Romero");
+        expect((await repository.findMember(identity.installationId, member.id))?.displayName).toBe("José Romero");
+        await bind(null);
+        expect((await repository.findMember(identity.installationId, member.id))?.displayName).toBe("José Romero");
+      } finally {
+        await database.close();
+      }
+    } finally {
+      await server.stop();
+    }
+  });
+
   test("AUTH-009-B AUTH-009-F: sessions, managed keys, and staged uploads cross process boundaries", async () => {
     expect.hasAssertions();
     const externalStorageIdentity = {

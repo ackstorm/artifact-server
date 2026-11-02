@@ -60,6 +60,7 @@ export interface InstallationIdentityRepository {
   readonly bindExternalIdentity: (
     command: {
       readonly boundAt: string;
+      readonly displayName: string | null;
       readonly email: string;
       readonly memberId: string;
       readonly provider: string;
@@ -533,14 +534,20 @@ function makeInstallationAccessService(
         })),
       );
     }
+    const providerName = identity.displayName.trim();
+    // A provider without a name sends the email instead, which never replaces a real name.
+    const displayName = providerName === "" || providerName.toLowerCase() === email
+      ? null
+      : providerName;
     yield* dependencies.repository.bindExternalIdentity({
       boundAt: dependencies.clock.now().toISOString(),
+      displayName,
       email,
       memberId: member.id,
       provider: identity.provider,
       subject: identity.subject,
     });
-    return member;
+    return displayName === null ? member : {...member, displayName};
   });
 
   const authenticateExternalIdentity = Effect.fn(

@@ -338,6 +338,18 @@ export class SqliteIdentityRepository implements BootstrapManagedApiKeyRepositor
           message: "That external identity is already bound to another member.",
         });
       }
+      if (command.displayName !== null) {
+        this.#database.prepare(`
+          UPDATE installation_members
+          SET display_name = ?, updated_at = ?
+          WHERE id = ? AND display_name <> ?
+        `).run(
+          command.displayName,
+          command.boundAt,
+          command.memberId,
+          command.displayName,
+        );
+      }
     } catch (cause) {
       if (isSqliteConstraint(cause)) {
         throw new IdentityConflict({
