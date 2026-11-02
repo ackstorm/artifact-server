@@ -1709,6 +1709,8 @@ function ArtifactReview({
                 onClick={() => {
                   setCatalogTab(tab);
                   setSelectedArtifactId(null);
+                  setSelectedVersionId(null);
+                  setSelectedPath(null);
                 }}
                 role="tab"
                 type="button"

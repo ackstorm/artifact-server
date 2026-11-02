@@ -95,6 +95,15 @@ test.describe("AUTH-038 Shared with me", () => {
       await listing.click();
       await expect(listing).toBeChecked();
 
+      // Switching tabs drops the selected version with the selected artifact.
+      const newer = await publishAs(fixture, fixture.adaKey, "M");
+      await page.goto(reviewUrl(fixture, listed));
+      await page.getByRole("tab", {name: "Shared with me"}).click();
+      await page.getByRole("tab", {name: "Mine"}).click();
+      await expect(page).toHaveURL(new RegExp(`version=${newer.version.id}`, "u"));
+      await expect(page.getByText("The saved version does not exist on this artifact."))
+        .toHaveCount(0);
+
       const bob = fixture.bob;
       await bob.goto(`${fixture.server.baseUrl}/review`);
       await bob.getByRole("tab", {name: "Shared with me"}).click();
