@@ -62,7 +62,10 @@ export interface McpHttpAdapterDependencies {
   readonly contentDomain: string;
   readonly linkedArtifacts?: boolean;
   readonly mode: ArtifactMcpServerDependencies["mode"];
-  readonly oauthResource: string | null;
+  readonly oauthResource: {
+    readonly resource: string;
+    readonly scopes: readonly string[];
+  } | null;
 }
 
 /** Stateless MCP HTTP adapter mounted by every Artifact Server deployment. */
@@ -119,7 +122,7 @@ export function createMcpHttpAdapter(
         bearerOptions = {
           ...bearerOptions,
           resourceMetadataUrl: getOAuthProtectedResourceMetadataUrl(
-            new URL(dependencies.oauthResource),
+            new URL(dependencies.oauthResource.resource),
           ),
         };
       }

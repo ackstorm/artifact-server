@@ -57,6 +57,7 @@ export async function createOidcHostedAuthentication(
     mcpOAuthResource: {
       authorizationServerMetadata: authorizationServer.metadata,
       resource,
+      scopes: config.scopes.split(/\s+/u).filter((scope) => scope !== ""),
     },
   };
 }
