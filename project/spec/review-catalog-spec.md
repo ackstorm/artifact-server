@@ -92,7 +92,7 @@ person.
 
 The filter popover gains a **Sharing** group above **Comments**:
 
-- **Private**, **Organization**, **Public**: checkboxes that filter by the stored
+- **Private**, **Signed-in**, **Public**: checkboxes that filter by the stored
   access setting. None checked means every level.
 - **Pinned only**: shows only pinned artifacts.
 
@@ -150,7 +150,7 @@ This reverses the "never listed" rule of the sharing levels spec (§3 List). See
 Shared with me lists an artifact for a reader when all of these hold:
 
 - it is not deleted, and it is in the selected project;
-- it is at Organization or Public;
+- it is at Signed-in or Public;
 - the reader does not own it, and for a human administrator it is not
   service-owned (those are already in the administrator's Mine);
 - the reader holds read authority (`requireArtifactListing`);
@@ -159,10 +159,8 @@ Shared with me lists an artifact for a reader when all of these hold:
 | Group | Contents | Label | Hover note |
 | --- | --- | --- | --- |
 | Pinned | the reader's pinned shared artifacts | "Pinned" | — |
-| Listed | listed by the owner | "Listed for {organization}" | "Owners chose to list these." |
+| Listed | listed by the owner | "Listed for everyone" | "Owners chose to list these." |
 | Opened | opened by the reader and not listed | "Opened by link" | "You opened these from a link." |
-
-{organization} falls back to "this Artifact Server", as in the Share modal.
 
 Search, tags, comments, sharing and pinned filters apply within the tab. Private
 matches nothing in Shared with me.
@@ -198,7 +196,7 @@ matches nothing in Shared with me.
   access" and "Removed from Shared with me". The `unlist` action takes the key
   `{change_access key}:unlist`, so a replay of the level change, which returns
   before writing, adds neither. Raising the level again leaves the artifact
-  unlisted until the owner lists it again. Lowering from Public to Organization
+  unlisted until the owner lists it again. Lowering from Public to Signed-in
   keeps it listed.
 - **Responses.** Every artifact record carries `listed` (HTTP, MCP and the CLI
   publish response). No MCP tool or CLI command changes it.
@@ -226,7 +224,7 @@ matches nothing in Shared with me.
 - **No timestamp.** The Opened group sorts like every list, by the artifact's
   creation time or comment count, so no time is stored.
 - **Lowering to Private** hides an opened artifact from every non-owner's list,
-  because the list requires Organization or Public. The row stays, and the
+  because the list requires Signed-in or Public. The row stays, and the
   artifact reappears if the level is raised again, since the reader already
   had the link.
 - **History.** The server only knows of opens it recorded itself, so artifacts
@@ -247,7 +245,7 @@ card's group from `pinned` and `artifact.listed`.
   date.
 - **Mine cards** of listed artifacts show "Listed" after the version count.
 - **Empty Shared with me:** the title is "Nothing shared with you yet", and the
-  description "Artifacts people list for {organization}, and ones you open from
+  description "Artifacts people list for everyone, and ones you open from
   a link, appear here." A filtered empty state keeps today's copy.
 - **Activity labels.** `list` reads "Listed in Shared with me" and `unlist`
   reads "Removed from Shared with me", with the actor's name chip as for every
@@ -261,14 +259,14 @@ card's group from `pinned` and `artifact.listed`.
 A row under **General access**, above the Public link row:
 
 ```
-List it in {organization}'s Shared with me                        [switch]
-Everyone signed in to {organization} sees it in Shared with me.
+List it in Shared with me                                        [switch]
+Everyone signed in sees it in Shared with me.
 ```
 
 | State | Switch | Line under the label |
 | --- | --- | --- |
-| Reader controls it, level Organization or Public, listed | on | "Everyone signed in to {organization} sees it in Shared with me." |
-| Reader controls it, level Organization or Public, unlisted | off | "Only people who have the link find it." |
+| Reader controls it, level Signed-in or Public, listed | on | "Everyone signed in sees it in Shared with me." |
+| Reader controls it, level Signed-in or Public, unlisted | off | "Only people who have the link find it." |
 | Reader controls it, level Private | off, disabled | "Share it with the organization first." |
 | Reader does not control it | shows `listed`, disabled | "Only {owner} can change this." |
 
@@ -398,27 +396,27 @@ New requirements:
 | --- | --- | --- |
 | ART-013 | A | **B:** Details, Versions and Activity show the owner's, publishers' and actors' names with initials avatars, and "via API key" for key-authorized actions. **F:** List, details, versions and actions responses name only principals recorded on artifacts the reader can read. A failed read names nobody, emails never appear, and members cannot list the directory. |
 | ART-014 | A | **B:** The catalog filters by sharing level, and pinned artifacts stay grouped at the top across reloads and under Pinned only. **F:** Pins are per principal and need read authority. Pages never repeat or skip an artifact across the pinned boundary in either sort, and a cursor without a group, or an unknown level, is refused. |
-| AUTH-038 | B | **B:** An owner lists an Organization artifact from the Share modal and a colleague finds it under "Listed for {organization}". An artifact the colleague opened by link appears under "Opened by link". **F:** Shared with me never contains Private artifacts, service-owned artifacts for an administrator, or another reader's openings. Non-controllers cannot change the listing, and a Private artifact cannot be listed. Each listing change, and the unlisting by a lowering to Private, writes one Activity record, and a repeat writes none. Only a browser-session read records an opening: API-key and MCP OAuth-bearer reads record nothing. |
+| AUTH-038 | B | **B:** An owner lists a Signed-in artifact from the Share modal and a colleague finds it under "Listed for everyone". An artifact the colleague opened by link appears under "Opened by link". **F:** Shared with me never contains Private artifacts, service-owned artifacts for an administrator, or another reader's openings. Non-controllers cannot change the listing, and a Private artifact cannot be listed. Each listing change, and the unlisting by a lowering to Private, writes one Activity record, and a repeat writes none. Only a browser-session read records an opening: API-key and MCP OAuth-bearer reads record nothing. |
 | ART-015 | C | **B:** Duplicate from the ⋯ menu creates "{name} (copy)", Private and owned by the reader, with one version identical to the source, and opens it in Mine. **F:** A non-reader gets 404 and a reader without creation rights 403. A replay returns the same copy, a reused key with another source conflicts, and the source's versions, pointer, actions and bytes never change. |
 
 Reworded:
 
 | ID | Current | Proposed |
 | --- | --- | --- |
-| AUTH-034 behavior | "…an Organization or Public artifact owned by someone else is opened by link and never listed." | "…an Organization or Public artifact owned by someone else appears only in the reader's Shared with me list, when its owner listed it or the reader opened it." |
-| AUTH-034-F | "Another member's Organization and Public artifacts never appear in lists or search results." | "Another member's artifacts never appear in Mine lists or search results, and appear in Shared with me only when listed by their owner or opened by the reader." |
+| AUTH-034 behavior | "…a Signed-in or Public artifact owned by someone else is opened by link and never listed." | "…a Signed-in or Public artifact owned by someone else appears only in the reader's Shared with me list, when its owner listed it or the reader opened it." |
+| AUTH-034-F | "Another member's Signed-in and Public artifacts never appear in lists or search results." | "Another member's artifacts never appear in Mine lists or search results, and appear in Shared with me only when listed by their owner or opened by the reader." |
 
 Prose updates:
 
-- **`artifact-sharing-levels-spec.md`:** §1, §3 List and §9, pointing to 0035
+- **`artifact-sharing-levels-spec.md`:** §1, §3 List and §8, pointing to 0035
   (done with this spec).
 - **`artifact-server-product-spec.html` (#sharing):** "Lists show each person
   only the artifacts they own, so nobody discovers another person's artifact by
   browsing." becomes "Lists show each person the artifacts they own. Another
   person's artifact appears only in Shared with me, when its owner lists it for
-  the organization or the reader has opened its link." The Organization card's
+  the organization or the reader has opened its link." The Signed-in card's
   "it stays out of their lists" and the Public card's "Only the owner sees the
   item in lists" get the same qualification.
 - **`docs/cli.md:19`:** "only the publisher sees them in lists" adds "until the
-  owner lists an Organization or Public artifact in Shared with me from the
+  owner lists a Signed-in or Public artifact in Shared with me from the
   Review app".

@@ -41,11 +41,7 @@ interface FailedMutation {
 }
 
 /** Administrator-only public-link switch, cross-project inventory and shutdown surface. */
-export function PublicLinksScreen({
-  organizationName,
-}: {
-  readonly organizationName: string | null;
-}) {
+export function PublicLinksScreen() {
   const [pages, setPages] = useState<readonly PublicLinkPage[]>([]);
   const [policy, setPolicy] = useState<PublicLinkPolicy | null>(null);
   const [pageIndex, setPageIndex] = useState(0);
@@ -285,7 +281,6 @@ export function PublicLinksScreen({
       {policy === null ? null : (
         <PublicLinkSwitch
           onChanged={setPolicy}
-          organization={organizationName ?? "this Artifact Server"}
           policy={policy}
         />
       )}
@@ -342,7 +337,7 @@ export function PublicLinksScreen({
                 <Alert>
                   <AlertDescription>
                     Public links are off. These artifacts keep their Public setting but do not
-                    open without sign-in. Stop public access lowers them to Organization.
+                    open without sign-in. Stop public access lowers them to Signed-in.
                   </AlertDescription>
                 </Alert>
               )
@@ -583,11 +578,9 @@ export function PublicLinksScreen({
 /** Turns public links off or on for the installation, confirming in place. */
 function PublicLinkSwitch({
   onChanged,
-  organization,
   policy,
 }: {
   readonly onChanged: (policy: PublicLinkPolicy) => void;
-  readonly organization: string;
   readonly policy: PublicLinkPolicy;
 }) {
   const [confirming, setConfirming] = useState(false);
@@ -676,7 +669,7 @@ function PublicLinkSwitch({
             role="group"
           >
             {(enabled
-              ? disableCopy(policy.publicArtifactCount, organization)
+              ? disableCopy(policy.publicArtifactCount)
               : [enableCopy(policy.publicArtifactCount)]
             ).map((line) => <p key={line}>{line}</p>)}
             <div className="flex flex-wrap justify-end gap-2">
@@ -704,12 +697,12 @@ function PublicLinkSwitch({
   );
 }
 
-function disableCopy(count: number, organization: string): readonly string[] {
+function disableCopy(count: number): readonly string[] {
   const reach = count === 0
     ? "No artifact is Public now."
     : count === 1
-      ? `1 artifact is Public now. It stops opening without sign-in as soon as you turn public links off. It keeps its Public setting, and opens without sign-in again if you turn public links back on. Until then, people signed in to ${organization} with the link can still open it.`
-      : `${count} artifacts are Public now. They stop opening without sign-in as soon as you turn public links off. They keep their Public setting, and open without sign-in again if you turn public links back on. Until then, people signed in to ${organization} with the link can still open them.`;
+      ? `1 artifact is Public now. It stops opening without sign-in as soon as you turn public links off. It keeps its Public setting, and opens without sign-in again if you turn public links back on. Until then, people signed in with the link can still open it.`
+      : `${count} artifacts are Public now. They stop opening without sign-in as soon as you turn public links off. They keep their Public setting, and open without sign-in again if you turn public links back on. Until then, people signed in with the link can still open them.`;
   return [
     reach,
     "Nobody can make an artifact Public while public links are off. Pages already open or downloaded, and copies cached outside Artifact Server, cannot be recalled.",

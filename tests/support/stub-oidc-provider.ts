@@ -402,7 +402,8 @@ export async function signInWithStubOidc(
   subject: string,
 ): Promise<{readonly csrf: string; readonly header: string}> {
   provider.claims.email = email;
-  provider.claims.name = subject;
+  // No name claim: the email stands in, so a member keeps the name an administrator admitted.
+  provider.claims.name = null;
   provider.claims.subject = subject;
   const authorization = await startStubOidcLogin(baseUrl);
   const completed = await fetch(authorization.callbackUrl, {

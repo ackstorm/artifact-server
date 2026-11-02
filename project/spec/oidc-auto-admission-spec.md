@@ -58,6 +58,16 @@ list is empty or contains the complete email domain. Repeated or simultaneous
 logins must converge on the same member and binding. Successful admission issues
 the ordinary application session; denial creates no new member or session.
 
+## Display names
+
+The identity provider owns a member's display name. Each successful browser
+sign-in, and the first MCP bearer sign-in that binds an identity, replaces the
+stored name with the provider's name when they differ, so a member admitted under
+the email's local part takes the real name, and a rename at the provider reaches
+Review on the next browser sign-in. A provider without a name sends the email
+address instead, and that fallback never replaces a stored name. A refused
+sign-in renames nothing.
+
 The policy does not extend local-owner bootstrap or MCP bearer admission. A bearer identity cannot automatically register a normal member through
 this setting. No schema migration, group mapping, administrator promotion, or
 directory synchronization is introduced.
@@ -68,6 +78,8 @@ directory synchronization is introduced.
 | --- | --- |
 | AUTH-029-B | Enable the policy and complete a real signed browser OIDC login for an unknown eligible person; receive a normal member session, reuse the member and binding on repeat/concurrent login, preserve first-administrator bootstrap and explicitly admitted roles, and accept an exact allowed domain after normalization. |
 | AUTH-029-F | Keep automatic admission off by default; reject malformed policy configuration, an unknown person outside the exact domain list, another issuer, an explicitly unverified email, or an invalid token without creating a member/session; refuse inactive email/subject matches even after email changes, while retaining installation and issuer scope. |
+| AUTH-039-B | A member admitted under the email's local part signs in and takes the provider's name; a later rename at the provider replaces it, and so does a bearer sign-in that binds the identity. |
+| AUTH-039-F | An empty name or the email fallback keeps the stored name, and a deactivated member's refused sign-in renames nothing. |
 
 The acceptance tests use real services, HTTP OIDC boundaries, signed tokens, and
 storage adapters:

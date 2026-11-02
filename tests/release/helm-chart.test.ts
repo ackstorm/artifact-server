@@ -660,7 +660,7 @@ async function publishFile(
       "--token-file", token,
       "--tag", "helm-proof",
     ];
-    publishArguments.push(accessSetting === "public_link" ? "--public" : "--organization");
+    publishArguments.push(accessSetting === "public_link" ? "--public" : "--signed-in");
     const published = await command("node", publishArguments);
     return publicationSchema.parse(JSON.parse(published.stdout));
   });

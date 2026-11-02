@@ -39,7 +39,7 @@ describe("agent dispatch of private artifacts", () => {
     await removeTestInstallation(installation);
   });
 
-  test("DSP-014-B DSP-014-F: threads of an Organization artifact dispatch, threads of a Private artifact are refused with ARTIFACT_PRIVATE and stay undispatched", async () => {
+  test("DSP-014-B DSP-014-F: threads of a Signed-in artifact dispatch, threads of a Private artifact are refused with ARTIFACT_PRIVATE and stay undispatched", async () => {
     expect.hasAssertions();
     const shared = (await publishNew(server, installation, {
       accessSetting: "account_required",
@@ -82,7 +82,7 @@ describe("agent dispatch of private artifacts", () => {
     const failure = failureSchema.parse(await refused.json()).error;
     expect(failure.code).toBe("ARTIFACT_PRIVATE");
     expect(failure.message).toBe(
-      "This artifact is private. Share it with the organization before sending its threads to an agent.",
+      "This artifact is private. Make it Signed-in before sending its threads to an agent.",
     );
 
     const dispatches = dispatchPageSchema.parse(

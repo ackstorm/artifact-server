@@ -403,7 +403,7 @@ describe.sequential("external-storage Postgres and S3 runtime", () => {
       .actions.map(({action}) => action).toSorted()).toEqual(["change_review_mode", "change_review_mode", "publish"]);
   });
 
-  test("AUTH-036-B AUTH-036-F: a populated Postgres schema records each owner from version 1, keeps levels and replays, and leaves another member's Organization artifact readable by link", async () => {
+  test("AUTH-036-B AUTH-036-F: a populated Postgres schema records each owner from version 1, keeps levels and replays, and leaves another member's Signed-in artifact readable by link", async () => {
     const databaseName = `artifactserver_owner_migration_${randomUUID().replaceAll("-", "")}`;
     await createPostgresDatabase(environment, databaseName);
     const ownerEnvironment = {
@@ -1634,6 +1634,36 @@ describe.sequential("external-storage Postgres and S3 runtime", () => {
       }
     } finally {
       Object.assign(oidcProvider.claims, previousClaims);
+    }
+  });
+
+  test("AUTH-039 on Postgres: binding an identity takes the provider's name, and an absent name keeps it", async () => {
+    const identity = {
+      apiToken: managedTestKey("identity-provider-names"),
+      installationId: "external-storage-identity-provider-names",
+    };
+    const server = await startExternalStorageProcess(environment, identity);
+    try {
+      const database = await PostgresDatabase.open({maxConnections: 2, url: Redacted.make(environment.databaseUrl)}, "validate");
+      try {
+        const repository = new PostgresIdentityRepository(database, identity.installationId);
+        const member = await repository.admitMember({
+          createdAt: new Date().toISOString(), displayName: "jose.romero", email: "jose.romero@ackstorm.com",
+          id: "member_postgres_names", installationId: identity.installationId, role: "member",
+        });
+        const bind = (displayName: string | null) => repository.bindExternalIdentity({
+          boundAt: new Date().toISOString(), displayName, email: member.email, memberId: member.id,
+          provider: "oidc:https://issuer.example.test", subject: "postgres-names",
+        });
+        await bind("José Romero");
+        expect((await repository.findMember(identity.installationId, member.id))?.displayName).toBe("José Romero");
+        await bind(null);
+        expect((await repository.findMember(identity.installationId, member.id))?.displayName).toBe("José Romero");
+      } finally {
+        await database.close();
+      }
+    } finally {
+      await server.stop();
     }
   });
 

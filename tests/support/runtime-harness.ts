@@ -95,7 +95,6 @@ export async function startTestServer(
     readonly linkRoots?: readonly string[];
     readonly mcpOAuthResource?: McpOAuthResourceConfiguration;
     readonly observability?: boolean;
-    readonly organizationName?: string;
     readonly port?: number;
     readonly publicLinksEnabled?: boolean;
     readonly sessionLifetimeMilliseconds?: number;
@@ -176,9 +175,6 @@ export async function startTestServer(
   }
   if (options.mcpOAuthResource !== undefined) {
     config = {...config, mcpOAuthResource: options.mcpOAuthResource};
-  }
-  if (options.organizationName !== undefined) {
-    config = {...config, organizationName: options.organizationName};
   }
   if (options.publicLinksEnabled !== undefined) {
     config = {...config, publicLinksEnabled: options.publicLinksEnabled};

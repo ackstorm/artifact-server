@@ -140,7 +140,7 @@ describe("private artifacts by default", () => {
       },
     )).result?.structuredContent);
     const byCli = await cliPublish(adaKey, "default", []);
-    const byCliOrganization = await cliPublish(adaKey, "organization", ["--organization"]);
+    const byCliOrganization = await cliPublish(adaKey, "organization", ["--signed-in"]);
     const byCliPublic = await cliPublish(adaKey, "public", ["--public"]);
 
     expect([byHttp, byMcp, byCli].map(({artifact}) => artifact)).toMatchObject([
@@ -159,7 +159,7 @@ describe("private artifacts by default", () => {
     ]);
   });
 
-  test("AUTH-032-F: a later publisher never changes the owner, and the CLI refuses --public with --organization and creates nothing", async () => {
+  test("AUTH-032-F: a later publisher never changes the owner, and the CLI refuses --public with --signed-in and creates nothing", async () => {
     const {adaId, adaKey, administrator, serviceKey} = await setUp();
 
     const service = await commitNew(bearer(serviceKey), "Release notes", "auth-032-service-commit");
@@ -182,12 +182,12 @@ describe("private artifacts by default", () => {
       "publish",
       fixture,
       "--public",
-      "--organization",
+      "--signed-in",
       "--profile-data",
       path.join(workspace, "profiles"),
     ]);
     expect(refused.exitCode).not.toBe(0);
-    expect(refused.stderr).toContain("option '--public' cannot be used with option '--organization'");
+    expect(refused.stderr).toContain("option '--public' cannot be used with option '--signed-in'");
     expect(refused.stdout).toBe("");
     expect(await listIds(adaKey)).toEqual(before);
   });

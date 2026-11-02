@@ -38,7 +38,6 @@ const profileClaims = {
   family_name: Schema.optionalKey(Schema.String),
   given_name: Schema.optionalKey(Schema.String),
   name: Schema.optionalKey(Schema.String),
-  preferred_username: Schema.optionalKey(Schema.String),
 };
 const accessTokenClaims = Schema.Struct({
   ...profileClaims,
@@ -287,9 +286,9 @@ function displayName(claims: ProfileClaims, email: string): string {
   const parts = [claims.given_name, claims.family_name]
     .map((part) => part?.trim() ?? "")
     .filter((part) => part !== "");
-  if (parts.length > 0) return parts.join(" ");
-  const username = claims.preferred_username?.trim() ?? "";
-  return username === "" ? email : username;
+  // A login handle is not a name: without one, the email stands in and never
+  // replaces a member's stored name.
+  return parts.length > 0 ? parts.join(" ") : email;
 }
 
 function tokenScopes(

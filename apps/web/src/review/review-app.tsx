@@ -191,7 +191,7 @@ interface ReviewLocation {
 
 const accessFilterLabels: readonly (readonly [AccessSetting, string])[] = [
   ["private", "Private"],
-  ["account_required", "Organization"],
+  ["account_required", "Signed-in"],
   ["public_link", "Public"],
 ];
 
@@ -853,7 +853,6 @@ function ArtifactReview({
     || catalogTagFilters.length > 0
     || catalogAccessFilters.length > 0
     || catalogPinnedOnly;
-  const organization = session.installation.organizationName ?? "this Artifact Server";
   const pinnedItems = catalogItems.filter((item) => item.pinned);
   const restItems = catalogItems.filter((item) => !item.pinned);
   const catalogGroups: readonly {
@@ -867,7 +866,7 @@ function ArtifactReview({
     {items: pinnedItems, label: "Pinned"},
     {
       items: restItems.filter(({artifact}) => artifact.listed),
-      label: `Listed for ${organization}`,
+      label: "Listed for everyone",
       note: "Owners chose to list these.",
     },
     {
@@ -1778,7 +1777,7 @@ function ArtifactReview({
                 filteredCatalog
                   ? "Try clearing a filter or using a wider search."
                   : catalogTab === "shared"
-                    ? `Artifacts people list for ${organization}, and ones you open from a link, appear here.`
+                    ? "Artifacts people list for everyone, and ones you open from a link, appear here."
                     : "Publish from the CLI to populate this project."
               }
               title={
@@ -1969,7 +1968,6 @@ function ArtifactReview({
                     details={details}
                     key={`focus-share-${details?.artifact.id ?? "empty"}`}
                     onArtifactChanged={updateArtifact}
-                    organizationName={session.installation.organizationName}
                     ownerName={ownerName}
                     publicLinksEnabled={session.installation.publicLinksEnabled}
                     selectedPath={selectedPath}
@@ -2094,7 +2092,6 @@ function ArtifactReview({
                 details={details}
                 key={`header-share-${details?.artifact.id ?? "empty"}`}
                 onArtifactChanged={updateArtifact}
-                organizationName={session.installation.organizationName}
                 ownerName={ownerName}
                 publicLinksEnabled={session.installation.publicLinksEnabled}
                 selectedPath={selectedPath}

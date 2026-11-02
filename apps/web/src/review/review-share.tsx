@@ -61,7 +61,6 @@ interface ReviewShareControlProps {
   readonly canRaise: boolean;
   readonly details: ArtifactDetails | null;
   readonly onArtifactChanged: (artifact: ArtifactDetails["artifact"]) => void;
-  readonly organizationName: string | null;
   /** The owner's display name, when known. */
   readonly ownerName: string | null;
   readonly publicLinksEnabled: boolean;
@@ -76,7 +75,6 @@ export function ReviewShareControl({
   canRaise,
   details,
   onArtifactChanged,
-  organizationName,
   ownerName,
   publicLinksEnabled,
   selectedPath,
@@ -161,7 +159,6 @@ export function ReviewShareControl({
   };
 
   const savedAccess = details?.artifact.accessSetting ?? "private";
-  const organization = organizationName ?? "this Artifact Server";
   const accessChoices = canRaise
     ? accessLevels
     : canLower
@@ -198,7 +195,7 @@ export function ReviewShareControl({
   const listingReason = !canRaise
     ? `Only ${ownerName ?? "the owner"} can change this.`
     : savedAccess === "private"
-      ? "Share it with the organization first."
+      ? "Make it Signed-in first."
       : null;
 
   const saveListing = async (next: boolean): Promise<void> => {
@@ -230,7 +227,7 @@ export function ReviewShareControl({
   };
 
   const publicLinksOff = !publicLinksEnabled;
-  // A stored-Public artifact reads as Organization while public links are off.
+  // A stored-Public artifact reads as Signed-in while public links are off.
   const effectiveAccess = savedAccess === "public_link" && publicLinksOff
     ? "account_required"
     : savedAccess;
@@ -336,16 +333,16 @@ export function ReviewShareControl({
                           {publicLinksOff && level === "public_link"
                             ? "Public — Turned off by an administrator"
                             : canRaise || canLower
-                              ? accessOptionLabel(level, organization)
-                              : level === "public_link" ? "Public" : `Shared with ${organization}`}
+                              ? accessOptionLabel(level)
+                              : level === "public_link" ? "Public" : "Shared with anyone signed in"}
                         </option>
                       ))}
                     </select>
                   </div>
                   <p>
                     {publicLinksOff && shownAccess === "public_link"
-                      ? `Public links are turned off by an administrator. Only people signed in to ${organization} with the link can open it until they are turned back on.`
-                      : accessDescription(shownAccess, organization)}
+                      ? "Public links are turned off by an administrator. Only people signed in with the link can open it until they are turned back on."
+                      : accessDescription(shownAccess)}
                   </p>
                   {canRaise && publicLinksOff && savedAccess !== "public_link"
                     ? <p>Public links are turned off by an administrator.</p>
@@ -353,7 +350,7 @@ export function ReviewShareControl({
                   {confirmingPublic ? (
                     <div className="as-share-access__confirm" role="group" aria-label="Confirm public access">
                       <p>
-                        Anyone with the link, including people outside {organization}, can open the latest version.
+                        Anyone with the link, including people who are not signed in, can open the latest version.
                       </p>
                       <div>
                         <button
@@ -384,7 +381,7 @@ export function ReviewShareControl({
                 <section aria-labelledby="as-share-listing-heading" className="as-share-listing">
                   <div className="as-share-listing__row">
                     <span className="as-share-listing__title" id="as-share-listing-heading">
-                      List it in {organization}&apos;s Shared with me
+                      List it in Shared with me
                     </span>
                     <input
                       aria-describedby="as-share-listing-note"
@@ -399,7 +396,7 @@ export function ReviewShareControl({
                   {listingError === null ? (
                     <p id="as-share-listing-note">
                       {listingReason ?? (listed
-                        ? `Everyone signed in to ${organization} sees it in Shared with me.`
+                        ? "Everyone signed in sees it in Shared with me."
                         : "Only people who have the link find it.")}
                     </p>
                   ) : (
@@ -451,7 +448,7 @@ export function ReviewShareControl({
                       {copiedTarget === "review-link" ? "Copied" : "Copy Review link"}
                     </button>
                   </div>
-                  <p>{reviewLinkNote(effectiveAccess, organization)}</p>
+                  <p>{reviewLinkNote(effectiveAccess)}</p>
                 </section>
 
                 <section aria-labelledby="as-share-secondary-heading" className="as-share-secondary">
@@ -760,25 +757,25 @@ If Artifact Server MCP is not connected:
 Never paste credentials into chat, source files, or the review. If access fails, state which connection or permission is missing.`;
 }
 
-function accessOptionLabel(level: AccessSetting, organization: string): string {
+function accessOptionLabel(level: AccessSetting): string {
   return {
-    account_required: `Organization — Anyone signed in to ${organization} with the link`,
+    account_required: "Signed-in — Anyone signed in with the link",
     private: "Private — Only you",
     public_link: "Public — Anyone with the link, no sign-in",
   }[level];
 }
 
-function accessDescription(level: AccessSetting, organization: string): string {
+function accessDescription(level: AccessSetting): string {
   return {
-    account_required: `Anyone signed in to ${organization} with the link can open it.`,
+    account_required: "Anyone signed in with the link can open it.",
     private: "Only you can open it.",
     public_link: "Anyone with the link can open the latest version, no sign-in.",
   }[level];
 }
 
-function reviewLinkNote(level: AccessSetting, organization: string): string {
+function reviewLinkNote(level: AccessSetting): string {
   return {
-    account_required: `Anyone signed in to ${organization} can open this link.`,
+    account_required: "Anyone signed in can open this link.",
     private: "Only you can open this link.",
     public_link: "For signed-in members.",
   }[level];

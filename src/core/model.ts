@@ -87,7 +87,7 @@ export interface ArtifactRecord {
   readonly currentVersionId: string;
   readonly deletedAt: string | null;
   readonly id: string;
-  /** The owner listed it in Shared with me; only Organization and Public artifacts are listed. */
+  /** The owner listed it in Shared with me; only Signed-in and Public artifacts are listed. */
   readonly listed: boolean;
   readonly name: string;
   readonly ownerPrincipalId: string;

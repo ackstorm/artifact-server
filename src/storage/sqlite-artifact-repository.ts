@@ -1477,7 +1477,7 @@ export class SqliteArtifactRepository implements
             command.listed ? 1 : 0,
           );
         if (update.changes === 0 && command.listed && artifact.accessSetting === accessSettings.private) {
-          throw new ArtifactPrivate({message: "Share it with the organization first."});
+          throw new ArtifactPrivate({message: "Make it Signed-in first."});
         }
         if (update.changes === 1) {
           const actionId = crypto.randomUUID();

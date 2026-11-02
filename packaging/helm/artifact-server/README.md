@@ -90,6 +90,13 @@ second background loop. Configure or disable this trigger under `cleanup` in
 the values file. Disabling it is safe only when an operator runs the same
 `artifactserver maintenance cleanup-staging --once` command elsewhere.
 
+## Upgrading to 0.5.1
+
+The chart no longer accepts `configuration.organizationName`: the Review
+application calls the `account_required` level Signed-in for every
+installation. Remove the value before upgrading, or the values fail schema
+validation.
+
 ## Upgrading to 0.4
 
 Migration 0016 drops the Git-history tables in the pre-upgrade migration Job.
