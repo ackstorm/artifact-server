@@ -422,6 +422,32 @@ requirements:
         run: project/evidence/artifact-review-mode.json
         recorded_at: "2026-10-10T04:56:30.471Z"
 
+  - id: ART-013
+    kind: security
+    behavior: Review shows the names of an artifact's owner, version publishers and actors, resolved at read time for principals recorded on artifacts the reader can read, without exposing the member directory.
+    owner: web-application
+    source: {file: review-catalog-spec.md, anchor: 2-names}
+    acceptance:
+      behavior: {id: ART-013-B, description: "Details, Versions and Activity show the owner's, publishers' and actors' names with initials avatars, and via API key for key-authorized actions."}
+      failure: {id: ART-013-F, description: "List, details, versions and actions responses name only principals recorded on artifacts the reader can read; a failed read names nobody, emails never appear, and members cannot list the directory."}
+    deployments: *all
+    status: specified
+    depends_on: [AUTH-033, AUTH-034]
+    evidence: []
+
+  - id: ART-014
+    kind: behavior
+    behavior: The Review catalog filters by stored sharing level and keeps each reader's pinned artifacts grouped first, with pins stored per principal on the server and applied before pagination.
+    owner: artifact-core
+    source: {file: review-catalog-spec.md, anchor: 3-catalog-filters-and-pins}
+    acceptance:
+      behavior: {id: ART-014-B, description: "Filter the catalog by sharing level, pin an artifact, and see it grouped under Pinned at the top across reloads and under Pinned only."}
+      failure: {id: ART-014-F, description: "Pins are per principal and need read authority; pages never repeat or skip an artifact across the pinned boundary in either sort; a cursor without a group or an unknown level is refused."}
+    deployments: *all
+    status: specified
+    depends_on: [ART-011, AUTH-034]
+    evidence: []
+
   - id: MAN-001
     kind: behavior
     behavior: A canonical manifest contains a sorted list of normalized paths, fingerprints, sizes, media types, disposition, entry file, routing mode, and serving metadata.
