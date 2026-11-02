@@ -1880,7 +1880,7 @@ function ArtifactReview({
               <button
                 aria-label="Full screen"
                 aria-keyshortcuts="F"
-                className="as-button as-button--primary"
+                className="as-button as-button--secondary"
                 disabled={selectedVersionId === null}
                 onClick={enterFocusMode}
                 title="Full screen (F)"

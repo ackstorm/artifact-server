@@ -26,6 +26,11 @@ body {
  * the only field the API stores. HtmlViewer hard-codes the composer's
  * attachment affordance, so it is suppressed here.
  */
+[data-annotate-armed-ring] {
+  /* HtmlViewer draws the Annotate ring inline in the primary colour, which is ink here. */
+  box-shadow: inset 0 0 0 2px var(--marker) !important;
+}
+
 [data-comment-popover] button[aria-label="Attachments"] {
   display: none;
 }
