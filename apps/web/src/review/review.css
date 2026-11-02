@@ -60,7 +60,6 @@ body {
 button,
 input,
 select {
-  color: inherit;
   font: inherit;
 }
 
@@ -2414,6 +2413,15 @@ select:focus-visible {
   color: var(--as-love);
   font-size: 0.75rem;
   font-weight: 600;
+}
+
+/* Above about 12% the dark red tint leaves red text below 4.5:1; 10% measures 4.7:1. */
+.dark .as-button--danger {
+  background: color-mix(in oklab, var(--as-love) 10%, transparent);
+}
+
+.dark .as-preview-error {
+  background: color-mix(in oklab, var(--as-love) 10%, var(--as-surface));
 }
 
 .as-tag-editor {
