@@ -6,6 +6,7 @@ import {
   AgentDispatchNotFound,
   ArtifactMutationConflict,
   ArtifactNotFound,
+  ArtifactPrivate,
   CommentNotFound,
   CommentResolved,
   DispatchStateConflict,
@@ -106,6 +107,7 @@ import type {
   RegisterAgent,
   RenameProject,
   RestoreArtifactVersion,
+  SetArtifactListing,
   SetArtifactPin,
   SetProjectArchive,
   StagedUploadGrantRecord,
@@ -161,8 +163,10 @@ const artifactActionKindSchema = z.enum([
   artifactActionKinds.commentResolve,
   artifactActionKinds.commentUpdate,
   artifactActionKinds.delete,
+  artifactActionKinds.list,
   artifactActionKinds.publish,
   artifactActionKinds.restore,
+  artifactActionKinds.unlist,
 ]);
 const nonnegativeIntegerSchema = z.coerce.number().int().nonnegative();
 const positiveIntegerSchema = z.coerce.number().int().positive();
@@ -173,6 +177,7 @@ const artifactRowSchema = z.object({
   currentVersionId: z.string(),
   deletedAt: z.string().nullable(),
   id: z.string(),
+  listed: z.boolean(),
   name: z.string(),
   ownerPrincipalId: z.string(),
   projectId: z.string(),
@@ -207,6 +212,7 @@ const publishedRowSchema = z.object({
   currentVersionId: z.string(),
   entryPath: z.string(),
   manifestDigest: z.string(),
+  listed: z.boolean(),
   ownerPrincipalId: z.string(),
   projectId: z.string(),
   publisherPrincipalId: z.string(),
@@ -749,7 +755,8 @@ export class PostgresArtifactRepository implements
       command.accessSetting,
       null,
       (sql) => sql`UPDATE artifacts
-        SET access_setting = ${command.accessSetting}
+        SET access_setting = ${command.accessSetting},
+          listed = CASE WHEN ${command.accessSetting}::text = 'private' THEN FALSE ELSE listed END
         WHERE installation_id = ${this.#installationId}
           AND project_id = ${command.projectId}
           AND id = ${command.artifactId}
@@ -1030,9 +1037,19 @@ export class PostgresArtifactRepository implements
           ];
       const limitPlaceholder = `$${queryParameters.length}`;
       const viewer = queryParameters.length;
-      const viewerSql = `(owner_principal_id = $${viewer + 1}
+      const ownsSql = `(owner_principal_id = $${viewer + 1}
         OR ($${viewer + 2}::boolean
           AND (owner_principal_id LIKE $${viewer + 3} OR owner_principal_id = $${viewer + 4})))`;
+      const viewerSql = `(CASE WHEN $${viewer + 8}::text = 'shared'
+        THEN NOT ${ownsSql}
+          AND access_setting <> 'private'
+          AND (listed OR EXISTS (
+            SELECT 1 FROM artifact_openings
+            WHERE artifact_openings.installation_id = artifacts.installation_id
+              AND artifact_openings.artifact_id = artifacts.id
+              AND artifact_openings.principal_id = $${viewer + 1}
+          ))
+        ELSE ${ownsSql} END)`;
       queryParameters.push(
         command.viewer.principalId,
         command.viewer.includeServiceOwned,
@@ -1041,6 +1058,7 @@ export class PostgresArtifactRepository implements
         command.access.length === 0 ? null : JSON.stringify(command.access),
         command.pinned === "only",
         command.cursor?.group ?? null,
+        command.scope,
       );
       const accessPlaceholder = `$${viewer + 5}`;
       const pinnedOnlyPlaceholder = `$${viewer + 6}`;
@@ -1050,11 +1068,11 @@ export class PostgresArtifactRepository implements
         OR ("catalogGroup" = ${groupPlaceholder} AND ${positionSql}))`;
       const rows = yield* sql.unsafe<object>(
         `SELECT * FROM (
-          SELECT *, CASE WHEN pinned THEN 0 ELSE 1 END::int AS "catalogGroup" FROM (
+          SELECT *, CASE WHEN pinned THEN 0 WHEN $${viewer + 8}::text = 'shared' AND NOT listed THEN 2 ELSE 1 END::int AS "catalogGroup" FROM (
           SELECT id, project_id AS "projectId", name,
             review_mode AS "reviewMode", access_setting AS "accessSetting",
             current_version_id AS "currentVersionId",
-            created_at AS "createdAt", deleted_at AS "deletedAt",
+            created_at AS "createdAt", deleted_at AS "deletedAt", listed,
             owner_principal_id AS "ownerPrincipalId",
             (
               SELECT COUNT(*)::int FROM comment_threads
@@ -1112,6 +1130,50 @@ export class PostgresArtifactRepository implements
           ? listCursor(last, command.sort)
           : null,
       };
+    }));
+  }
+
+  async setArtifactListing(command: SetArtifactListing): Promise<ArtifactRecord> {
+    const installationId = this.#installationId;
+    return this.#database.run(Effect.gen({self: this}, function*() {
+      const sql = yield* SqlClient;
+      return yield* sql.withTransaction(Effect.gen({self: this}, function*() {
+        const artifact = yield* this.#readArtifact(command.projectId, command.artifactId, true);
+        if (command.listed && artifact.accessSetting === accessSettings.private) {
+          return yield* new ArtifactPrivate({message: "Share it with the organization first."});
+        }
+        if (artifact.listed !== command.listed) {
+          yield* sql`UPDATE artifacts SET listed = ${command.listed}
+            WHERE installation_id = ${installationId}
+              AND project_id = ${command.projectId}
+              AND id = ${command.artifactId}`;
+          const actionId = crypto.randomUUID();
+          yield* this.#insertAction(
+            {
+              ...command,
+              actionId,
+              idempotencyKey: `listing:${command.artifactId}:${actionId}`,
+            },
+            command.listed ? artifactActionKinds.list : artifactActionKinds.unlist,
+            artifact.currentVersionId,
+          );
+        }
+        return yield* this.#readArtifact(command.projectId, command.artifactId, false);
+      }));
+    }));
+  }
+
+  async recordArtifactOpening(
+    _projectId: string,
+    artifactId: string,
+    principalId: string,
+  ): Promise<void> {
+    const installationId = this.#installationId;
+    await this.#database.run(Effect.gen(function*() {
+      const sql = yield* SqlClient;
+      yield* sql`INSERT INTO artifact_openings (installation_id, principal_id, artifact_id)
+        VALUES (${installationId}, ${principalId}, ${artifactId})
+        ON CONFLICT DO NOTHING`;
     }));
   }
 
@@ -1183,6 +1245,7 @@ export class PostgresArtifactRepository implements
           artifact.created_at AS "artifactCreatedAt",
           artifact.deleted_at AS "artifactDeletedAt",
           artifact.owner_principal_id AS "ownerPrincipalId",
+          artifact.listed,
           project.installation_id AS "installationId",
           project.name AS "projectName",
           project.created_at AS "projectCreatedAt",
@@ -1226,6 +1289,7 @@ export class PostgresArtifactRepository implements
         currentVersionId: row.currentVersionId,
         deletedAt: row.artifactDeletedAt,
         id: row.artifactId,
+        listed: row.listed,
         name: row.artifactName,
         ownerPrincipalId: row.ownerPrincipalId,
         projectId: row.projectId,
@@ -2790,11 +2854,26 @@ export class PostgresArtifactRepository implements
         yield* assertExpectedVersion(artifact, command.expectedCurrentVersionId);
         const updated = yield* mutate(sql);
         if (updated.length !== 1) return yield* changedDuringManagement();
+        const unlists = operation === "change_access" && artifact.listed &&
+          accessSetting === accessSettings.private;
+        const changeActionId = unlists ? crypto.randomUUID() : undefined;
         yield* this.#insertAction(
-          command,
+          {...command, actionId: changeActionId},
           operation,
           command.expectedCurrentVersionId,
         );
+        if (changeActionId !== undefined) {
+          // Both records share a time; the id suffix keeps the unlisting newer in the id tiebreak.
+          yield* this.#insertAction(
+            {
+              ...command,
+              actionId: `${changeActionId}:unlist`,
+              idempotencyKey: `${command.idempotencyKey}:unlist`,
+            },
+            artifactActionKinds.unlist,
+            command.expectedCurrentVersionId,
+          );
+        }
         yield* this.#insertIdempotency({
           accessSetting: accessSetting ?? artifact.accessSetting,
           artifactId: command.artifactId,
@@ -2892,7 +2971,7 @@ export class PostgresArtifactRepository implements
         `SELECT id, project_id AS "projectId", name,
           review_mode AS "reviewMode", access_setting AS "accessSetting",
           current_version_id AS "currentVersionId",
-          created_at AS "createdAt", deleted_at AS "deletedAt",
+          created_at AS "createdAt", deleted_at AS "deletedAt", listed,
           owner_principal_id AS "ownerPrincipalId"
          FROM artifacts
          WHERE installation_id = $1 AND project_id = $2 AND id = $3
@@ -3049,7 +3128,7 @@ export class PostgresArtifactRepository implements
           a.review_mode AS "reviewMode", a.access_setting AS "accessSetting",
           a.current_version_id AS "currentVersionId",
           a.created_at AS "artifactCreatedAt", a.deleted_at AS "artifactDeletedAt",
-          a.owner_principal_id AS "ownerPrincipalId",
+          a.owner_principal_id AS "ownerPrincipalId", a.listed,
           v.id AS "versionId", v.number AS "versionNumber",
           v.manifest_digest AS "manifestDigest", v.entry_path AS "entryPath",
           v.routing_mode AS "routingMode", v.content_token AS "contentToken",
@@ -3072,6 +3151,7 @@ export class PostgresArtifactRepository implements
           currentVersionId: parsed.currentVersionId,
           deletedAt: parsed.artifactDeletedAt,
           id: parsed.artifactId,
+          listed: parsed.listed,
           name: parsed.artifactName,
           ownerPrincipalId: parsed.ownerPrincipalId,
           projectId: parsed.projectId,

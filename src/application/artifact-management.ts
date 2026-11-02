@@ -6,6 +6,7 @@ import type { ApplicationClock } from "./application-clock.js";
 import {
   type AuthorizationOperations,
   AuthorizationService,
+  controlsArtifact,
 } from "./authorization.js";
 import { parseIdempotencyKey } from "./idempotency-key.js";
 import {
@@ -19,6 +20,7 @@ import {
 import { PublicLinkPolicyService } from "./public-link-policy.js";
 import {
   ArtifactNotFound,
+  ArtifactPrivate,
   type ArtifactMutationConflict,
   type ArtifactRepositoryFailure,
   type AuthorizationDenied,
@@ -51,6 +53,7 @@ import type {
   ListArtifactActions,
   ListArtifacts,
   RestoreArtifactVersion,
+  SetArtifactListing,
   SetArtifactPin,
 } from "../core/ports.js";
 
@@ -80,6 +83,15 @@ export interface ReadArtifactCommand {
   readonly artifactId: string;
   readonly principal: Principal;
   readonly projectId: string | null;
+}
+
+/** Input for reading an artifact's details. */
+export interface GetArtifactCommand extends ReadArtifactCommand {
+  /**
+   * Set only by the Review app's session-authenticated details route; records an opening for a
+   * non-controlling reader.
+   */
+  readonly openedInBrowser?: boolean;
 }
 
 /** Input for reading one exact saved version. */
@@ -123,6 +135,7 @@ export interface ListArtifactsCommand {
   readonly pinned?: "all" | "only";
   readonly principal: Principal;
   readonly projectId: string | null;
+  readonly scope?: "mine" | "shared";
   readonly search: string | null;
   readonly sort?: "comments" | "newest";
   readonly tags: readonly string[];
@@ -131,6 +144,11 @@ export interface ListArtifactsCommand {
 /** Input for pinning or unpinning one artifact for its reader. */
 export interface SetArtifactPinnedCommand extends ReadArtifactCommand {
   readonly pinned: boolean;
+}
+
+/** Input for listing or unlisting one artifact in Shared with me. */
+export interface SetArtifactListingCommand extends ReadArtifactCommand {
+  readonly listed: boolean;
 }
 
 /** Input for listing one artifact's attributed mutation history. */
@@ -219,6 +237,14 @@ export interface ArtifactManagementRepository {
   readonly setArtifactPin: (
     command: SetArtifactPin,
   ) => Effect.Effect<void, ArtifactRepositoryFailure>;
+  readonly setArtifactListing: (
+    command: SetArtifactListing,
+  ) => Effect.Effect<ArtifactRecord, ArtifactNotFound | ArtifactPrivate | ArtifactRepositoryFailure>;
+  readonly recordArtifactOpening: (
+    projectId: string,
+    artifactId: string,
+    principalId: string,
+  ) => Effect.Effect<void, ArtifactRepositoryFailure>;
 }
 
 /** Dependencies used to construct artifact management operations. */
@@ -236,6 +262,7 @@ export type ArtifactManagementFailure =
   | InvalidIdempotencyKey
   | InvalidArtifactTags
   | InvalidPagination
+  | ArtifactPrivate
   | AuthorizationDenied
   | PublicLinksDisabled
   | ArtifactRepositoryFailure
@@ -255,7 +282,7 @@ interface ArtifactManagementOperations {
     command: DeleteArtifactCommand,
   ) => Effect.Effect<ArtifactDeletion, ArtifactManagementFailure>;
   readonly getArtifact: (
-    command: ReadArtifactCommand,
+    command: GetArtifactCommand,
   ) => Effect.Effect<ArtifactDetails, ArtifactManagementFailure>;
   readonly getVersion: (
     command: ReadArtifactVersionCommand,
@@ -275,6 +302,9 @@ interface ArtifactManagementOperations {
   readonly restoreVersion: (
     command: RestoreArtifactVersionCommand,
   ) => Effect.Effect<ArtifactState, ArtifactManagementFailure>;
+  readonly setListing: (
+    command: SetArtifactListingCommand,
+  ) => Effect.Effect<ArtifactRecord, ArtifactManagementFailure>;
   readonly setPinned: (
     command: SetArtifactPinnedCommand,
   ) => Effect.Effect<void, ArtifactManagementFailure>;
@@ -393,7 +423,7 @@ function makeArtifactManagementService(
   );
 
   const getArtifact = Effect.fn("ArtifactManagementService.getArtifact")(
-    function*(command: ReadArtifactCommand) {
+    function*(command: GetArtifactCommand) {
       const project = yield* resolveProjectForRead(
         command.principal,
         command.projectId,
@@ -406,6 +436,13 @@ function makeArtifactManagementService(
         artifact.id,
         artifact.currentVersionId,
       );
+      if (command.openedInBrowser === true && !controlsArtifact(command.principal, artifact)) {
+        yield* dependencies.repository.recordArtifactOpening(
+          project.id,
+          artifact.id,
+          command.principal.id,
+        );
+      }
       return {artifact, current};
     },
   );
@@ -502,6 +539,7 @@ function makeArtifactManagementService(
         limit,
         pinned: command.pinned ?? "all",
         projectId: project.id,
+        scope: command.scope ?? "mine",
         search,
         sort,
         tags,
@@ -522,6 +560,25 @@ function makeArtifactManagementService(
       yield* dependencies.repository.setArtifactPin({
         artifactId: artifact.id,
         pinned: command.pinned,
+        principalId: command.principal.id,
+        projectId: project.id,
+      });
+    },
+  );
+
+  const setListing = Effect.fn("ArtifactManagementService.setListing")(
+    function*(command: SetArtifactListingCommand) {
+      const project = yield* resolveProjectForRead(command.principal, command.projectId);
+      const artifact = yield* requireArtifact(project.id, command.artifactId);
+      yield* requireArtifactChange(command.principal, artifact);
+      if (command.listed && artifact.accessSetting === accessSettings.private) {
+        return yield* new ArtifactPrivate({message: "Share it with the organization first."});
+      }
+      return yield* dependencies.repository.setArtifactListing({
+        artifactId: artifact.id,
+        authorizedByPrincipalId: command.principal.authorizedByPrincipalId,
+        createdAt: DateTime.formatIso(yield* dependencies.clock.now),
+        listed: command.listed,
         principalId: command.principal.id,
         projectId: project.id,
       });
@@ -738,6 +795,7 @@ function makeArtifactManagementService(
     listArtifacts,
     listVersions,
     restoreVersion,
+    setListing,
     setPinned,
   });
 }

@@ -226,6 +226,7 @@ const changeAccessSchema = z.object({
   accessSetting: accessSettingSchema,
   expectedCurrentVersionId: z.string().min(1).max(200),
 });
+const setListingSchema = z.object({listed: z.boolean()}).strict();
 const changeTagsSchema = z.object({
   expectedCurrentVersionId: z.string().min(1).max(200),
   tags: artifactTagsSchema,
@@ -361,6 +362,7 @@ const artifactPageQuerySchema = pageQuerySchema.extend({
   access: z.array(z.enum(["private", "account_required", "public_link"])).max(3).default([]),
   comments: z.enum(["all", "with", "without"]).default("all"),
   pinned: z.enum(["all", "only"]).default("all"),
+  scope: z.enum(["mine", "shared"]).default("mine"),
   sort: z.enum(["comments", "newest"]).default("newest"),
   tags: z.array(z.string().max(200)).max(20).default([]),
 });
@@ -1554,6 +1556,7 @@ export function createHttpApp(
           pinned: query.pinned,
           principal: context.get("principal"),
           projectId: requestedProjectId(context),
+          scope: query.scope,
           search: query.search ?? null,
           sort: query.sort,
           tags: query.tags,
@@ -1594,6 +1597,27 @@ export function createHttpApp(
 
   app.delete("/api/v1/artifacts/:artifactId/pin", (context) => setArtifactPinned(context, false));
 
+  app.put(
+    "/api/v1/artifacts/:artifactId/listing",
+    boundedJsonBody,
+    async (context) => {
+      const body = setListingSchema.parse(await context.req.json());
+      const artifact = await runHttpApplicationEffect(
+        context,
+        dependencies,
+        ArtifactManagementService.use((management) =>
+          management.setListing({
+            artifactId: context.req.param("artifactId"),
+            listed: body.listed,
+            principal: context.get("principal"),
+            projectId: requestedProjectId(context),
+          })
+        ),
+      );
+      return context.json({artifact});
+    },
+  );
+
   app.get("/api/v1/artifacts/:artifactId", async (context) => {
     const read = await runHttpApplicationEffect(
       context,
@@ -1602,6 +1626,7 @@ export function createHttpApp(
         const management = yield* ArtifactManagementService;
         const details = yield* management.getArtifact({
           artifactId: context.req.param("artifactId"),
+          openedInBrowser: context.get("authenticationMethod") === "session",
           principal: context.get("principal"),
           projectId: requestedProjectId(context),
         });

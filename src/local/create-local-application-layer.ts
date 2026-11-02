@@ -74,6 +74,7 @@ import {
   AgentDispatchNotFound,
   AgentNotFound,
   ArtifactNotFound,
+  ArtifactPrivate,
   ArtifactMutationConflict,
   ArtifactRepositoryFailure,
   AuthenticationRequired,
@@ -489,6 +490,19 @@ export function createApplicationLayer(
         Effect.tryPromise({
           try: () => adapters.repository.setArtifactPin(command),
           catch: (cause) => repositoryFailure("setArtifactPin", cause),
+        }),
+      setArtifactListing: (command) =>
+        Effect.tryPromise({
+          try: () => adapters.repository.setArtifactListing(command),
+          catch: (cause) =>
+            cause instanceof ArtifactNotFound || cause instanceof ArtifactPrivate
+              ? cause
+              : repositoryFailure("setArtifactListing", cause),
+        }),
+      recordArtifactOpening: (projectId, artifactId, principalId) =>
+        Effect.tryPromise({
+          try: () => adapters.repository.recordArtifactOpening(projectId, artifactId, principalId),
+          catch: (cause) => repositoryFailure("recordArtifactOpening", cause),
         }),
       restoreVersion: (command) =>
         Effect.tryPromise({

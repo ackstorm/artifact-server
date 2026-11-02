@@ -209,6 +209,8 @@ export interface ListArtifacts {
   readonly limit: number;
   readonly pinned: "all" | "only";
   readonly projectId: string;
+  /** `mine` lists the reader's own artifacts; `shared` lists others' that are listed or were opened. */
+  readonly scope: "mine" | "shared";
   /** Normalized name-substring or exact-tag search, when supplied. */
   readonly search?: string | null;
   readonly sort: "comments" | "newest";
@@ -225,6 +227,16 @@ export interface ListArtifacts {
 export interface SetArtifactPin {
   readonly artifactId: string;
   readonly pinned: boolean;
+  readonly principalId: string;
+  readonly projectId: string;
+}
+
+/** Values used to list or unlist one artifact in Shared with me. */
+export interface SetArtifactListing {
+  readonly artifactId: string;
+  readonly authorizedByPrincipalId: string | null;
+  readonly createdAt: string;
+  readonly listed: boolean;
   readonly principalId: string;
   readonly projectId: string;
 }
@@ -705,6 +717,10 @@ export interface ArtifactRepository {
   ): Promise<readonly VersionRecord[]>;
   restoreVersion(command: RestoreArtifactVersion): Promise<ArtifactState>;
   setArtifactPin(command: SetArtifactPin): Promise<void>;
+  /** Changes the listing and writes one `list` or `unlist` action; an unchanged value writes nothing. */
+  setArtifactListing(command: SetArtifactListing): Promise<ArtifactRecord>;
+  /** Remembers that the principal opened the artifact; repeats keep one row. */
+  recordArtifactOpening(projectId: string, artifactId: string, principalId: string): Promise<void>;
 }
 
 /** Persistent capabilities required by private browser content sessions. */

@@ -308,6 +308,7 @@ function artifactFixture(
     currentVersionId: "version-1",
     deletedAt: null,
     id: "artifact-1",
+    listed: false,
     name: "Authorization fixture",
     ownerPrincipalId: "member-owner",
     projectId: "prj_default",

@@ -37,6 +37,7 @@ function listCommand(overrides: Partial<ListArtifacts> = {}): ListArtifacts {
     limit: 10,
     pinned: "all",
     projectId: defaultProjectId,
+    scope: "mine",
     sort: "newest",
     tags: [],
     viewer: {includeServiceOwned: false, principalId: "ada"},
@@ -157,7 +158,7 @@ test("a schema-17 SQLite database gains artifact_pins without changing artifacts
   }
   const check = new DatabaseSync(databasePath, {readOnly: true});
   try {
-    expect(requiredSqliteSchemaVersion).toBe(18);
+    expect(requiredSqliteSchemaVersion).toBe(19);
     expect(check.prepare("PRAGMA user_version").get()).toEqual({
       user_version: requiredSqliteSchemaVersion,
     });
@@ -167,14 +168,202 @@ test("a schema-17 SQLite database gains artifact_pins without changing artifacts
   }
 });
 
+const listingStamp = {authorizedByPrincipalId: null, projectId: defaultProjectId};
+
+function setListing(
+  repository: SqliteArtifactRepository,
+  artifactId: string,
+  listed: boolean,
+  principalId = "ada",
+  createdAt = "2026-10-31T09:00:00.000Z",
+) {
+  return repository.setArtifactListing({
+    ...listingStamp, artifactId, createdAt, listed, principalId,
+  });
+}
+
+function lowerToPrivate(
+  repository: SqliteArtifactRepository,
+  artifactId: string,
+  key: string,
+  principalId = "ada",
+) {
+  return repository.changeAccessSetting({
+    accessSetting: "private",
+    artifactId,
+    authorizedByPrincipalId: null,
+    createdAt: "2026-10-31T10:00:00.000Z",
+    expectedCurrentVersionId: `ver_${artifactId}_1`,
+    idempotencyKey: key,
+    inputDigest: `digest_${key}`,
+    principalId,
+    projectId: defaultProjectId,
+  });
+}
+
+async function actionKinds(repository: SqliteArtifactRepository, artifactId: string) {
+  const page = await repository.listArtifactActions({
+    artifactId, cursor: null, limit: 20, projectId: defaultProjectId,
+  });
+  return page.items.map((item) => item.action).toReversed();
+}
+
+test("shared scope on SQLite lists listed and opened artifacts of others, listed first, never Private", async () => {
+  const repository = new SqliteArtifactRepository(databasePath, "test-installation");
+  try {
+    await publishNew(repository, "L", "account_required", "2026-10-31T08:00:00.000Z");
+    await publishNew(repository, "U", "account_required", "2026-10-31T08:00:01.000Z");
+    await publishNew(repository, "P", "account_required", "2026-10-31T08:00:02.000Z");
+    await publishNew(repository, "O", "public_link", "2026-10-31T08:00:03.000Z", "carol");
+    await publishNew(repository, "X", "account_required", "2026-10-31T08:00:04.000Z", "carol");
+    await setListing(repository, "L", true);
+    await setListing(repository, "P", true);
+    await repository.recordArtifactOpening(defaultProjectId, "O", "bob");
+    await repository.recordArtifactOpening(defaultProjectId, "O", "bob");
+    await repository.recordArtifactOpening(defaultProjectId, "P", "bob");
+    await lowerToPrivate(repository, "P", "lower_P");
+
+    const bob = {viewer: {includeServiceOwned: false, principalId: "bob"}};
+    expect(await ids(repository, {...bob, scope: "shared"})).toEqual(["L", "O"]);
+    const page = await repository.listArtifacts(listCommand({...bob, scope: "shared"}));
+    expect(page.items.map((item) => item.listed)).toEqual([true, false]);
+    expect(await ids(repository, {scope: "shared"})).toEqual([]);
+
+    await repository.setArtifactPin({
+      artifactId: "O", pinned: true, principalId: "bob", projectId: defaultProjectId,
+    });
+    expect(await ids(repository, {...bob, scope: "shared"})).toEqual(["O", "L"]);
+
+    const rows = new DatabaseSync(databasePath, {readOnly: true});
+    try {
+      expect(rows.prepare("SELECT COUNT(*) AS n FROM artifact_openings WHERE artifact_id = 'O'").get())
+        .toEqual({n: 1});
+    } finally {
+      rows.close();
+    }
+  } finally {
+    repository.close();
+  }
+});
+
+test("listing on SQLite writes one action per change and none for a repeat", async () => {
+  const repository = new SqliteArtifactRepository(databasePath, "test-installation");
+  try {
+    await publishNew(repository, "L", "account_required", "2026-10-31T08:00:00.000Z");
+    const first = await setListing(repository, "L", true, "ada", "2026-10-31T09:00:00.000Z");
+    expect(first.listed).toBe(true);
+    expect((await setListing(repository, "L", true, "ada", "2026-10-31T09:01:00.000Z")).listed).toBe(true);
+    await repository.setArtifactListing({
+      ...listingStamp,
+      artifactId: "L",
+      authorizedByPrincipalId: "admin",
+      createdAt: "2026-10-31T09:02:00.000Z",
+      listed: false,
+      principalId: "ada",
+    });
+    expect((await setListing(repository, "L", false, "ada", "2026-10-31T09:03:00.000Z")).listed).toBe(false);
+
+    const page = await repository.listArtifactActions({
+      artifactId: "L", cursor: null, limit: 20, projectId: defaultProjectId,
+    });
+    const listing = page.items.filter((item) => item.action === "list" || item.action === "unlist");
+    expect(listing.map((item) => item.action)).toEqual(["unlist", "list"]);
+    expect(listing[0]).toMatchObject({
+      authorizedByPrincipalId: "admin", createdAt: "2026-10-31T09:02:00.000Z", principalId: "ada",
+    });
+    expect(listing[1]).toMatchObject({
+      authorizedByPrincipalId: null, createdAt: "2026-10-31T09:00:00.000Z", principalId: "ada",
+    });
+  } finally {
+    repository.close();
+  }
+});
+
+test("lowering to Private on SQLite clears the listing, records the unlisting, and raising keeps it cleared", async () => {
+  const repository = new SqliteArtifactRepository(databasePath, "test-installation");
+  try {
+    await publishNew(repository, "L", "account_required", "2026-10-31T08:00:00.000Z");
+    await publishNew(repository, "N", "account_required", "2026-10-31T08:00:01.000Z");
+    await setListing(repository, "L", true);
+
+    await lowerToPrivate(repository, "L", "lower_L", "mallory");
+    expect((await repository.findArtifact(defaultProjectId, "L"))?.listed).toBe(false);
+    expect(await actionKinds(repository, "L")).toEqual(["publish", "list", "change_access", "unlist"]);
+    const tail = await repository.listArtifactActions({
+      artifactId: "L", cursor: null, limit: 2, projectId: defaultProjectId,
+    });
+    expect(tail.items.map((item) => item.principalId)).toEqual(["mallory", "mallory"]);
+
+    await lowerToPrivate(repository, "L", "lower_L", "mallory");
+    expect(await actionKinds(repository, "L")).toHaveLength(4);
+
+    await lowerToPrivate(repository, "N", "lower_N");
+    expect(await actionKinds(repository, "N")).toEqual(["publish", "change_access"]);
+
+    await repository.changeAccessSetting({
+      accessSetting: "account_required",
+      artifactId: "L",
+      authorizedByPrincipalId: null,
+      createdAt: "2026-10-31T11:00:00.000Z",
+      expectedCurrentVersionId: "ver_L_1",
+      idempotencyKey: "raise_L",
+      inputDigest: "digest_raise_L",
+      principalId: "ada",
+      projectId: defaultProjectId,
+    });
+    expect((await repository.findArtifact(defaultProjectId, "L"))?.listed).toBe(false);
+    expect(await actionKinds(repository, "L")).toEqual([
+      "publish", "list", "change_access", "unlist", "change_access",
+    ]);
+  } finally {
+    repository.close();
+  }
+});
+
+test("listing a Private artifact on SQLite is refused and writes no action", async () => {
+  const repository = new SqliteArtifactRepository(databasePath, "test-installation");
+  try {
+    await publishNew(repository, "P", "private", "2026-10-31T08:00:00.000Z");
+    await expect(setListing(repository, "P", true)).rejects.toMatchObject({_tag: "ArtifactPrivate"});
+    expect((await repository.findArtifact(defaultProjectId, "P"))?.listed).toBe(false);
+    expect(await actionKinds(repository, "P")).toEqual(["publish"]);
+    expect((await setListing(repository, "P", false)).listed).toBe(false);
+  } finally {
+    repository.close();
+  }
+});
+
+test("a schema-18 SQLite database gains listing and openings with every artifact unlisted", async () => {
+  const first = new SqliteArtifactRepository(databasePath, "test-installation");
+  try {
+    await publishNew(first, "kept", "account_required", "2026-10-31T08:00:00.000Z");
+    await setListing(first, "kept", true);
+  } finally {
+    first.close();
+  }
+  const database = new DatabaseSync(databasePath);
+  database.exec("DROP TABLE artifact_openings; ALTER TABLE artifacts DROP COLUMN listed; PRAGMA user_version = 18;");
+  database.close();
+
+  const repository = new SqliteArtifactRepository(databasePath, "test-installation");
+  try {
+    expect((await repository.findArtifact(defaultProjectId, "kept"))?.listed).toBe(false);
+    await repository.recordArtifactOpening(defaultProjectId, "kept", "bob");
+    expect(await ids(repository, {viewer: {includeServiceOwned: false, principalId: "bob"}, scope: "shared"}))
+      .toEqual(["kept"]);
+  } finally {
+    repository.close();
+  }
+});
+
 async function publishNew(
   repository: SqliteArtifactRepository,
   artifactId: string,
   accessSetting: AccessSetting,
   createdAt: string,
+  principalId = "ada",
 ): Promise<void> {
   const uploadId = `upl_${artifactId}`;
-  const principalId = "ada";
   await repository.createStagedUpload({
     createdAt,
     expiresAt: "2026-10-31T09:00:00.000Z",

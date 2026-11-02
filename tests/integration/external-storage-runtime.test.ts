@@ -553,6 +553,7 @@ describe.sequential("external-storage Postgres and S3 runtime", () => {
           limit: 10,
           pinned: "all",
           projectId: defaultProjectId,
+          scope: "mine",
           sort,
           tags: [],
           viewer: {includeServiceOwned, principalId},
@@ -746,7 +747,7 @@ describe.sequential("external-storage Postgres and S3 runtime", () => {
         ARTIFACT_SERVER_INSTALLATION_ID: identity.installationId,
       });
       expect(status.exitCode).toBe(0);
-      expect(JSON.parse(status.output)).toMatchObject({currentVersion: 17});
+      expect(JSON.parse(status.output)).toMatchObject({currentVersion: 18});
     } finally {
       Object.assign(oidcProvider.claims, previousClaims);
     }

@@ -737,6 +737,25 @@ const addArtifactPins = Effect.gen(function*() {
   )`);
 });
 
+const addArtifactListing = Effect.gen(function*() {
+  const sql = yield* SqlClient;
+  yield* sql.unsafe("ALTER TABLE artifacts ADD COLUMN listed BOOLEAN NOT NULL DEFAULT FALSE");
+  yield* sql.unsafe(`CREATE TABLE artifact_openings (
+    installation_id TEXT NOT NULL,
+    principal_id TEXT NOT NULL,
+    artifact_id TEXT NOT NULL,
+    PRIMARY KEY (installation_id, principal_id, artifact_id),
+    FOREIGN KEY (installation_id, artifact_id) REFERENCES artifacts(installation_id, id)
+  )`);
+  yield* sql.unsafe(`ALTER TABLE actions
+    DROP CONSTRAINT actions_action_check,
+    ADD CONSTRAINT actions_action_check CHECK (action IN (
+      'publish', 'restore', 'change_access', 'change_review_mode', 'change_tags', 'delete',
+      'comment_create', 'comment_reply', 'comment_update', 'comment_resolve',
+      'comment_reopen', 'comment_delete', 'list', 'unlist'
+    ))`);
+});
+
 const migrationLoader = Migrator.fromRecord({
   "0001_initial_shared_schema": initialSchema,
   "0002_project_scoped_artifacts": addProjectScope,
@@ -755,10 +774,11 @@ const migrationLoader = Migrator.fromRecord({
   "0015_public_link_policy": addPublicLinkPolicy,
   "0016_drop_git_history": dropGitHistory,
   "0017_artifact_pins": addArtifactPins,
+  "0018_artifact_listing": addArtifactListing,
 });
 
 /** Schema revision required by this Artifact Server build. */
-export const requiredPostgresSchemaVersion = 17;
+export const requiredPostgresSchemaVersion = 18;
 
 /** Migration compatibility observed without changing Postgres. */
 export interface PostgresMigrationStatus {
@@ -864,6 +884,9 @@ export const readPostgresMigrationStatus = Effect.gen(function*() {
   }, {
     migration_id: 17,
     name: "artifact_pins",
+  }, {
+    migration_id: 18,
+    name: "artifact_listing",
   }] as const;
   const observedRequiredHistory = rows.filter(
     (row) => row.migration_id <= requiredPostgresSchemaVersion,

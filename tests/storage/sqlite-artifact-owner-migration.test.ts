@@ -85,6 +85,7 @@ describe("sqlite artifact owner", () => {
       limit: 10,
       pinned: "all",
       projectId: defaultProjectId,
+      scope: "mine",
       sort: "newest",
       tags: [],
       viewer: {includeServiceOwned, principalId},

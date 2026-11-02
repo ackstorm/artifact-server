@@ -31,9 +31,11 @@ export const artifactActionKinds = {
   commentUpdate: "comment_update",
   delete: "delete",
   link: "link",
+  list: "list",
   publish: "publish",
   relink: "relink",
   restore: "restore",
+  unlist: "unlist",
 } as const;
 
 /** One persisted artifact mutation kind. */
@@ -85,6 +87,8 @@ export interface ArtifactRecord {
   readonly currentVersionId: string;
   readonly deletedAt: string | null;
   readonly id: string;
+  /** The owner listed it in Shared with me; only Organization and Public artifacts are listed. */
+  readonly listed: boolean;
   readonly name: string;
   readonly ownerPrincipalId: string;
   readonly projectId: string;
