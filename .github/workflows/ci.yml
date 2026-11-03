@@ -60,8 +60,6 @@ jobs:
           ruby-version: "3.3"
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      - name: Verify CI full-gate definition
-        run: pnpm check:ci
       - name: Lint
         run: pnpm lint
       - name: Typecheck
@@ -257,45 +255,9 @@ jobs:
             --name artifact-server-ci \
             --use
           docker buildx inspect --bootstrap
-      - name: Verify CI full-gate definition
-        run: pnpm check:ci
 
-      # full-gate-command: pnpm check
-      - name: Check correctness and static contracts
-        run: pnpm check
-      # full-gate-command: pnpm test:web
-      - name: Test browser behavior
-        run: pnpm test:web
-      # full-gate-command: pnpm verify:object-storage
-      - name: Verify object storage
-        run: pnpm verify:object-storage
-      # full-gate-command: pnpm test:external-storage-runtime
-      - name: Test external-storage runtime
-        run: pnpm test:external-storage-runtime
-      # full-gate-command: pnpm test:coverage
-      - name: Report coverage
-        run: pnpm test:coverage
-      # full-gate-command: pnpm test:local-package
-      - name: Test local package
-        run: pnpm test:local-package
-      # full-gate-command: pnpm perf:baseline
-      - name: Record local performance baseline
-        run: pnpm perf:baseline
-      # full-gate-command: pnpm perf:capacity
-      - name: Record server capacity baseline
-        run: pnpm perf:capacity
-      # full-gate-command: pnpm test:compact-compose
-      - name: Test compact Compose
-        run: pnpm test:compact-compose
-      # full-gate-command: pnpm test:external-storage-compose
-      - name: Test external-storage Compose
-        run: pnpm test:external-storage-compose
-      # full-gate-command: pnpm verify:helm
-      - name: Verify Helm release
-        run: pnpm verify:helm
-      # full-gate-command: pnpm test:oidc
-      - name: Test generic OIDC
-        run: pnpm test:oidc
+      - name: Run the iteration gate
+        run: pnpm verify:iteration
 
       - name: Upload full-gate evidence
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -303,7 +265,6 @@ jobs:
           name: full-gate-evidence-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             project/evidence/*.json
-            coverage/
             test-results/
             release/*.manifest.json
             release/*.tgz

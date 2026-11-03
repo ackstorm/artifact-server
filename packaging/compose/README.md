@@ -306,7 +306,7 @@ that a database-only or bucket-only backup is complete.
 From the source checkout:
 
 ```sh
-pnpm verify:external-storage-compose
+pnpm test:external-storage-compose
 ```
 
 The gate builds and loads the real production image, starts real Postgres and

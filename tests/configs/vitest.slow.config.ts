@@ -1,11 +1,9 @@
 import {defineConfig} from "vitest/config";
 
+/** Serial, process-isolated runner for Docker- and cluster-backed suites; each script passes its file and timeouts. */
 export default defineConfig({
   test: {
     fileParallelism: false,
-    hookTimeout: 120_000,
-    include: ["tests/pi-live/**/*.test.ts"],
     pool: "forks",
-    testTimeout: 240_000,
   },
 });

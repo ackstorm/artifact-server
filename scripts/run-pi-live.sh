@@ -59,7 +59,10 @@ try {
 '
 
 # 3. Run the suite serially; PTY-driven agents are timing sensitive.
-pnpm exec vitest run --config tests/configs/vitest.pi-live.config.ts \
+pnpm exec vitest run --config tests/configs/vitest.slow.config.ts \
+  tests/pi-live \
+  --testTimeout=240000 \
+  --hookTimeout=120000 \
   --reporter=default \
   --reporter=json \
   --outputFile.json=project/evidence/pi-live.json

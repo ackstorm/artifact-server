@@ -76,7 +76,10 @@ ARTIFACT_SERVER_TEST_KEYCLOAK_ADMIN_USER="${admin_user}" \
 ARTIFACT_SERVER_TEST_KEYCLOAK_CONTAINER="${container_name}" \
 ARTIFACT_SERVER_TEST_KEYCLOAK_IMAGE="${keycloak_image}" \
 ARTIFACT_SERVER_TEST_KEYCLOAK_URL="${keycloak_url}" \
-pnpm exec vitest run --config tests/configs/vitest.oidc.config.ts \
+pnpm exec vitest run --config tests/configs/vitest.slow.config.ts \
+  tests/integration/oidc-keycloak.test.ts \
+  --testTimeout=120000 \
+  --hookTimeout=180000 \
   --reporter=default \
   --reporter=json \
   --outputFile.json=project/evidence/oidc-keycloak.json

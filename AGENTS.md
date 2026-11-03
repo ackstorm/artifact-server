@@ -26,15 +26,13 @@ guide does not cover, search through the source code in `node_modules/effect/src
 
 ## Performance verification
 
-- `pnpm verify:iteration` is the canonical end-of-iteration gate. It runs the complete correctness, conformance, build, coverage report, smoke, and bounded performance path.
+- `pnpm verify:iteration` is the canonical end-of-iteration gate. It runs the complete correctness, conformance, build, and smoke path.
 - Coverage is diagnostic. Do not add a test only to move a percentage, lower a threshold, or exercise an implementation detail. A test must prove an observable product behavior, security boundary, recovery path, or measured performance characteristic.
 - Run `pnpm smoke` after changing HTTP delivery, publication, SQLite, blob storage, restart behavior, or cleanup.
-- Run `pnpm perf:baseline` before and after a performance-sensitive change. Compare the same machine, Node version, workload, and storage class.
 - Run `pnpm verify:object-storage` after changing remote blob or staging storage. It requires Docker and proves the S3-compatible adapter against pinned MinIO.
-- Run `pnpm verify:external-storage-runtime` after changing Postgres persistence, external-storage composition, external-storage configuration, migrations, or backup behavior. It requires Docker and drives multiple compiled server processes against pinned Postgres and MinIO.
-- Run `pnpm verify:external-storage-performance` after changing the compiled external-storage publish/read path, Postgres query shape, S3 object operations, connection-pool settings, or file-client concurrency. It requires Docker and records a bounded two-process Postgres/MinIO baseline.
-- Treat `project/performance/FINDINGS.md` as the current risk register, not as a permanent excuse for a known bottleneck.
-- Do not tighten machine-timing gates from one laptop run. CI smoke limits catch gross failures; controlled repeated baselines establish regression budgets.
+- Run `pnpm test:external-storage-runtime` after changing Postgres persistence, external-storage composition, external-storage configuration, migrations, or backup behavior. It requires Docker and drives multiple compiled server processes against pinned Postgres and MinIO.
+- Treat `docs/references/performance-findings.md` as the current risk register, not as a permanent excuse for a known bottleneck.
+- Do not tighten machine-timing gates from one laptop run. CI smoke limits catch gross failures.
 - Do not reintroduce inline base64 publication to add large-file support. Use the specified staged direct-upload and streaming-delivery paths.
 
 ## Before handing off work

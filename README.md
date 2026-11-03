@@ -154,7 +154,7 @@ The [`project`](./project) directory contains specifications, conformance eviden
 - [Product specification](./project/spec/artifact-server-product-spec.html)
 - [Conformance ledger](./project/spec/conformance.yml)
 - [MCP baseline](./project/spec/artifact-server-mcp-baseline.md)
-- [Performance findings](./project/performance/FINDINGS.md)
+- [Performance findings](./docs/references/performance-findings.md)
 - [Project records index](./project/README.md)
 
 Public guides live in the [documentation index](./docs/README.md).
