@@ -55,7 +55,7 @@ An agent uses this sequence:
 
 When the agent publishes a new version, it first reads the current version ID. It sends that ID as `expectedCurrentVersionId`.
 
-For a new artifact, `artifact_commit_upload` accepts `target.reviewMode` as `annotate` (the default) or `interact`. Use `interact` for an HTML prototype that should accept clicks immediately. A new version keeps the existing artifact default. To change that default later, use `artifact_set_review_mode` with `artifactId`, `reviewMode`, `expectedCurrentVersionId`, an `idempotencyKey`, and an optional `projectId`. See [Review mode](./review-mode.md) for link overrides and the HTTP equivalent.
+For a new artifact, `artifact_commit_upload` accepts `target.reviewMode` as `interact` (the default) or `annotate`. Use `annotate` for a page reviewers should comment on region by region. A new version keeps the existing artifact default. To change that default later, use `artifact_set_review_mode` with `artifactId`, `reviewMode`, `expectedCurrentVersionId`, an `idempotencyKey`, and an optional `projectId`. See [Review mode](./review-mode.md) for link overrides and the HTTP equivalent.
 
 ## Use the publication result
 

@@ -90,6 +90,13 @@ second background loop. Configure or disable this trigger under `cleanup` in
 the values file. Disabling it is safe only when an operator runs the same
 `artifactserver maintenance cleanup-staging --once` command elsewhere.
 
+## Upgrading to 0.5.2
+
+The migration job sets every existing artifact's default Review mode to
+Interact, and new artifacts default to Interact unless the publisher chooses
+Annotate. Owners change an artifact back with its Review mode control or
+`artifact_set_review_mode`. No values change.
+
 ## Upgrading to 0.5.1
 
 The chart no longer accepts `configuration.organizationName`: the Review

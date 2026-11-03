@@ -756,6 +756,12 @@ const addArtifactListing = Effect.gen(function*() {
     ))`);
 });
 
+// Interact is the installation default; existing artifacts follow it once.
+const setReviewModeInteract = Effect.gen(function*() {
+  const sql = yield* SqlClient;
+  yield* sql.unsafe("UPDATE artifacts SET review_mode = 'interact'");
+});
+
 const migrationLoader = Migrator.fromRecord({
   "0001_initial_shared_schema": initialSchema,
   "0002_project_scoped_artifacts": addProjectScope,
@@ -775,10 +781,11 @@ const migrationLoader = Migrator.fromRecord({
   "0016_drop_git_history": dropGitHistory,
   "0017_artifact_pins": addArtifactPins,
   "0018_artifact_listing": addArtifactListing,
+  "0019_review_mode_interact": setReviewModeInteract,
 });
 
 /** Schema revision required by this Artifact Server build. */
-export const requiredPostgresSchemaVersion = 18;
+export const requiredPostgresSchemaVersion = 19;
 
 /** Migration compatibility observed without changing Postgres. */
 export interface PostgresMigrationStatus {
@@ -887,6 +894,9 @@ export const readPostgresMigrationStatus = Effect.gen(function*() {
   }, {
     migration_id: 18,
     name: "artifact_listing",
+  }, {
+    migration_id: 19,
+    name: "review_mode_interact",
   }] as const;
   const observedRequiredHistory = rows.filter(
     (row) => row.migration_id <= requiredPostgresSchemaVersion,

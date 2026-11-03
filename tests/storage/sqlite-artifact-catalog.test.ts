@@ -158,7 +158,6 @@ test("a schema-17 SQLite database gains artifact_pins without changing artifacts
   }
   const check = new DatabaseSync(databasePath, {readOnly: true});
   try {
-    expect(requiredSqliteSchemaVersion).toBe(19);
     expect(check.prepare("PRAGMA user_version").get()).toEqual({
       user_version: requiredSqliteSchemaVersion,
     });

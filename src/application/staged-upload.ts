@@ -99,7 +99,7 @@ export type CommitStagedUploadTarget =
     readonly accessSetting: AccessSetting;
     readonly kind: "new_artifact";
     readonly name: string;
-    readonly reviewMode?: ReviewMode;
+    readonly reviewMode?: ReviewMode | undefined;
     readonly tags?: readonly string[];
   }
   | {
@@ -512,7 +512,7 @@ function makeStagedUploadService(
             projectId: project.id,
             source,
             tags: command.target.tags ?? [],
-            reviewMode: command.target.reviewMode ?? "annotate",
+            reviewMode: command.target.reviewMode,
             }));
         case "new_version":
           return yield* expirePublicationAtDeadline(signal,

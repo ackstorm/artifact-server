@@ -616,7 +616,7 @@ export class PostgresArtifactRepository implements
           current_version_id, created_at, deleted_at, owner_principal_id
         ) VALUES (
           ${installationId}, ${command.projectId}, ${command.artifactId}, ${command.name},
-          ${normalizeArtifactSearchText(command.name)}, ${command.accessSetting}, ${command.reviewMode ?? reviewModes.annotate}, NULL,
+          ${normalizeArtifactSearchText(command.name)}, ${command.accessSetting}, ${command.reviewMode ?? reviewModes.interact}, NULL,
           ${command.createdAt}, NULL, ${command.principalId}
         )`;
         yield* this.#replaceTags(command.artifactId, command.tags);

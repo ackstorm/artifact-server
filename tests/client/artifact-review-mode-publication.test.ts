@@ -30,7 +30,7 @@ test("file publication forwards the review default and preserves default-mode re
     expect(interact.artifact.reviewMode).toBe("interact");
     const omitted = await publish("client_review_default_001");
     const explicit = await publish("client_review_default_001", "annotate");
-    expect(omitted.artifact.reviewMode).toBe("annotate");
+    expect(omitted.artifact.reviewMode).toBe("interact");
     expect(explicit.replayed).toBe(true);
     expect(explicit.artifact.id).toBe(omitted.artifact.id);
   } finally {

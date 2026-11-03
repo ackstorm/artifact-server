@@ -20,7 +20,7 @@ The publish command always returns structured JSON. Do not add a `--json` flag.
 artifactserver publish "<path>" --profile "<profile>" --server "<origin>" --project "<project-id>" --name "<name>"
 ```
 
-Optional creation flags are repeatable `--tag`, `--public` or `--signed-in`, `--entry`, and `--review-mode annotate|interact`. Private access and Annotate mode are the defaults: only the publisher opens a new artifact until `--signed-in` or `--public` shares it. Select Interact when the user wants an HTML prototype to accept clicks immediately. `--review-mode` cannot be combined with `--artifact`; a new version preserves the artifact default.
+Optional creation flags are repeatable `--tag`, `--public` or `--signed-in`, `--entry`, and `--review-mode annotate|interact`. Private access and Interact mode are the defaults: only the publisher opens a new artifact until `--signed-in` or `--public` shares it. Select Annotate when reviewers should comment on a static page region by region. `--review-mode` cannot be combined with `--artifact`; a new version preserves the artifact default.
 
 ### Publish a new version
 

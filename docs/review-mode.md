@@ -2,7 +2,7 @@
 
 HTML artifacts have two Review modes. **Annotate** captures clicks for comments. **Interact** lets clicks reach the artifact so people can use a prototype. The existing mode toggle and Escape shortcut remain available.
 
-Every artifact has a default `reviewMode`: `annotate` or `interact`. Existing artifacts and new artifacts without an explicit choice default to `annotate`. The default belongs to the artifact and remains through publication and restore of immutable versions.
+Every artifact has a default `reviewMode`: `annotate` or `interact`. New artifacts without an explicit choice default to `interact`, and upgrading moves every existing artifact to `interact` once. The default belongs to the artifact and remains through publication and restore of immutable versions.
 
 ## Choose a default when publishing
 

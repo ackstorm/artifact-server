@@ -21,11 +21,11 @@ test.describe("Artifact review mode", () => {
     {defaultMode: "interact", linkMode: "annotate", expected: "annotate"},
     {defaultMode: "interact", linkMode: null, expected: "interact"},
     {defaultMode: "interact", linkMode: "ANNOTATE", expected: "interact"},
-    {defaultMode: undefined, linkMode: "invalid", expected: "annotate"},
-    {defaultMode: undefined, linkMode: null, expected: "annotate"},
+    {defaultMode: undefined, linkMode: "invalid", expected: "interact"},
+    {defaultMode: undefined, linkMode: null, expected: "interact"},
   ] as const) {
     const primary = scenario.defaultMode === "annotate" && scenario.linkMode === "interact";
-    test(`${primary ? "PRV-006-B PRV-006-F: " : ""}artifact review mode: ${scenario.defaultMode ?? "legacy"} default with ${scenario.linkMode ?? "no"} override starts ${scenario.expected}`, async ({browser}) => {
+    test(`${primary ? "PRV-006-B PRV-006-F: " : ""}artifact review mode: ${scenario.defaultMode ?? "omitted"} default with ${scenario.linkMode ?? "no"} override starts ${scenario.expected}`, async ({browser}) => {
       const fixture = await startBrowserFixture(browser);
       try {
         const input: PublishNewInput = {
@@ -106,6 +106,7 @@ test.describe("Artifact review mode", () => {
         accessSetting: "account_required",
         content: interactiveArtifact,
         idempotencyKey: "review-mode-refresh-first",
+        reviewMode: "annotate",
       });
       await publishVersion(fixture.server, fixture.installation, {
         artifactId: first.body.artifact.id,
@@ -196,6 +197,7 @@ test.describe("Artifact review mode", () => {
         content: interactiveArtifact,
         idempotencyKey: "review-mode-artifact-first",
         name: "Annotate fixture",
+        reviewMode: "annotate",
       });
       await publishNew(fixture.server, fixture.installation, {
         accessSetting: "account_required",
