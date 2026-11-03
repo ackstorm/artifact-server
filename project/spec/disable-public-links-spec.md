@@ -127,7 +127,7 @@ Where each deployment sets it:
 | HTTP upload commit | `POST /api/v1/uploads/:uploadId/commit` with a new-artifact target at `public_link` |
 | MCP | `artifact_set_visibility` and `artifact_commit_upload` with `accessSetting: "public_link"` |
 | CLI | `artifactserver publish --public` (through the HTTP upload commit) |
-| WebMCP and the Review UI | Through the same HTTP API |
+| The Review UI | Through the same HTTP API |
 
 The refusal leaves the upload open and stores nothing, so the caller can commit
 the same upload at another level.

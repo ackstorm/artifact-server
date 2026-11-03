@@ -12,7 +12,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Popover } from "@base-ui/react/popover";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 
 import {
   api,
@@ -32,6 +32,7 @@ import opencodeDarkLogoUrl from "./assets/agents/opencode-dark.svg";
 import opencodeLightLogoUrl from "./assets/agents/opencode-light.svg";
 import piLogoUrl from "./assets/agents/pi.svg";
 import piLightLogoUrl from "./assets/agents/pi-light.svg";
+import { useCopy } from "./use-copy.ts";
 
 type ShareScreen = "agents" | "overview";
 type CopiedTarget =
@@ -42,8 +43,6 @@ type CopiedTarget =
   | "public-link"
   | "raw-link"
   | "review-link";
-
-const copiedResetMilliseconds = 1_600;
 
 /** Every level, lowest first. */
 const accessLevels: readonly AccessSetting[] = ["private", "account_required", "public_link"];
@@ -85,54 +84,21 @@ export function ReviewShareControl({
   const [screen, setScreen] = useState<ShareScreen>("overview");
   const [chosenAccess, setChosenAccess] = useState<AccessSetting | null>(null);
   const [pending, setPending] = useState(false);
-  const [copiedTarget, setCopiedTarget] = useState<CopiedTarget | null>(null);
-  const [failure, setFailure] = useState<string | null>(null);
+  const {copiedTarget, copy: copyText, failure, reset: resetCopy} = useCopy<CopiedTarget>();
   const [accessFailure, setAccessFailure] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [listingSaving, setListingSaving] = useState(false);
   const [listingError, setListingError] = useState<string | null>(null);
-  const copiedResetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => () => {
-    if (copiedResetTimer.current !== null) clearTimeout(copiedResetTimer.current);
-  }, []);
-
   const updateOpen = (next: boolean): void => {
     if (pending && !next) return;
     setOpen(next);
     if (next) {
       setScreen("overview");
-      setCopiedTarget(null);
-      setFailure(null);
+      resetCopy();
       setChosenAccess(null);
       setAccessFailure(null);
       setNotice(null);
       setListingError(null);
-    }
-  };
-
-  const copyText = async (
-    text: string,
-    target: CopiedTarget,
-    failureMessage: string,
-  ): Promise<void> => {
-    setFailure(null);
-    try {
-      if (navigator.clipboard === undefined) {
-        throw new Error("Clipboard access is unavailable in this browser.");
-      }
-      await navigator.clipboard.writeText(text);
-      setCopiedTarget(target);
-      if (copiedResetTimer.current !== null) clearTimeout(copiedResetTimer.current);
-      copiedResetTimer.current = setTimeout(
-        () => setCopiedTarget(null),
-        copiedResetMilliseconds,
-      );
-    } catch (caught) {
-      setCopiedTarget(null);
-      setFailure(
-        caught instanceof Error ? caught.message : failureMessage,
-      );
     }
   };
 
@@ -509,7 +475,7 @@ export function ReviewShareControl({
                       className="as-share-agent__setup"
                       disabled={details === null}
                       onClick={() => {
-                        setFailure(null);
+                        resetCopy();
                         setScreen("agents");
                       }}
                       type="button"
