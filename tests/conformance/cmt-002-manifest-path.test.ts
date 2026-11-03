@@ -4,9 +4,10 @@ import {z} from "zod";
 import {
   apiHeaders,
   createTestInstallation,
+  readHeaders,
   removeTestInstallation,
-  type RunningTestServer,
   startTestServer,
+  type RunningTestServer,
   type TestInstallation,
 } from "../support/runtime-harness.js";
 import {
@@ -257,10 +258,6 @@ describe("comment paths are validated against the version manifest", () => {
       .toBe("INVALID_COMMENT");
   });
 });
-
-function readHeaders(installation: TestInstallation): Headers {
-  return new Headers({Authorization: `Bearer ${installation.apiToken}`});
-}
 
 async function publishFiles(
   server: RunningTestServer,

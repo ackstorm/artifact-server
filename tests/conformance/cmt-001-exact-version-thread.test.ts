@@ -4,9 +4,10 @@ import {z} from "zod";
 import {
   apiHeaders,
   createTestInstallation,
+  readHeaders,
   removeTestInstallation,
-  type RunningTestServer,
   startTestServer,
+  type RunningTestServer,
   type TestInstallation,
 } from "../support/runtime-harness.js";
 import {publishNew, publishVersion} from "../support/publishing.js";
@@ -243,10 +244,6 @@ describe("comment threads pin one exact saved version", () => {
     expect(foreignArtifactThreads.items).toEqual([]);
   });
 });
-
-function readHeaders(installation: TestInstallation): Headers {
-  return new Headers({Authorization: `Bearer ${installation.apiToken}`});
-}
 
 async function createThread(
   server: RunningTestServer,

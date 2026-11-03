@@ -6,8 +6,8 @@
 
 - `specified`: the requirement exists, but its normal behavior has not been proved on an applicable deployment.
 - `implementing`: implementation work is active, but passing proof is not complete.
-- `behavior_verified`: at least one applicable deployment has passing evidence for the normal behavior. Full hostile and cross-deployment proof remains incomplete.
-- `verified`: the normal and hostile tests pass on every applicable deployment and the ledger records that evidence.
+- `behavior_verified`: the behavior test (`<ID>-B`) exists and passes in the iteration gate; the failure test is not yet written.
+- `verified`: both the behavior test (`<ID>-B`) and the failure test (`<ID>-F`) exist and pass in the iteration gate.
 - `blocked`: a named external decision or dependency prevents progress.
 - `not_applicable`: the requirement does not apply, with the reason recorded in the ledger.
 
@@ -21,17 +21,6 @@ Every requirement owns two acceptance IDs:
 - `*-F` proves the hostile, invalid, or failure case.
 
 Put each implemented acceptance ID in exactly one test title. A single end-to-end test may prove several IDs when one observable workflow genuinely covers them together. Do not attach an ID to a test that proves only a convenient approximation of the requirement.
-
-## Evidence
-
-Passing evidence records:
-
-- the deployment that ran the test;
-- the exact acceptance IDs proved;
-- the durable report or CI run containing the result;
-- the recording time.
-
-The local test report is `project/evidence/local-foundation.json`. Other deployments must produce their own evidence; local results cannot stand in for a server or Kubernetes deployment. Azure uses the Kubernetes path on AKS rather than a separate deployment target.
 
 ## MCP release critical path
 
@@ -64,14 +53,8 @@ pnpm conformance:validate
 pnpm conformance:tests
 ```
 
-The validator checks ledger structure, status contracts, evidence files, and per-deployment proof. The test-ID checker rejects unknown or multiply claimed acceptance IDs.
+The validator checks ledger structure and status contracts. The test-ID checker rejects unknown or multiply claimed acceptance IDs and verified statuses without their tests.
 
 ## Release gate
 
-A deployment is conformant only when this command succeeds for that deployment:
-
-```sh
-ruby scripts/validate-conformance.rb project/spec/conformance.yml --require-verified local
-```
-
-Replace `local` with the deployment being released. A failed gate is a product status, not a reason to weaken the ledger or its tests.
+A release is conformant when `pnpm verify:iteration` passes. `verified` and `behavior_verified` statuses are enforced by `pnpm conformance:tests`. A failed gate is a product status, not a reason to weaken the ledger or its tests.

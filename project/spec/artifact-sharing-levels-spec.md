@@ -63,7 +63,7 @@ to:
 - actions
 - comments: list and get
 - content bootstrap, `artifact_open`, preview leases, and the live origin of linked artifacts
-- the MCP equivalents of each, and WebMCP through the same API
+- the MCP equivalents of each
 
 Dispatch records and agent presence carry thread ids and agent names, never
 artifact data, so they keep today's project-level read rule. A dispatched

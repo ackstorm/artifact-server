@@ -4,9 +4,11 @@ import {z} from "zod";
 import {
   apiHeaders,
   createTestInstallation,
+  patchThread,
+  readHeaders,
   removeTestInstallation,
-  type RunningTestServer,
   startTestServer,
+  type RunningTestServer,
   type TestInstallation,
 } from "../support/runtime-harness.js";
 import {publishNew, type PublishResponse} from "../support/publishing.js";
@@ -285,10 +287,6 @@ describe("comment replies are one level deep and open-thread only", () => {
   });
 });
 
-function readHeaders(installation: TestInstallation): Headers {
-  return new Headers({Authorization: `Bearer ${installation.apiToken}`});
-}
-
 async function createThread(
   server: RunningTestServer,
   installation: TestInstallation,
@@ -324,26 +322,6 @@ async function createReply(
       body: JSON.stringify({body}),
       headers: apiHeaders(installation, idempotencyKey),
       method: "POST",
-    },
-  );
-}
-
-async function patchThread(
-  server: RunningTestServer,
-  installation: TestInstallation,
-  artifactId: string,
-  threadId: string,
-  body: string,
-): Promise<Response> {
-  return fetch(
-    `${server.baseUrl}/api/v1/artifacts/${artifactId}/comments/${threadId}`,
-    {
-      body,
-      headers: new Headers({
-        Authorization: `Bearer ${installation.apiToken}`,
-        "Content-Type": "application/json",
-      }),
-      method: "PATCH",
     },
   );
 }

@@ -4,9 +4,10 @@ import {z} from "zod";
 import {
   apiHeaders,
   createTestInstallation,
+  readHeaders,
   removeTestInstallation,
-  type RunningTestServer,
   startTestServer,
+  type RunningTestServer,
   type TestInstallation,
 } from "../support/runtime-harness.js";
 import {
@@ -305,10 +306,6 @@ function replaceTags(
     headers: apiHeaders(installation, idempotencyKey),
     method: "PATCH",
   });
-}
-
-function readHeaders(installation: TestInstallation): Headers {
-  return new Headers({Authorization: `Bearer ${installation.apiToken}`});
 }
 
 async function publishNewWithTags(

@@ -771,6 +771,17 @@ async function request<T>(
   return parsed.data;
 }
 
+/** Sends one mutation with CSRF (and optional idempotency) headers and parses the reply. */
+async function send<T>(
+  schema: z.ZodType<T>,
+  method: string,
+  path: string,
+  body?: string,
+  idempotencyKey?: string,
+): Promise<T> {
+  return request(schema, path, { body: body ?? null, headers: mutationHeaders(idempotencyKey), method });
+}
+
 async function requestText(path: string): Promise<string> {
   const response = await fetch(path, { credentials: "same-origin" });
   notifySessionExpiry(response);
@@ -852,57 +863,45 @@ export const api = {
     publicLinkPolicySchema,
     "/api/v1/administration/public-link-policy",
   ),
-  changePublicLinkPolicy: (enabled: boolean) => request(
+  changePublicLinkPolicy: (enabled: boolean) => send(
     publicLinkPolicySchema,
+    "PUT",
     "/api/v1/administration/public-link-policy",
-    {
-      body: JSON.stringify({ publicLinksEnabled: enabled }),
-      headers: mutationHeaders(),
-      method: "PUT",
-    },
+    JSON.stringify({ publicLinksEnabled: enabled }),
   ),
   makePublicLinksPrivate: (
     items: readonly MakePublicLinkPrivateItem[],
-  ) => request(
+  ) => send(
     publicLinkMutationResponseSchema,
+    "POST",
     "/api/v1/administration/public-links/make-private",
-    {
-      body: JSON.stringify({ items }),
-      headers: mutationHeaders(),
-      method: "POST",
-    },
+    JSON.stringify({ items }),
   ),
   projects: () => request(
     z.object({ projects: z.array(projectSchema) }),
     "/api/v1/projects",
   ).then(({ projects }) => projects),
-  createProject: (name: string) => request(
+  createProject: (name: string) => send(
     z.object({ project: projectSchema }),
+    "POST",
     "/api/v1/projects",
-    {
-      body: JSON.stringify({ name }),
-      headers: mutationHeaders(),
-      method: "POST",
-    },
+    JSON.stringify({ name }),
   ).then(({ project }) => project),
-  renameProject: (projectId: string, name: string) => request(
+  renameProject: (projectId: string, name: string) => send(
     z.object({ project: projectSchema }),
+    "PATCH",
     `/api/v1/projects/${encodeURIComponent(projectId)}`,
-    {
-      body: JSON.stringify({ name }),
-      headers: mutationHeaders(),
-      method: "PATCH",
-    },
+    JSON.stringify({ name }),
   ).then(({ project }) => project),
-  archiveProject: (projectId: string) => request(
+  archiveProject: (projectId: string) => send(
     z.object({ project: projectSchema }),
+    "POST",
     `/api/v1/projects/${encodeURIComponent(projectId)}/archive`,
-    { headers: mutationHeaders(), method: "POST" },
   ).then(({ project }) => project),
-  unarchiveProject: (projectId: string) => request(
+  unarchiveProject: (projectId: string) => send(
     z.object({ project: projectSchema }),
+    "POST",
     `/api/v1/projects/${encodeURIComponent(projectId)}/unarchive`,
-    { headers: mutationHeaders(), method: "POST" },
   ).then(({ project }) => project),
   artifacts: (
     projectId: string,
@@ -978,37 +977,34 @@ export const api = {
     expectedCurrentVersionId: string,
     versionId: string,
     idempotencyKey: string,
-  ) => request(
+  ) => send(
     artifactStateSchema,
+    "POST",
     `/api/v1/artifacts/${encodeURIComponent(artifactId)}/restore?${projectQuery(projectId)}`,
-    {
-      body: JSON.stringify({ expectedCurrentVersionId, versionId }),
-      headers: mutationHeaders(idempotencyKey),
-      method: "POST",
-    },
+    JSON.stringify({ expectedCurrentVersionId, versionId }),
+    idempotencyKey,
   ),
   duplicate: (
     projectId: string,
     artifactId: string,
     versionId: string,
     idempotencyKey: string,
-  ) => request(
+  ) => send(
     artifactStateSchema,
+    "POST",
     `/api/v1/artifacts/${encodeURIComponent(artifactId)}/duplicate?${projectQuery(projectId)}`,
-    {
-      body: JSON.stringify({ versionId }),
-      headers: mutationHeaders(idempotencyKey),
-      method: "POST",
-    },
+    JSON.stringify({ versionId }),
+    idempotencyKey,
   ),
   pin: (projectId: string, artifactId: string, pinned: boolean) => requestNoContent(
     `/api/v1/artifacts/${encodeURIComponent(artifactId)}/pin?${projectQuery(projectId)}`,
     { headers: mutationHeaders(), method: pinned ? "PUT" : "DELETE" },
   ),
-  setListing: (projectId: string, artifactId: string, listed: boolean) => request(
+  setListing: (projectId: string, artifactId: string, listed: boolean) => send(
     z.object({ artifact: artifactSchema }),
+    "PUT",
     `/api/v1/artifacts/${encodeURIComponent(artifactId)}/listing?${projectQuery(projectId)}`,
-    { body: JSON.stringify({ listed }), headers: mutationHeaders(), method: "PUT" },
+    JSON.stringify({ listed }),
   ).then(({ artifact }) => artifact),
   changeAccess: (
     projectId: string,
@@ -1016,14 +1012,12 @@ export const api = {
     expectedCurrentVersionId: string,
     accessSetting: AccessSetting,
     idempotencyKey: string,
-  ) => request(
+  ) => send(
     artifactStateSchema.extend({ warning: z.string().nullable() }),
+    "PATCH",
     `/api/v1/artifacts/${encodeURIComponent(artifactId)}/access?${projectQuery(projectId)}`,
-    {
-      body: JSON.stringify({ accessSetting, expectedCurrentVersionId }),
-      headers: mutationHeaders(idempotencyKey),
-      method: "PATCH",
-    },
+    JSON.stringify({ accessSetting, expectedCurrentVersionId }),
+    idempotencyKey,
   ),
   changeTags: (
     projectId: string,
@@ -1031,32 +1025,28 @@ export const api = {
     expectedCurrentVersionId: string,
     tags: readonly string[],
     idempotencyKey: string,
-  ) => request(
+  ) => send(
     artifactStateSchema,
+    "PATCH",
     `/api/v1/artifacts/${encodeURIComponent(artifactId)}/tags?${projectQuery(projectId)}`,
-    {
-      body: JSON.stringify({ expectedCurrentVersionId, tags }),
-      headers: mutationHeaders(idempotencyKey),
-      method: "PATCH",
-    },
+    JSON.stringify({ expectedCurrentVersionId, tags }),
+    idempotencyKey,
   ),
   deleteArtifact: (
     projectId: string,
     artifactId: string,
     expectedCurrentVersionId: string,
     idempotencyKey: string,
-  ) => request(
+  ) => send(
     z.object({
       artifact: artifactSchema.extend({ deletedAt: z.string() }),
       replayed: z.boolean(),
       retainedVersionCount: z.number(),
     }),
+    "DELETE",
     `/api/v1/artifacts/${encodeURIComponent(artifactId)}?${projectQuery(projectId)}`,
-    {
-      body: JSON.stringify({ expectedCurrentVersionId }),
-      headers: mutationHeaders(idempotencyKey),
-      method: "DELETE",
-    },
+    JSON.stringify({ expectedCurrentVersionId }),
+    idempotencyKey,
   ),
   /**
    * Save the linked file's current bytes as a new immutable version. Capturing
@@ -1068,24 +1058,22 @@ export const api = {
     artifactId: string,
     expectedCurrentVersionId: string,
     idempotencyKey: string,
-  ) => request(
+  ) => send(
     linkedPublicationSchema,
+    "POST",
     `/api/v1/artifacts/${encodeURIComponent(artifactId)}/capture?${projectQuery(projectId)}`,
-    {
-      body: JSON.stringify({ expectedCurrentVersionId }),
-      headers: mutationHeaders(idempotencyKey),
-      method: "POST",
-    },
+    JSON.stringify({ expectedCurrentVersionId }),
+    idempotencyKey,
   ),
   /**
    * Enter the artifact's live origin: the answer is a one-use bootstrap URL
    * that exchanges itself for the content cookie, exactly like a version's
    * content session, and then streams the file's current bytes.
    */
-  liveSession: (projectId: string, artifactId: string) => request(
+  liveSession: (projectId: string, artifactId: string) => send(
     z.object({ bootstrapUrl: z.url(), expiresAt: z.string() }),
+    "POST",
     `/api/v1/artifacts/${encodeURIComponent(artifactId)}/live-sessions?${projectQuery(projectId)}`,
-    { headers: mutationHeaders(), method: "POST" },
   ),
   contentSession: (
     projectId: string,
@@ -1098,28 +1086,28 @@ export const api = {
       : `/versions/${encodeURIComponent(versionId)}`;
     const query = new URLSearchParams({ projectId });
     if (path !== undefined) query.set("path", path);
-    return request(
+    return send(
       z.object({
         bootstrapUrl: z.url(),
         expiresAt: z.string(),
         versionId: z.string(),
       }),
+      "POST",
       `/api/v1/artifacts/${encodeURIComponent(artifactId)}${versionPath}/content-sessions?${query}`,
-      { headers: mutationHeaders(), method: "POST" },
     );
   },
   previewLease: (
     projectId: string,
     artifactId: string,
     versionId: string,
-  ) => request(
+  ) => send(
     z.object({
       baseUrl: z.url(),
       expiresAt: z.string(),
       versionId: z.string(),
     }),
+    "POST",
     `/api/v1/artifacts/${encodeURIComponent(artifactId)}/versions/${encodeURIComponent(versionId)}/preview-leases?${projectQuery(projectId)}`,
-    {headers: mutationHeaders(), method: "POST"},
   ),
   versionFile: (
     projectId: string,
@@ -1189,32 +1177,25 @@ export const api = {
     versionId: string,
     draft: CommentDraft,
     idempotencyKey: string,
-  ) => request(
+  ) => send(
     createdCommentThreadSchema,
+    "POST",
     `/api/v1/artifacts/${encodeURIComponent(artifactId)}/versions/${encodeURIComponent(versionId)}/comments?${projectQuery(projectId)}`,
-    {
-      body: JSON.stringify(
-        draft.path === null
-          ? { anchor: draft.anchor, body: draft.body }
-          : { anchor: draft.anchor, body: draft.body, path: draft.path },
-      ),
-      headers: mutationHeaders(idempotencyKey),
-      method: "POST",
-    },
+    JSON.stringify(draft.path === null
+      ? { anchor: draft.anchor, body: draft.body }
+      : { anchor: draft.anchor, body: draft.body, path: draft.path }),
+    idempotencyKey,
   ),
   updateComment: (
     projectId: string,
     artifactId: string,
     threadId: string,
     edit: CommentThreadEdit,
-  ) => request(
+  ) => send(
     z.object({ thread: commentThreadSchema }),
+    "PATCH",
     `/api/v1/artifacts/${encodeURIComponent(artifactId)}/comments/${encodeURIComponent(threadId)}?${projectQuery(projectId)}`,
-    {
-      body: JSON.stringify(edit),
-      headers: mutationHeaders(),
-      method: "PATCH",
-    },
+    JSON.stringify(edit),
   ).then(({ thread }) => thread),
   deleteComment: (projectId: string, artifactId: string, threadId: string) =>
     requestNoContent(
@@ -1227,14 +1208,12 @@ export const api = {
     threadId: string,
     body: string,
     idempotencyKey: string,
-  ) => request(
+  ) => send(
     createdCommentReplySchema,
+    "POST",
     `/api/v1/artifacts/${encodeURIComponent(artifactId)}/comments/${encodeURIComponent(threadId)}/replies?${projectQuery(projectId)}`,
-    {
-      body: JSON.stringify({ body }),
-      headers: mutationHeaders(idempotencyKey),
-      method: "POST",
-    },
+    JSON.stringify({ body }),
+    idempotencyKey,
   ),
   updateCommentReply: (
     projectId: string,
@@ -1242,14 +1221,11 @@ export const api = {
     threadId: string,
     replyId: string,
     body: string,
-  ) => request(
+  ) => send(
     z.object({ reply: commentReplySchema }),
+    "PATCH",
     `/api/v1/artifacts/${encodeURIComponent(artifactId)}/comments/${encodeURIComponent(threadId)}/replies/${encodeURIComponent(replyId)}?${projectQuery(projectId)}`,
-    {
-      body: JSON.stringify({ body }),
-      headers: mutationHeaders(),
-      method: "PATCH",
-    },
+    JSON.stringify({ body }),
   ).then(({ reply }) => reply),
   deleteCommentReply: (
     projectId: string,
@@ -1276,23 +1252,21 @@ export const api = {
     projectId: string,
     draft: AgentDispatchDraft,
     idempotencyKey: string,
-  ) => request(
+  ) => send(
     createdAgentDispatchSchema,
+    "POST",
     `/api/v1/agent-dispatches?${projectQuery(projectId)}`,
-    {
-      body: JSON.stringify({
-        agentId: draft.agentId,
-        note: draft.note,
-        threadIds: draft.threadIds,
-      }),
-      headers: mutationHeaders(idempotencyKey),
-      method: "POST",
-    },
+    JSON.stringify({
+      agentId: draft.agentId,
+      note: draft.note,
+      threadIds: draft.threadIds,
+    }),
+    idempotencyKey,
   ),
-  cancelAgentDispatch: (projectId: string, dispatchId: string) => request(
+  cancelAgentDispatch: (projectId: string, dispatchId: string) => send(
     z.object({ dispatch: agentDispatchSchema }),
+    "POST",
     `/api/v1/agent-dispatches/${encodeURIComponent(dispatchId)}/cancel?${projectQuery(projectId)}`,
-    { headers: mutationHeaders(), method: "POST" },
   ).then(({ dispatch }) => dispatch),
   members: () => request(
     z.object({ members: z.array(memberSchema) }),
@@ -1302,19 +1276,16 @@ export const api = {
     displayName: string,
     email: string,
     role: "administrator" | "member",
-  ) => request(
+  ) => send(
     z.object({ member: memberSchema }),
+    "POST",
     "/api/v1/members",
-    {
-      body: JSON.stringify({ displayName, email, role }),
-      headers: mutationHeaders(),
-      method: "POST",
-    },
+    JSON.stringify({ displayName, email, role }),
   ).then(({ member }) => member),
-  deactivateMember: (memberId: string) => request(
+  deactivateMember: (memberId: string) => send(
     z.object({ member: memberSchema }),
+    "POST",
     `/api/v1/members/${encodeURIComponent(memberId)}/deactivate`,
-    { headers: mutationHeaders(), method: "POST" },
   ).then(({ member }) => member),
   apiKeys: () => request(
     z.object({ apiKeys: z.array(apiKeySchema) }),
@@ -1325,28 +1296,23 @@ export const api = {
     expiresAt: string,
     capabilities: readonly PrincipalCapability[],
     memberId?: string,
-  ) => request(
+  ) => send(
     issuedKeySchema,
+    "POST",
     "/api/v1/api-keys",
-    {
-      body: JSON.stringify(
-        memberId === undefined
-          ? { capabilities, expiresAt, name }
-          : { capabilities, expiresAt, memberId, name },
-      ),
-      headers: mutationHeaders(),
-      method: "POST",
-    },
+    JSON.stringify(memberId === undefined
+      ? { capabilities, expiresAt, name }
+      : { capabilities, expiresAt, memberId, name }),
   ),
-  rotateApiKey: (keyId: string) => request(
+  rotateApiKey: (keyId: string) => send(
     issuedKeySchema,
+    "POST",
     `/api/v1/api-keys/${encodeURIComponent(keyId)}/rotate`,
-    { headers: mutationHeaders(), method: "POST" },
   ),
-  revokeApiKey: (keyId: string) => request(
+  revokeApiKey: (keyId: string) => send(
     z.object({ apiKey: apiKeySchema }),
+    "POST",
     `/api/v1/api-keys/${encodeURIComponent(keyId)}/revoke`,
-    { headers: mutationHeaders(), method: "POST" },
   ).then(({ apiKey }) => apiKey),
   /** The registered agents with their derived presence, for live surfaces. */
   agentPresence: () => request(
@@ -1362,15 +1328,10 @@ export const api = {
     artifactId: string,
     state: "all" | "resolved",
     versionId: string | null,
-  ) => request(
+  ) => send(
     commentClearResultSchema,
+    "POST",
     `/api/v1/projects/${encodeURIComponent(projectId)}/artifacts/${encodeURIComponent(artifactId)}/comments/clear`,
-    {
-      body: JSON.stringify(
-        versionId === null ? { state } : { state, versionId },
-      ),
-      headers: mutationHeaders(),
-      method: "POST",
-    },
+    JSON.stringify(versionId === null ? { state } : { state, versionId }),
   ),
 };

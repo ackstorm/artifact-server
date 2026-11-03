@@ -2,7 +2,7 @@
 
 **Status:** Implemented with local behavior evidence; equivalent live deployment evidence pending.
 **Owner:** Artifact core and web application
-**Companion documents:** [Product specification](./artifact-server-product-spec.md), [Media previews](./media-preview-spec.md), [Conformance ledger](./conformance.yml)
+**Companion documents:** [Product specification](./artifact-server-product-spec.html), [Media previews](./media-preview-spec.md), [Conformance ledger](./conformance.yml)
 
 ## Outcome
 

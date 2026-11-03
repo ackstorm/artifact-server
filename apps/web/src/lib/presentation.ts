@@ -130,26 +130,6 @@ export function sourceFreshnessLabel(value: SourceFreshness): string {
   return freshnessHandled(value);
 }
 
-/**
- * How loudly a freshness state reads. Drift is ordinary product state, so it
- * draws the eye without alarming; only a file this server can no longer read
- * is a failure worth the destructive tone.
- */
-export function sourceFreshnessTone(
-  value: SourceFreshness,
-): "danger" | "neutral" | "primary" {
-  switch (value) {
-    case "in-sync":
-      return "neutral";
-    case "modified":
-      return "primary";
-    case "missing":
-    case "unreadable":
-      return "danger";
-  }
-  return freshnessHandled(value);
-}
-
 /** One sentence saying what the drift means for what is on screen. */
 export function sourceDriftDescription(
   value: SourceFreshness,

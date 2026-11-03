@@ -1,43 +1,20 @@
 import {Copy01Icon, Tick02Icon} from "@hugeicons/core-free-icons";
 import {HugeiconsIcon} from "@hugeicons/react";
-import {useEffect, useRef, useState} from "react";
 
 import {PageHeader} from "@/components/product";
 import {Button, ButtonLink} from "@/components/ui/button";
 
-type CopyTarget = "doctor" | "local" | "remote" | "skill";
+import {useCopy} from "./use-copy.ts";
 
-const copiedResetMilliseconds = 1_600;
+type CopyTarget = "doctor" | "local" | "remote" | "skill";
 
 /** Explain the supported local and team MCP connection paths for this installation. */
 export function McpScreen({administrator}: {readonly administrator: boolean}) {
-  const [copiedTarget, setCopiedTarget] = useState<CopyTarget | null>(null);
-  const [failure, setFailure] = useState<string | null>(null);
-  const copiedResetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const {copiedTarget, copy: copyText, failure} = useCopy<CopyTarget>();
   const mcpAddress = `${window.location.origin}/mcp`;
 
-  useEffect(() => () => {
-    if (copiedResetTimer.current !== null) clearTimeout(copiedResetTimer.current);
-  }, []);
-
-  const copy = async (value: string, target: CopyTarget): Promise<void> => {
-    setFailure(null);
-    try {
-      if (navigator.clipboard === undefined) {
-        throw new Error("Clipboard access is unavailable in this browser.");
-      }
-      await navigator.clipboard.writeText(value);
-      setCopiedTarget(target);
-      if (copiedResetTimer.current !== null) clearTimeout(copiedResetTimer.current);
-      copiedResetTimer.current = setTimeout(
-        () => setCopiedTarget(null),
-        copiedResetMilliseconds,
-      );
-    } catch {
-      setCopiedTarget(null);
-      setFailure("Unable to copy. Select the value and copy it manually.");
-    }
-  };
+  const copy = (value: string, target: CopyTarget): Promise<void> =>
+    copyText(value, target, "Unable to copy. Select the value and copy it manually.");
 
   return (
     <div className="flex flex-col gap-8">

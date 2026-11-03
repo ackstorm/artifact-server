@@ -40,7 +40,7 @@ Machine: Apple M5 Max, Node.js 24.15.0, local APFS storage.
 | 40 x 16 KiB publishes; 120 reads at concurrency 6 | 10.21 ms | 2.35 ms | 11.11 ms | 4.22 ms |
 | 8 x 1 MiB publishes; 24 reads at concurrency 4 | 16.43 ms | 5.04 ms | 12.62 ms | 2.92 ms |
 
-Both runs passed health, restart persistence, current-version delivery, and denial of anonymous access to a previous version. Neither produced an investigation warning. The default machine-readable result is in [`project/evidence/local-performance-baseline.json`](../evidence/local-performance-baseline.json); the bounded 1 MiB diagnostic is in [`project/evidence/local-performance-1mib.json`](../evidence/local-performance-1mib.json).
+Both runs passed health, restart persistence, current-version delivery, and denial of anonymous access to a previous version. Neither produced an investigation warning.
 
 The shared-authorization and private-content iteration repeated the default
 workload three times. Publish p95 ranged from 10.21 to 12.17 ms and public-read
@@ -162,10 +162,8 @@ capacity is advertised.
 
 ## Baseline policy
 
-- `pnpm verify:iteration` is the required end-of-iteration gate. It includes correctness, a coverage report, conformance checks, and the default bounded baseline. Coverage percentage is not a test-design target.
+- `pnpm verify:iteration` is the required end-of-iteration gate. It includes correctness, conformance checks, and the smoke run. Coverage percentage is not a test-design target.
 - `pnpm smoke` catches broken behavior and gross regressions with deliberately loose machine-timing limits.
-- `pnpm perf:baseline` records diagnostics and reports investigation warnings without failing on normal laptop variance.
-- `pnpm verify:external-storage-performance` runs the real compiled two-process Postgres and S3-compatible path and records provider startup separately from application latency.
 - Aggregate workload limits prevent command-line flags from accidentally creating a stress test.
 - Set tighter regression budgets only after repeated runs on a controlled runner establish normal variance.
 - Run the same behavior on local disk, every blob driver, Postgres, and Kubernetes as those adapters are implemented.

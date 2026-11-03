@@ -1,6 +1,6 @@
 import {execFile} from "node:child_process";
 import {randomBytes, randomUUID} from "node:crypto";
-import {mkdtemp, rm, writeFile} from "node:fs/promises";
+import {mkdir, mkdtemp, rm, writeFile} from "node:fs/promises";
 import {request} from "node:http";
 import {tmpdir} from "node:os";
 import path from "node:path";
@@ -533,8 +533,9 @@ describe.sequential("Artifact Server Helm release", () => {
       "private Kubernetes version",
     );
 
+    await mkdir(path.join(repositoryRoot, "test-results/runtime-baselines"), {recursive: true});
     await writeFile(
-      path.join(repositoryRoot, "project/evidence/helm-kubernetes-runtime-baseline.json"),
+      path.join(repositoryRoot, "test-results/runtime-baselines/helm-kubernetes-runtime-baseline.json"),
       `${JSON.stringify({
         clusterReadyMilliseconds,
         helmVersion,

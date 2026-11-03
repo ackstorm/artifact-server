@@ -172,30 +172,6 @@ export function PresenceGlyph({
 }
 
 /**
- * The live line under a Sent thread's state pill: the agent's avatar plus
- * "working…" or "replying…". Rendered only while the agent is actually on a
- * live state; when the reply lands, the poll replaces this line with it.
- */
-export function AgentActivityLine({
-  agent,
-  now,
-}: {
-  readonly agent: AgentPresence;
-  readonly now: number;
-}) {
-  const ring = presenceRing(agent);
-  if (ring !== "replying" && ring !== "working") return null;
-  return (
-    <p className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-      <PresenceAvatar agent={agent} now={now} />
-      <span>
-        {`${agent.displayName} is ${ring === "replying" ? "replying…" : "working…"}`}
-      </span>
-    </p>
-  );
-}
-
-/**
  * One agent's presence as an avatar whose ring is the state signal: solid
  * when idle, pulsing while working, spinning while replying, hollow and grey
  * when disconnected. Hovering or keyboard-focusing it opens a popover that

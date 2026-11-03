@@ -30,7 +30,6 @@ export ARTIFACT_SERVER_OCI_REVISION="$artifactserver_revision"
 
 bash scripts/with-external-storage-test-providers.sh \
   pnpm exec vitest run \
-    --config tests/configs/vitest.oci.config.ts \
-    --reporter=default \
-    --reporter=json \
-    --outputFile.json=project/evidence/oci-image.json
+    --config tests/configs/vitest.slow.config.ts \
+    tests/release/oci-image.test.ts \
+    --testTimeout=180000

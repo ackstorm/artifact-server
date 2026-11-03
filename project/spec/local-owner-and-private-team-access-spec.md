@@ -544,7 +544,7 @@ Before implementing Effect services or layers, the engineer must read
 | Local open and development proxy | `src/cli/open-management-command.ts`, `scripts/run-web-development.ts`, `apps/web/vite.config.ts`, CLI and release-package tests |
 | Team packaging and startup | `packaging/compose`, `packaging/helm/artifact-server`, compact, external-storage, and Helm release tests |
 | OIDC team qualification | `tests/integration/oidc-keycloak.test.ts`, Keycloak runner, TLS and wildcard gateway fixture |
-| Release records | `project/spec/conformance.yml`, evidence JSON files, product and operator documentation |
+| Release records | `project/spec/conformance.yml`, product and operator documentation |
 
 ## Verification matrix
 

@@ -24,6 +24,8 @@ import { Label } from "@/components/ui/label";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { formatTimestamp } from "@/lib/presentation";
 
+import { useCopy } from "./use-copy.ts";
+
 const capabilities: readonly {
   readonly description: string;
   readonly label: string;
@@ -323,13 +325,13 @@ function SecretDialog({
   readonly issued: IssuedApiKey | null;
   readonly onDiscard: () => void;
 }) {
-  const [copied, setCopied] = useState(false);
+  const {copiedTarget, copy, failure: copyFailure, reset: resetCopy} = useCopy<"key">();
   if (issued === null) return null;
   return (
     <Dialog
       onOpenChange={(open) => {
         if (!open) {
-          setCopied(false);
+          resetCopy();
           onDiscard();
         }
       }}
@@ -346,14 +348,17 @@ function SecretDialog({
         <code className="max-h-32 overflow-auto border bg-muted p-3 font-mono text-xs break-all">
           {issued.token}
         </code>
+        {copyFailure === null ? null : (
+          <p className="text-sm text-destructive" role="alert">{copyFailure}</p>
+        )}
         <DialogFooter>
           <Button
             onClick={() => {
-              void navigator.clipboard.writeText(issued.token).then(() => setCopied(true));
+              void copy(issued.token, "key", "Unable to copy. Select the key and copy it manually.");
             }}
             type="button"
           >
-            {copied ? "Copied" : "Copy API key"}
+            {copiedTarget === "key" ? "Copied" : "Copy API key"}
           </Button>
           <Button onClick={onDiscard} type="button" variant="outline">
             I stored it

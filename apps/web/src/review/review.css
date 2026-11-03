@@ -876,13 +876,6 @@ select:focus-visible {
   padding: 0.35rem 0.45rem;
 }
 
-.as-search-scope {
-  color: var(--as-muted);
-  font-size: 0.68rem;
-  line-height: 1.2;
-  padding-inline: 0.15rem;
-}
-
 .as-catalog-refresh {
   align-items: center;
   display: inline-flex;
@@ -3955,32 +3948,6 @@ body:has(.as-settings) [data-slot="dialog-trigger"]:active:not(:disabled) {
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
   }
-}
-
-/* Browser agent tools preference on the WebMCP settings page. */
-.as-settings__webmcp {
-  display: flex;
-  gap: 0.6rem;
-  align-items: flex-start;
-  padding: 1rem;
-  border: 1px solid var(--as-border);
-  font-size: 0.8125rem;
-  cursor: pointer;
-}
-
-.as-settings__webmcp input {
-  margin-top: 0.2rem;
-}
-
-.as-settings__webmcp span {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.as-settings__webmcp small {
-  color: var(--as-muted);
-  line-height: 1.4;
 }
 
 .as-markdown-preview {

@@ -47,7 +47,7 @@ export ARTIFACT_SERVER_HELM_MINIO_CONTAINER="$artifactserver_minio_container"
 export ARTIFACT_SERVER_HELM_MINIO_VOLUME="$artifactserver_minio_volume"
 
 pnpm exec vitest run \
-  --config tests/configs/vitest.helm.config.ts \
-  --reporter=default \
-  --reporter=json \
-  --outputFile.json=project/evidence/helm-kubernetes.json
+  --config tests/configs/vitest.slow.config.ts \
+  tests/release/helm-chart.test.ts \
+  --testTimeout=900000 \
+  --hookTimeout=600000

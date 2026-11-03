@@ -41,12 +41,12 @@ import {
   removeTestInstallation,
   startTestServer,
   type RunningTestServer,
-} from "../../tests/support/runtime-harness.js";
+} from "../support/runtime-harness.js";
 import {
   publishNew,
   publishVersion,
   type PublishResponse,
-} from "../../tests/support/publishing.js";
+} from "../support/publishing.js";
 
 const maximumMeasuredPublishBytes = 134_217_728;
 const maximumMeasuredReadBytes = 268_435_456;
@@ -92,18 +92,6 @@ const baselineConfigSchema = z.object({
 });
 
 export type LocalBaselineConfig = z.infer<typeof baselineConfigSchema>;
-
-export const defaultLocalBaselineConfig: LocalBaselineConfig = {
-  clientDirectoryFileBytes: 4_096,
-  clientDirectoryFiles: 48,
-  clientIterations: 3,
-  clientSingleFileBytes: 2_097_152,
-  concurrency: 6,
-  payloadBytes: 16_384,
-  publications: 40,
-  reads: 120,
-  warmupPublications: 3,
-};
 
 export const smokeBaselineConfig: LocalBaselineConfig = {
   clientDirectoryFileBytes: 2_048,

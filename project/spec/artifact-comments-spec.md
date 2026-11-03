@@ -1,15 +1,15 @@
 # Artifact comments
 
-**Status:** Accepted; implemented — CMT-001 through CMT-015 are behavior-verified on the local deployment. CMT-014 (review-viewer containment) has focused hostile-artifact proof in `tests/browser/review-sandbox.spec.ts`; CMT-015 (artifact-first viewer shell) is proved in `tests/browser/frontend-mvp.spec.ts`. Both use the durable Playwright report at `project/evidence/browser.json`; broader deployment release gates remain separate (August 26, 2026)
+**Status:** Accepted; implemented — CMT-001 through CMT-015 are behavior-verified on the local deployment. CMT-014 (review-viewer containment) has focused hostile-artifact proof in `tests/browser/review-sandbox.spec.ts`; CMT-015 (artifact-first viewer shell) is proved in `tests/browser/frontend-mvp.spec.ts`. Broader deployment release gates remain separate (August 26, 2026)
 **Date:** August 17, 2026
 **Owner:** Artifact Server product engineering
-**Companion documents:** [Product specification](./artifact-server-product-spec.md), [Plannotator and Artifact Server integration](./plannotator-artifact-server-integration-spec.md), [Conformance ledger](./conformance.yml)
+**Companion documents:** [Product specification](./artifact-server-product-spec.html), [Plannotator and Artifact Server integration](./plannotator-artifact-server-integration-spec.md), [Conformance ledger](./conformance.yml)
 
 ## 1. What this changes and why
 
 Artifact Server gains first-class comment threads on artifact versions: create, reply, resolve, reopen, edit, delete, list, and poll, through the HTTP API, MCP, and the web application.
 
-This reverses a written product decision. Today the product specification lists comments, annotations, and review workflow under "what stays outside it" (`artifact-server-product-spec.md:25`, `:231`, `:241`, `:490`) and the conformance ledger records the exclusion as `SCP-003` and the ownership split as `PLN-003`. The reason to change it: a comment on a published artifact belongs next to the immutable version it was made on, and Artifact Server's users and agents need to leave and answer feedback without a second product.
+This reverses a written product decision. Today the product specification lists comments, annotations, and review workflow under "what stays outside it" and the conformance ledger records the exclusion as `SCP-003` and the ownership split as `PLN-003`. The reason to change it: a comment on a published artifact belongs next to the immutable version it was made on, and Artifact Server's users and agents need to leave and answer feedback without a second product.
 
 Workspaces is not part of this work. The only tie is deliberate: the data model and vocabulary below copy the Workspaces comment model (`annotations` / `annotation_replies`) so the two products describe a comment the same way. No Workspaces integration, client, or migration is designed, assumed, or required here.
 
@@ -18,7 +18,6 @@ The changes that go with this spec when it is approved:
 | Where | Change |
 | --- | --- |
 | `project/spec/decisions/0019-artifact-comments.md` | New ADR: Artifact Server stores comment threads on its own artifact versions, using the Workspaces comment vocabulary. |
-| `project/spec/artifact-server-product-spec.md` | Row 25 drops "comments, annotations, review workflow"; the Plannotator section (`:231`, `:241`) no longer claims Artifact Server stores no comment record; `:490` out-of-scope list drops comments and replies. |
 | `project/spec/conformance.yml` | `SCP-003` narrows to "notifications, workspace collaboration, workspace membership"; `PLN-003` drops the claim that Artifact Server stores no comment or reply; new `CMT-001…CMT-012` (section 11); `PLN-009/010` (review bridge) unchanged and remain the reference for in-page anchoring. |
 | `project/spec/artifact-server-mcp-baseline.md` | Seven new tools (section 8). |
 
@@ -439,7 +438,7 @@ Module `artifact-comments` (new entry in `allowed_modules`). Deployments `*all`.
 
 `SCP-003` is edited to keep notifications and workspace collaboration excluded. `PLN-003` moves comments and replies to Artifact Server's column and its acceptance tests are rewritten. `AUD-001` gains the six comment action kinds in its behavior test.
 
-Tests are named by requirement ID as the ledger requires (`tests/conformance/cmt-001-exact-version-thread.test.ts` and so on), run against the SQLite repository directly and through the HTTP app; the Postgres repository runs the same repository suite through the existing external-storage test harness. New requirements enter the ledger as `specified` with empty evidence; statuses move only on real recorded runs (the validator rejects hand-written evidence). Browser requirements use the same IDs in Playwright test titles, and the browser evidence writer records those passing runs in `project/evidence/browser.json`.
+Tests are named by requirement ID as the ledger requires (`tests/conformance/cmt-001-exact-version-thread.test.ts` and so on), run against the SQLite repository directly and through the HTTP app; the Postgres repository runs the same repository suite through the existing external-storage test harness. New requirements enter the ledger as `specified`; a status moves to `behavior_verified` or `verified` only when the named tests exist, which `pnpm conformance:tests` enforces. Browser requirements use the same IDs in Playwright test titles.
 
 ## 12. Acceptance walk-through (what "done" looks like for the API and MCP)
 

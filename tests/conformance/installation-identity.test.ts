@@ -30,6 +30,7 @@ import {
   removeTestInstallation,
   startTestServer,
 } from "../support/runtime-harness.js";
+import {browserMutationHeaders} from "../support/browser-session.js";
 
 const sessionResponseSchema = z.object({
   authenticationMethod: z.literal("session"),
@@ -1043,20 +1044,6 @@ function applicationCookies(setCookieHeaders: readonly string[]): ApplicationCoo
     header: `${sessionPair}; ${csrfPair}`,
     sessionAttributes: session,
   };
-}
-
-function browserMutationHeaders(
-  origin: string,
-  cookies: ApplicationCookies,
-): Headers {
-  return new Headers({
-    "Content-Type": "application/json",
-    Cookie: cookies.header,
-    Origin: origin,
-    "Sec-Fetch-Mode": "cors",
-    "Sec-Fetch-Site": "same-origin",
-    "X-CSRF-Token": cookies.csrf,
-  });
 }
 
 async function bearerStatus(
