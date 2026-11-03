@@ -14,6 +14,7 @@ import {
   startTestServer,
   type TestInstallation,
 } from "../support/runtime-harness.js";
+import {applicationCookies, browserMutationHeaders, type ApplicationCookies} from "../support/browser-session.js";
 import {publishNew, type PublishResponse} from "../support/publishing.js";
 
 const memberCredential = "comment-write-admitted-member";
@@ -367,48 +368,6 @@ describe("comment write capability", () => {
     return fetch(`${server.baseUrl}${pathname}`, {...init, headers});
   }
 });
-
-interface ApplicationCookies {
-  readonly csrf: string;
-  readonly header: string;
-}
-
-function applicationCookies(
-  setCookieHeaders: readonly string[],
-): ApplicationCookies {
-  const session = setCookieHeaders.find((value) =>
-    value.startsWith("artifact_session=")
-  );
-  const csrf = setCookieHeaders.find((value) =>
-    value.startsWith("artifact_csrf=")
-  );
-  if (session === undefined || csrf === undefined) {
-    throw new Error("The login response did not issue both application cookies.");
-  }
-  const sessionPair = session.split(";", 1)[0];
-  const csrfPair = csrf.split(";", 1)[0];
-  if (sessionPair === undefined || csrfPair === undefined) {
-    throw new Error("The login response issued a malformed application cookie.");
-  }
-  return {
-    csrf: csrfPair.slice(csrfPair.indexOf("=") + 1),
-    header: `${sessionPair}; ${csrfPair}`,
-  };
-}
-
-function browserMutationHeaders(
-  origin: string,
-  cookies: ApplicationCookies,
-): Headers {
-  return new Headers({
-    "Content-Type": "application/json",
-    Cookie: cookies.header,
-    Origin: origin,
-    "Sec-Fetch-Mode": "cors",
-    "Sec-Fetch-Site": "same-origin",
-    "X-CSRF-Token": cookies.csrf,
-  });
-}
 
 const commentWriterPrincipal: Principal = {
   authorizedByPrincipalId: null,

@@ -49,6 +49,7 @@ import {
   startStubOidcProvider,
   type RunningStubOidcProvider,
 } from "../support/stub-oidc-provider.js";
+import {browserMutationHeaders, type ApplicationCookies} from "../support/browser-session.js";
 
 const repositoryRoot = path.resolve(import.meta.dirname, "../..");
 const externalStorageCli = path.join(repositoryRoot, "dist/cli/main.js");
@@ -3726,11 +3727,6 @@ function mutateArtifact(
   });
 }
 
-interface ApplicationCookies {
-  readonly csrf: string;
-  readonly header: string;
-}
-
 async function oidcBrowserLogin(baseUrl: string): Promise<Response> {
   const authorization = await startStubOidcLogin(baseUrl);
   const callback = new URL(baseUrl);
@@ -3765,20 +3761,6 @@ function applicationCookies(
     csrf: csrfPair.slice(csrfPair.indexOf("=") + 1),
     header: `${sessionPair}; ${csrfPair}`,
   };
-}
-
-function browserMutationHeaders(
-  origin: string,
-  cookies: ApplicationCookies,
-): Headers {
-  return new Headers({
-    "Content-Type": "application/json",
-    Cookie: cookies.header,
-    Origin: origin,
-    "Sec-Fetch-Mode": "cors",
-    "Sec-Fetch-Site": "same-origin",
-    "X-CSRF-Token": cookies.csrf,
-  });
 }
 
 function bearerStatus(baseUrl: string, token: string): Promise<number> {

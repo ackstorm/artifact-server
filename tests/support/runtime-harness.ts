@@ -288,3 +288,29 @@ export function apiHeaders(
     "Idempotency-Key": idempotencyKey,
   });
 }
+
+/** Read-only API headers for the installation's administrator token. */
+export function readHeaders(installation: TestInstallation): Headers {
+  return new Headers({Authorization: `Bearer ${installation.apiToken}`});
+}
+
+/** Sends one raw comment-thread PATCH as the installation administrator. */
+export async function patchThread(
+  server: RunningTestServer,
+  installation: TestInstallation,
+  artifactId: string,
+  threadId: string,
+  body: string,
+): Promise<Response> {
+  return fetch(
+    `${server.baseUrl}/api/v1/artifacts/${artifactId}/comments/${threadId}`,
+    {
+      body,
+      headers: new Headers({
+        Authorization: `Bearer ${installation.apiToken}`,
+        "Content-Type": "application/json",
+      }),
+      method: "PATCH",
+    },
+  );
+}

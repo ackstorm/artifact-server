@@ -4,9 +4,11 @@ import {z} from "zod";
 import {
   apiHeaders,
   createTestInstallation,
+  patchThread,
+  readHeaders,
   removeTestInstallation,
-  type RunningTestServer,
   startTestServer,
+  type RunningTestServer,
   type TestInstallation,
 } from "../support/runtime-harness.js";
 import {publishNew, type PublishResponse} from "../support/publishing.js";
@@ -223,10 +225,6 @@ describe("resolving and reopening one comment thread", () => {
   });
 });
 
-function readHeaders(installation: TestInstallation): Headers {
-  return new Headers({Authorization: `Bearer ${installation.apiToken}`});
-}
-
 async function createThread(
   server: RunningTestServer,
   installation: TestInstallation,
@@ -246,26 +244,6 @@ async function createThread(
     throw new Error(`Creating a comment thread failed with ${response.status}.`);
   }
   return createdThreadSchema.parse(await response.json()).thread;
-}
-
-async function patchThread(
-  server: RunningTestServer,
-  installation: TestInstallation,
-  artifactId: string,
-  threadId: string,
-  body: string,
-): Promise<Response> {
-  return fetch(
-    `${server.baseUrl}/api/v1/artifacts/${artifactId}/comments/${threadId}`,
-    {
-      body,
-      headers: new Headers({
-        Authorization: `Bearer ${installation.apiToken}`,
-        "Content-Type": "application/json",
-      }),
-      method: "PATCH",
-    },
-  );
 }
 
 async function readThread(
