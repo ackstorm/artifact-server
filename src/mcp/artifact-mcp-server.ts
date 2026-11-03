@@ -21,7 +21,6 @@ import {
 } from "../application/application-runtime.js";
 import {
   ArtifactCommentService,
-  type CommentAnchorInput,
   type ReadCommentThreadCommand,
   type UpdateCommentThreadCommand,
 } from "../application/artifact-comments.js";
@@ -76,7 +75,7 @@ import {
   SourceDrifted,
   VersionNotFound,
 } from "../core/errors.js";
-import type {BlobStore} from "../core/ports.js";
+import type {BlobStore, CommentAnchorChange} from "../core/ports.js";
 import {
   artifactBrowserUrl,
   artifactReviewUrl,
@@ -2579,7 +2578,7 @@ function commentThreadProjection(thread: CommentThreadRecord) {
 
 function commentThreadEdit(
   target: ReadCommentThreadCommand,
-  anchor: CommentAnchorInput | null,
+  anchor: CommentAnchorChange | null,
   body: string | null,
 ): UpdateCommentThreadCommand {
   if (anchor === null) {

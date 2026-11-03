@@ -53,6 +53,7 @@ import {
 } from "../core/model.js";
 import type {
   ClearCommentThreads,
+  CommentAnchorChange,
   CreateCommentReply,
   CreateCommentThread,
   DeleteCommentReply,
@@ -86,11 +87,6 @@ const carriesAnchorPoint = Schema.is(Schema.Struct({point: Schema.Unknown}));
 const carriesValidAnchorPoint = Schema.is(Schema.Struct({
   point: Schema.Struct({x: anchorUnitSchema, y: anchorUnitSchema}),
 }));
-
-/** One opaque client-owned anchor presented for validation or storage. */
-export interface CommentAnchorInput {
-  readonly anchor: unknown;
-}
 
 /** One comment thread together with every reply it carries. */
 export interface CommentThreadDetails {
@@ -438,7 +434,7 @@ function makeArtifactCommentService(
   );
 
   const requireAnchor = Effect.fn("ArtifactCommentService.requireAnchor")(
-    function*(input: CommentAnchorInput): Effect.fn.Return<
+    function*(input: CommentAnchorChange): Effect.fn.Return<
       string | null,
       InvalidComment
     > {
