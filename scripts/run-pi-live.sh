@@ -62,7 +62,4 @@ try {
 pnpm exec vitest run --config tests/configs/vitest.slow.config.ts \
   tests/pi-live \
   --testTimeout=240000 \
-  --hookTimeout=120000 \
-  --reporter=default \
-  --reporter=json \
-  --outputFile.json=project/evidence/pi-live.json
+  --hookTimeout=120000

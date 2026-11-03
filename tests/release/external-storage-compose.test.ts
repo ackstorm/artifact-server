@@ -304,10 +304,11 @@ describe.sequential("External-storage Compose release", () => {
       ]);
     }));
 
+    await mkdir(path.join(repositoryRoot, "test-results/runtime-baselines"), {recursive: true});
     await writeFile(
       path.join(
         repositoryRoot,
-        "project/evidence/external-storage-compose-runtime-baseline.json",
+        "test-results/runtime-baselines/external-storage-compose-runtime-baseline.json",
       ),
       `${JSON.stringify({
         composeVersion: await composeVersion(),

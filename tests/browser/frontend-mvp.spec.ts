@@ -1739,7 +1739,7 @@ test.describe("Artifact Server frontend MVP", () => {
 async function publishReviewMultifileFixture(fixture: BrowserFixture) {
   const encoder = new TextEncoder();
   const imageBytes = await readFile(
-    new URL("../../project/evidence/frontend-mvp/error-not-found.png", import.meta.url),
+    new URL("../fixtures/error-not-found.png", import.meta.url),
   );
   const fontBytes = await readFile(
     new URL("../fixtures/fonts/Inter-Bold.ttf", import.meta.url),

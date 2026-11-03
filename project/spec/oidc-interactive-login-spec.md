@@ -3,7 +3,7 @@
 **Status:** Accepted; implemented — AUTH-019, AUTH-020, and AUTH-021 behavior-verified on the local deployment, and the real-IdP round trip proven by the `test:oidc` Keycloak suite, now part of `verify:iteration` (August 18, 2026)
 **Date:** August 18, 2026
 **Owner:** Artifact Server product engineering
-**Companion documents:** [Product specification](./artifact-server-product-spec.md), [Conformance ledger](./conformance.yml)
+**Companion documents:** [Product specification](./artifact-server-product-spec.html), [Conformance ledger](./conformance.yml)
 
 ## 1. What this adds and why
 

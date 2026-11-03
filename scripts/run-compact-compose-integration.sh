@@ -27,7 +27,4 @@ export ARTIFACT_SERVER_COMPOSE_REVISION="$artifactserver_revision"
 pnpm exec vitest run \
   --config tests/configs/vitest.slow.config.ts \
   tests/release/compact-compose.test.ts \
-  --testTimeout=180000 \
-  --reporter=default \
-  --reporter=json \
-  --outputFile.json=project/evidence/compact-compose.json
+  --testTimeout=180000

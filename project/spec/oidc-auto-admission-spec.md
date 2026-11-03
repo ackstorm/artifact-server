@@ -96,7 +96,6 @@ storage adapters:
 - `tests/integration/external-storage-runtime.test.ts` covers compiled and
   in-process PostgreSQL replicas, simultaneous logins, and inactive-subject refusal.
 
-The ledger records passing local behavior evidence in `project/evidence/local-foundation.json`.
 Helm rendering and the complete packaged deployment matrix also require their
 normal verification gates; a passing local fixture alone does not prove production
 login against an operator's issuer.

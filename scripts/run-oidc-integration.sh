@@ -79,7 +79,4 @@ ARTIFACT_SERVER_TEST_KEYCLOAK_URL="${keycloak_url}" \
 pnpm exec vitest run --config tests/configs/vitest.slow.config.ts \
   tests/integration/oidc-keycloak.test.ts \
   --testTimeout=120000 \
-  --hookTimeout=180000 \
-  --reporter=default \
-  --reporter=json \
-  --outputFile.json=project/evidence/oidc-keycloak.json
+  --hookTimeout=180000

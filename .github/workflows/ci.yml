@@ -259,12 +259,11 @@ jobs:
       - name: Run the iteration gate
         run: pnpm verify:iteration
 
-      - name: Upload full-gate evidence
+      - name: Upload full-gate reports
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: full-gate-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          name: full-gate-reports-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
-            project/evidence/*.json
             test-results/
             release/*.manifest.json
             release/*.tgz

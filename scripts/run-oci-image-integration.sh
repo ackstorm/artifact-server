@@ -32,7 +32,4 @@ bash scripts/with-external-storage-test-providers.sh \
   pnpm exec vitest run \
     --config tests/configs/vitest.slow.config.ts \
     tests/release/oci-image.test.ts \
-    --testTimeout=180000 \
-    --reporter=default \
-    --reporter=json \
-    --outputFile.json=project/evidence/oci-image.json
+    --testTimeout=180000

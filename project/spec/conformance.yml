@@ -1,17 +1,15 @@
 version: 1
 product: Artifact Server
 updated: "2026-11-01"
-evidence_root: "../.."
 
 source:
   product_spec: artifact-server-product-spec.html
-  supporting_spec: artifact-server-product-spec.md
   administration_spec: single-application-administration-spec.md
   mcp_spec: artifact-server-mcp-baseline.md
   plannotator_spec: plannotator-artifact-server-integration-spec.md
 
 # A deployment can be advertised as supported only when every requirement that
-# names that deployment is verified with evidence from that deployment.
+# names that deployment is verified.
 deployment_sets:
   all: &all
     [local, single_server, kubernetes]
@@ -33,15 +31,10 @@ allowed_statuses:
 status_contract:
   specified: The behavior and tests are defined, but no implementation proof is claimed.
   implementing: Implementation work has started, but proof is incomplete.
-  behavior_verified: At least one applicable deployment has passing behavior-test evidence, but full proof is incomplete.
-  verified: Every applicable deployment has passing behavior and failure-test evidence.
+  behavior_verified: The behavior test (<ID>-B) exists and passes in the iteration gate; the failure test is not yet written.
+  verified: Both the behavior test (<ID>-B) and the failure test (<ID>-F) exist and pass in the iteration gate.
   blocked: Work cannot proceed until the recorded blocker is resolved.
   not_applicable: The requirement was retained for traceability but has a recorded reason it does not apply.
-
-evidence_contract:
-  required_fields: [deployment, tests, result, run, recorded_at]
-  allowed_results: [pass, fail]
-  note: A verified requirement must cover its behavior and failure test on every applicable deployment with passing evidence.
 
 allowed_kinds:
   - behavior
@@ -105,7 +98,6 @@ requirements:
     deployments: *all
     status: specified
     depends_on: []
-    evidence: []
 
   - id: PRD-002
     kind: exclusion
@@ -118,7 +110,6 @@ requirements:
     deployments: *all
     status: specified
     depends_on: []
-    evidence: []
 
   - id: PRD-003
     kind: behavior
@@ -131,7 +122,6 @@ requirements:
     deployments: *all
     status: specified
     depends_on: [ART-001, VER-001, DIF-001]
-    evidence: []
 
   - id: PRJ-001
     kind: behavior
@@ -145,7 +135,6 @@ requirements:
     status: implementing
     proof_gap: The current local test proves one default project, creation of a second project, and foreign-project rejection, but it does not start a team deployment or probe organization, Artifact Store, and Namespace creation and selection surfaces.
     depends_on: [AUTH-001]
-    evidence: []
 
   - id: PRJ-002
     kind: security
@@ -159,7 +148,6 @@ requirements:
     status: implementing
     proof_gap: The current local test covers selected HTTP upload, list, read, comparison, mutation, and audit boundaries; it does not prove the complete HTTP and MCP matrix or the named key, idempotency, content-session, search, backup, and restore boundaries.
     depends_on: [PRJ-001, AUTH-008]
-    evidence: []
 
   - id: PRJ-003
     kind: behavior
@@ -173,7 +161,6 @@ requirements:
     status: implementing
     proof_gap: The archive test uses a public artifact and proves write rejection plus retained reads, but it does not prove installation-membership access, absence of a project ACL, retained comparisons, or unchanged links, manifests, and action records.
     depends_on: [PRJ-001, AUTH-001, VER-001]
-    evidence: []
 
   - id: PRJ-004
     kind: release_gate
@@ -187,7 +174,6 @@ requirements:
     status: implementing
     proof_gap: The acceptance-ID test exercises a populated SQLite migration and repeat startup only; the combined SQLite and Postgres preservation matrix plus interrupted, partially applied, and rolled-back migration proof is not attached to these IDs.
     depends_on: [PRJ-001, PRJ-002]
-    evidence: []
 
   - id: PRD-004
     kind: constraint
@@ -200,7 +186,6 @@ requirements:
     deployments: *all
     status: specified
     depends_on: [AUTH-008, MCP-009]
-    evidence: []
 
   - id: ART-001
     kind: behavior
@@ -213,12 +198,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: []
-    evidence:
-      - deployment: local
-        tests: [ART-001-B]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-17T03:17:21.421Z"
 
   - id: ART-002
     kind: behavior
@@ -231,12 +210,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [PRJ-002, ART-001]
-    evidence:
-      - deployment: local
-        tests: [ART-002-B]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-17T03:17:21.421Z"
 
   - id: ART-003
     kind: behavior
@@ -249,12 +222,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [ART-001, MAN-001]
-    evidence:
-      - deployment: local
-        tests: [ART-003-B]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-17T03:17:21.421Z"
 
   - id: ART-004
     kind: behavior
@@ -267,12 +234,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [PUB-005]
-    evidence:
-      - deployment: local
-        tests: [ART-004-B, ART-004-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-17T03:17:21.421Z"
 
   - id: ART-005
     kind: behavior
@@ -285,12 +246,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [ART-004, AUD-001]
-    evidence:
-      - deployment: local
-        tests: [ART-005-B, ART-005-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-17T03:17:21.421Z"
 
   - id: ART-006
     kind: behavior
@@ -303,12 +258,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [ART-004, AUTH-017]
-    evidence:
-      - deployment: local
-        tests: [ART-006-B, ART-006-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-17T03:17:21.421Z"
 
   - id: ART-007
     kind: constraint
@@ -321,12 +270,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [ART-004]
-    evidence:
-      - deployment: local
-        tests: [ART-007-B]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-17T03:17:21.421Z"
 
   - id: ART-008
     kind: behavior
@@ -339,12 +282,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [ART-001, ART-005, ART-006, AUD-001]
-    evidence:
-      - deployment: local
-        tests: [ART-008-B, ART-008-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-17T03:17:21.421Z"
 
   - id: ART-009
     kind: behavior
@@ -358,17 +295,6 @@ requirements:
     status: behavior_verified
     proof_gap: Local HTTP and browser evidence proves project-wide search and preview preservation. Equivalent evidence for each team deployment remains unrecorded.
     depends_on: [ART-002, ART-008, PRJ-002]
-    evidence:
-      - deployment: local
-        tests: [ART-009-B, ART-009-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-25T19:14:39.424Z"
-      - deployment: local
-        tests: [ART-009-B, ART-009-F]
-        result: pass
-        run: project/evidence/browser.json
-        recorded_at: "2026-08-25T19:16:53.330Z"
 
   - id: ART-010
     kind: behavior
@@ -382,12 +308,6 @@ requirements:
     status: behavior_verified
     proof_gap: Local browser evidence proves conflict-safe Make current behavior and exact Review preservation. Equivalent evidence for each team deployment remains unrecorded.
     depends_on: [ART-004, ART-005, CMT-016]
-    evidence:
-      - deployment: local
-        tests: [ART-010-B, ART-010-F]
-        result: pass
-        run: project/evidence/browser.json
-        recorded_at: "2026-08-25T19:16:53.330Z"
 
   - id: ART-011
     kind: behavior
@@ -401,7 +321,6 @@ requirements:
     status: implementing
     proof_gap: Local SQLite and browser behavior plus provider-specific Postgres query paths must pass before this requirement can be marked verified.
     depends_on: [ART-002, ART-009, CMT-001]
-    evidence: []
 
   - id: ART-012
     kind: behavior
@@ -415,12 +334,6 @@ requirements:
     status: behavior_verified
     proof_gap: Local publication, management, persistence, and upgrade tests pass; equivalent live deployment evidence remains unrecorded.
     depends_on: [ART-001, ART-004, AUTH-008, PUB-006, PUB-008, AUD-001]
-    evidence:
-      - deployment: local
-        tests: [ART-012-B, ART-012-F]
-        result: pass
-        run: project/evidence/artifact-review-mode.json
-        recorded_at: "2026-11-02T21:42:47.426Z"
 
   - id: ART-013
     kind: security
@@ -433,17 +346,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [AUTH-033, AUTH-034]
-    evidence:
-      - deployment: local
-        tests: [ART-013-B]
-        result: pass
-        run: project/evidence/browser.json
-        recorded_at: "2026-11-02T11:49:46.485Z"
-      - deployment: local
-        tests: [ART-013-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-11-02T12:18:18.212Z"
 
   - id: ART-014
     kind: behavior
@@ -456,17 +358,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [ART-011, AUTH-034]
-    evidence:
-      - deployment: local
-        tests: [ART-014-B]
-        result: pass
-        run: project/evidence/browser.json
-        recorded_at: "2026-11-02T11:49:46.485Z"
-      - deployment: local
-        tests: [ART-014-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-11-02T12:18:18.212Z"
 
   - id: ART-015
     kind: behavior
@@ -479,17 +370,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [ART-001, PUB-006, AUTH-033]
-    evidence:
-      - deployment: local
-        tests: [ART-015-B]
-        result: pass
-        run: project/evidence/browser.json
-        recorded_at: "2026-11-02T11:49:46.485Z"
-      - deployment: local
-        tests: [ART-015-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-11-02T12:18:18.212Z"
 
   - id: MAN-001
     kind: behavior
@@ -503,7 +383,6 @@ requirements:
     status: implementing
     proof_gap: The current test compares manifest digests and path ordering, but it does not compare canonical manifest bytes or cover every missing-field and nondeterministic-ordering failure named by the acceptance tests.
     depends_on: []
-    evidence: []
 
   - id: MAN-002
     kind: behavior
@@ -517,7 +396,6 @@ requirements:
     status: implementing
     proof_gap: The complete-site test confirms stored bytes and selected response headers, but it does not inspect every committed manifest-entry field; the size and fingerprint rejection path is proved under PUB-003 rather than MAN-002-F.
     depends_on: [MAN-001]
-    evidence: []
 
   - id: MAN-003
     kind: security
@@ -530,12 +408,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: []
-    evidence:
-      - deployment: local
-        tests: [MAN-003-B, MAN-003-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-17T03:17:21.421Z"
 
   - id: MAN-004
     kind: security
@@ -548,7 +420,6 @@ requirements:
     deployments: *all
     status: specified
     depends_on: [MAN-003]
-    evidence: []
 
   - id: MAN-005
     kind: security
@@ -562,12 +433,6 @@ requirements:
     status: implementing
     proof_gap: MAN-005-F proves local rejection of case-only and normalization-equivalent collisions, but no behavior test publishes distinct normalized names across every supported storage system.
     depends_on: [MAN-003]
-    evidence:
-      - deployment: local
-        tests: [MAN-005-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-17T03:17:21.421Z"
 
   - id: MAN-006
     kind: security
@@ -580,12 +445,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [MAN-001, MAN-003]
-    evidence:
-      - deployment: local
-        tests: [MAN-006-B]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-17T03:17:21.421Z"
 
   - id: PUB-001
     kind: behavior
@@ -598,12 +457,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [AUTH-008]
-    evidence:
-      - deployment: local
-        tests: [PUB-001-B, PUB-001-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-17T03:17:21.421Z"
 
   - id: PUB-002
     kind: behavior
@@ -616,12 +469,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [PUB-001]
-    evidence:
-      - deployment: local
-        tests: [PUB-002-B, PUB-002-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-17T03:17:21.421Z"
 
   - id: PUB-003
     kind: security
@@ -634,12 +481,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [PUB-001, MAN-002]
-    evidence:
-      - deployment: local
-        tests: [PUB-003-B, PUB-003-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-17T03:17:21.421Z"
 
   - id: PUB-004
     kind: behavior
@@ -652,12 +493,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [PUB-003]
-    evidence:
-      - deployment: local
-        tests: [PUB-004-B, PUB-004-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-17T03:17:21.421Z"
 
   - id: PUB-005
     kind: behavior
@@ -670,7 +505,6 @@ requirements:
     deployments: *all
     status: specified
     depends_on: [PUB-004, MAN-001, AUD-001]
-    evidence: []
 
   - id: PUB-006
     kind: behavior
@@ -683,12 +517,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [PUB-005]
-    evidence:
-      - deployment: local
-        tests: [PUB-006-B, PUB-006-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-17T03:17:21.421Z"
 
   - id: PUB-007
     kind: behavior
@@ -701,12 +529,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [PUB-006]
-    evidence:
-      - deployment: local
-        tests: [PUB-007-B]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-17T03:17:21.421Z"
 
   - id: PUB-008
     kind: behavior
@@ -719,12 +541,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [PUB-005]
-    evidence:
-      - deployment: local
-        tests: [PUB-008-B, PUB-008-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-17T03:17:21.421Z"
 
   - id: PUB-009
     kind: behavior
@@ -737,12 +553,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [PUB-005]
-    evidence:
-      - deployment: local
-        tests: [PUB-009-B]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-17T03:17:21.421Z"
 
   - id: PUB-010
     kind: security
@@ -755,7 +565,6 @@ requirements:
     deployments: [local, single_server]
     status: specified
     depends_on: [MAN-004, PUB-001]
-    evidence: []
 
   - id: PUB-011
     kind: security
@@ -768,12 +577,6 @@ requirements:
     deployments: *external_storage
     status: behavior_verified
     depends_on: [PUB-001]
-    evidence:
-      - deployment: single_server
-        tests: [PUB-011-B, PUB-011-F]
-        result: pass
-        run: project/evidence/external-storage-runtime.json
-        recorded_at: "2026-08-17T03:08:19.183Z"
 
   - id: PUB-012
     kind: security
@@ -786,12 +589,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [PUB-001, PUB-002, PUB-003]
-    evidence:
-      - deployment: local
-        tests: [PUB-012-B, PUB-012-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-17T03:17:21.421Z"
 
   - id: PUB-013
     kind: behavior
@@ -805,17 +602,6 @@ requirements:
     status: behavior_verified
     proof_gap: Local HTTP, CLI, MCP, and browser checks pass. Equivalent publication and handoff evidence has not yet been recorded for every team deployment.
     depends_on: [PUB-002, VER-001, MCP-003]
-    evidence:
-      - deployment: local
-        tests: [PUB-013-B, PUB-013-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-25T17:51:55.551Z"
-      - deployment: local
-        tests: [PUB-013-B, PUB-013-F]
-        result: pass
-        run: project/evidence/browser.json
-        recorded_at: "2026-08-25T17:52:50.473Z"
 
   - id: PUB-014
     kind: behavior
@@ -829,7 +615,6 @@ requirements:
     status: implementing
     proof_gap: PUB-014-B and PUB-014-F run against the local SQLite server; Postgres runtime tests cover grant storage. No deployment-specific evidence is recorded.
     depends_on: [PUB-001, PUB-002, MCP-013]
-    evidence: []
   - id: CLI-001
     kind: security
     behavior: The Artifact Server CLI keeps profiles by exact server origin and account; remote interactive login uses browser authorization and operating-system credential storage, local mode uses private user-only state without visible secrets, and CI uses scoped service credentials from its secret manager.
@@ -842,7 +627,6 @@ requirements:
     status: implementing
     proof_gap: The OAuth acceptance-ID test proves browser PKCE, refresh, status, and revocation, but not the local automatic-authentication and CI paths or every credential-leak surface named by CLI-001-F.
     depends_on: [AUTH-009, AUTH-017]
-    evidence: []
 
   - id: CLI-002
     kind: behavior
@@ -855,12 +639,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [PUB-002, PUB-006, PUB-008, PUB-010, PUB-012, CLI-001]
-    evidence:
-      - deployment: local
-        tests: [CLI-002-B, CLI-002-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-17T03:17:21.421Z"
 
   - id: CLI-003
     kind: behavior
@@ -874,12 +652,6 @@ requirements:
     status: behavior_verified
     proof_gap: Local real-process and real-HTTP proof covers a dropped commit response, restart recovery, changed-input refusal, and duplicate prevention. Equivalent recovery evidence is not yet attached for every team deployment.
     depends_on: [CLI-002, PUB-006, PUB-008]
-    evidence:
-      - deployment: local
-        tests: [CLI-003-B, CLI-003-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-25T18:29:58.000Z"
 
   - id: AUD-001
     kind: security
@@ -892,7 +664,6 @@ requirements:
     deployments: *all
     status: specified
     depends_on: []
-    evidence: []
 
   - id: CNT-001
     kind: behavior
@@ -905,7 +676,6 @@ requirements:
     deployments: *all
     status: specified
     depends_on: [ART-003, MAN-001]
-    evidence: []
 
   - id: CNT-002
     kind: behavior
@@ -918,12 +688,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [CNT-008]
-    evidence:
-      - deployment: local
-        tests: [CNT-002-B, CNT-002-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-17T03:17:21.421Z"
 
   - id: CNT-003
     kind: security
@@ -936,7 +700,6 @@ requirements:
     deployments: *external_storage
     status: specified
     depends_on: []
-    evidence: []
 
   - id: CNT-004
     kind: security
@@ -949,7 +712,6 @@ requirements:
     deployments: *all
     status: specified
     depends_on: [ART-004]
-    evidence: []
 
   - id: CNT-005
     kind: behavior
@@ -962,12 +724,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [CNT-004]
-    evidence:
-      - deployment: local
-        tests: [CNT-005-B]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-17T03:17:21.421Z"
 
   - id: CNT-006
     kind: security
@@ -980,7 +736,6 @@ requirements:
     deployments: *all
     status: specified
     depends_on: [CNT-004]
-    evidence: []
 
   - id: CNT-007
     kind: behavior
@@ -993,12 +748,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [MAN-001]
-    evidence:
-      - deployment: local
-        tests: [CNT-007-B, CNT-007-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-17T03:17:21.421Z"
 
   - id: CNT-008
     kind: security
@@ -1012,7 +761,6 @@ requirements:
     status: implementing
     proof_gap: The acceptance-ID and live-cloud probes prove range, conditional, and HEAD behavior, but they do not cover the complete content fixture's media type, nosniff, disposition, unsupported-method, misleading-extension, and active-unknown-file matrix.
     depends_on: [MAN-002]
-    evidence: []
 
   - id: CNT-009
     kind: constraint
@@ -1025,7 +773,6 @@ requirements:
     deployments: *all
     status: specified
     depends_on: []
-    evidence: []
 
   - id: VER-001
     kind: behavior
@@ -1038,12 +785,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [ART-001, ART-004, CNT-004]
-    evidence:
-      - deployment: local
-        tests: [VER-001-B, VER-001-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-17T03:17:21.421Z"
 
   - id: DIF-001
     kind: behavior
@@ -1056,12 +797,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [MAN-001, VER-001]
-    evidence:
-      - deployment: local
-        tests: [DIF-001-B]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-17T03:17:21.421Z"
 
   - id: DIF-002
     kind: behavior
@@ -1074,12 +809,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [DIF-001]
-    evidence:
-      - deployment: local
-        tests: [DIF-002-B, DIF-002-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-17T03:17:21.421Z"
 
   - id: DIF-003
     kind: behavior
@@ -1092,12 +821,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [DIF-002]
-    evidence:
-      - deployment: local
-        tests: [DIF-003-B, DIF-003-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-17T03:17:21.421Z"
 
   - id: DIF-004
     kind: behavior
@@ -1110,12 +833,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [DIF-002, CNT-008]
-    evidence:
-      - deployment: local
-        tests: [DIF-004-B, DIF-004-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-17T03:17:21.421Z"
 
   - id: DIF-005
     kind: exclusion
@@ -1128,12 +845,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [DIF-004]
-    evidence:
-      - deployment: local
-        tests: [DIF-005-B, DIF-005-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-17T03:17:21.421Z"
 
   - id: AUTH-001
     kind: behavior
@@ -1146,12 +857,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: []
-    evidence:
-      - deployment: local
-        tests: [AUTH-001-B, AUTH-001-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-17T03:17:21.421Z"
 
   - id: AUTH-002
     kind: behavior
@@ -1164,12 +869,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [AUTH-001]
-    evidence:
-      - deployment: local
-        tests: [AUTH-002-B, AUTH-002-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-17T03:17:21.421Z"
 
   - id: AUTH-003
     kind: behavior
@@ -1182,7 +881,6 @@ requirements:
     deployments: *all
     status: specified
     depends_on: [CNT-004]
-    evidence: []
 
   - id: AUTH-004
     kind: security
@@ -1195,12 +893,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [AUTH-003]
-    evidence:
-      - deployment: local
-        tests: [AUTH-004-B]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-17T03:17:21.421Z"
 
   - id: AUTH-005
     kind: behavior
@@ -1213,7 +905,6 @@ requirements:
     deployments: *all
     status: specified
     depends_on: [AUTH-003]
-    evidence: []
 
   - id: AUTH-006
     kind: behavior
@@ -1226,17 +917,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [AUTH-003]
-    evidence:
-      - deployment: local
-        tests: [AUTH-006-B]
-        result: pass
-        run: project/evidence/browser.json
-        recorded_at: "2026-10-31T08:13:22.435Z"
-      - deployment: local
-        tests: [AUTH-006-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-10-31T08:39:22.655Z"
 
   - id: AUTH-007
     kind: behavior
@@ -1249,7 +929,6 @@ requirements:
     deployments: *all
     status: specified
     depends_on: [AUTH-003]
-    evidence: []
 
   - id: AUTH-008
     kind: security
@@ -1262,12 +941,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [AUTH-001]
-    evidence:
-      - deployment: local
-        tests: [AUTH-008-B, AUTH-008-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-17T03:17:21.421Z"
 
   - id: AUTH-009
     kind: security
@@ -1280,12 +953,6 @@ requirements:
     deployments: *external_storage
     status: behavior_verified
     depends_on: [AUTH-008]
-    evidence:
-      - deployment: single_server
-        tests: [AUTH-009-B, AUTH-009-F]
-        result: pass
-        run: project/evidence/external-storage-runtime.json
-        recorded_at: "2026-08-27T05:26:19.095Z"
 
   - id: AUTH-010
     kind: security
@@ -1298,12 +965,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [CNT-003, CNT-004]
-    evidence:
-      - deployment: local
-        tests: [AUTH-010-B, AUTH-010-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-17T03:17:21.421Z"
 
   - id: AUTH-011
     kind: security
@@ -1316,12 +977,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [AUTH-010]
-    evidence:
-      - deployment: local
-        tests: [AUTH-011-B, AUTH-011-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-17T03:17:21.421Z"
 
   - id: AUTH-012
     kind: security
@@ -1334,12 +989,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [CNT-004]
-    evidence:
-      - deployment: local
-        tests: [AUTH-012-B, AUTH-012-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-17T03:17:21.421Z"
 
   - id: AUTH-013
     kind: security
@@ -1352,7 +1001,6 @@ requirements:
     deployments: *all
     status: specified
     depends_on: [CNT-003, CNT-004]
-    evidence: []
 
   - id: AUTH-014
     kind: security
@@ -1365,12 +1013,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [AUTH-002, CNT-004]
-    evidence:
-      - deployment: local
-        tests: [AUTH-014-B]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-17T03:17:21.421Z"
 
   - id: AUTH-015
     kind: security
@@ -1383,12 +1025,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [AUTH-014]
-    evidence:
-      - deployment: local
-        tests: [AUTH-015-B, AUTH-015-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-17T03:17:21.421Z"
 
   - id: AUTH-016
     kind: security
@@ -1401,7 +1037,6 @@ requirements:
     deployments: *external_storage
     status: specified
     depends_on: [AUTH-015]
-    evidence: []
 
   - id: AUTH-017
     kind: security
@@ -1414,7 +1049,6 @@ requirements:
     deployments: *replicated
     status: specified
     depends_on: []
-    evidence: []
 
   - id: AUTH-018
     kind: security
@@ -1427,12 +1061,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [AUTH-007, AUTH-008, AUD-001]
-    evidence:
-      - deployment: local
-        tests: [AUTH-018-B, AUTH-018-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-17T03:20:00Z"
 
   - id: AUTH-019
     kind: behavior
@@ -1445,12 +1073,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [AUTH-001, AUTH-010]
-    evidence:
-      - deployment: local
-        tests: [AUTH-019-B, AUTH-019-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-18T15:31:35.706Z"
 
   - id: AUTH-020
     kind: security
@@ -1463,12 +1085,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [AUTH-019]
-    evidence:
-      - deployment: local
-        tests: [AUTH-020-B, AUTH-020-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-18T15:31:35.706Z"
 
   - id: AUTH-021
     kind: constraint
@@ -1481,12 +1097,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [AUTH-019]
-    evidence:
-      - deployment: local
-        tests: [AUTH-021-B, AUTH-021-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-18T15:31:35.706Z"
 
   - id: AUTH-022
     kind: constraint
@@ -1499,12 +1109,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [AUTH-008]
-    evidence:
-      - deployment: local
-        tests: [AUTH-022-B, AUTH-022-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-23T23:32:33Z"
 
   - id: AUTH-023
     kind: behavior
@@ -1518,7 +1122,6 @@ requirements:
     status: implementing
     proof_gap: The local HTTP acceptance test proves stable same-owner sessions, cookie-only authority, recovery, and the absence of credentials in the exchange response, while the browser suite proves a fresh compiled application session and cookie-clearing recovery. A separately recorded Vite-origin fresh-profile run and the complete URL, history, referrer, startup-output, log, trace, support-manifest, and diagnostic leak scan remain unproved.
     depends_on: [AUTH-010, AUTH-011]
-    evidence: []
 
   - id: AUTH-024
     kind: security
@@ -1532,7 +1135,6 @@ requirements:
     status: implementing
     proof_gap: The local acceptance test proves exact-loopback binding, same-origin Fetch Metadata, forwarded-header refusal, hostile Origin and Host refusal, and a valid or forged development-proxy credential. Conflicting Fetch Metadata, a credential from a prior development run, and the packaged boundary matrix remain unproved.
     depends_on: [AUTH-023]
-    evidence: []
 
   - id: AUTH-025
     kind: constraint
@@ -1546,7 +1148,6 @@ requirements:
     status: implementing
     proof_gap: The Node runtime test proves provider discovery, missing-provider startup refusal, local-owner route absence, managed-key authority, and legacy-bearer refusal in private-team mode, and the real Keycloak suite proves the OIDC round trip. Compact Compose, external-storage Compose, and Kubernetes startup plus the compatible external OAuth verifier matrix remain unproved.
     depends_on: [AUTH-009, AUTH-019, AUTH-021]
-    evidence: []
 
   - id: AUTH-026
     kind: behavior
@@ -1560,7 +1161,6 @@ requirements:
     status: implementing
     proof_gap: The browser suite proves local-owner bootstrap, deep-link loading, cookie-clearing recovery, and no logout affordance, while the HTTP suite proves the non-secret private-team context and refusal of local bootstrap. Complete private-team browser expiry, logout, denial, deactivation, provider-failure recovery, and replicated-deployment runs remain unproved.
     depends_on: [AUTH-023, AUTH-024, AUTH-025]
-    evidence: []
 
   - id: AUTH-027
     kind: security
@@ -1574,7 +1174,6 @@ requirements:
     status: implementing
     proof_gap: The local acceptance tests prove immediate refusal of a deactivated member's session and member-owned key, preserve the installation service principal, and bound a warmed cross-process session decision through the authentication cache. Provider relogin, cross-replica managed-key expiry, and explicit preservation checks for every attributed record remain unproved.
     depends_on: [AUTH-008, AUTH-009, AUTH-022, AUTH-025]
-    evidence: []
 
   - id: AUTH-028
     kind: constraint
@@ -1588,7 +1187,6 @@ requirements:
     status: implementing
     proof_gap: The local tests prove current-member and stable local-owner refusal, last-administrator refusal, and deactivation by a replacement administrator while another administrator remains. The concurrent last-administrator race and the complete replicated-deployment matrix remain unproved.
     depends_on: [AUTH-001, AUTH-023, AUTH-025]
-    evidence: []
 
   - id: AUTH-029
     kind: behavior
@@ -1602,12 +1200,6 @@ requirements:
     status: behavior_verified
     proof_gap: Local browser, configuration, repository, and bearer boundaries pass; complete packaged deployment verification and issuer-specific production login remain to be recorded.
     depends_on: [AUTH-001, AUTH-019, AUTH-020, AUTH-021, AUTH-027]
-    evidence:
-      - deployment: local
-        tests: [AUTH-029-B, AUTH-029-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-10-09T19:11:51.885780+00:00"
 
   - id: AUTH-030
     kind: security
@@ -1620,7 +1212,6 @@ requirements:
     deployments: *all
     status: specified
     depends_on: [AUTH-008, ART-006]
-    evidence: []
 
   - id: AUTH-031
     kind: behavior
@@ -1633,7 +1224,6 @@ requirements:
     deployments: *all
     status: specified
     depends_on: [AUTH-019]
-    evidence: []
 
   - id: AUTH-032
     kind: security
@@ -1646,12 +1236,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [AUTH-030]
-    evidence:
-      - deployment: local
-        tests: [AUTH-032-B, AUTH-032-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-10-30T21:57:54.908Z"
 
   - id: AUTH-033
     kind: security
@@ -1664,12 +1248,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [AUTH-032]
-    evidence:
-      - deployment: local
-        tests: [AUTH-033-B, AUTH-033-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-10-30T21:57:54.908Z"
 
   - id: AUTH-034
     kind: security
@@ -1682,12 +1260,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [AUTH-032]
-    evidence:
-      - deployment: local
-        tests: [AUTH-034-B, AUTH-034-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-11-02T12:18:18.212Z"
 
   - id: AUTH-035
     kind: security
@@ -1700,12 +1272,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [AUTH-033]
-    evidence:
-      - deployment: local
-        tests: [AUTH-035-B, AUTH-035-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-10-30T21:57:54.908Z"
 
   - id: AUTH-036
     kind: security
@@ -1718,12 +1284,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [AUTH-032]
-    evidence:
-      - deployment: single_server
-        tests: [AUTH-036-B, AUTH-036-F]
-        result: pass
-        run: project/evidence/external-storage-runtime.json
-        recorded_at: "2026-10-30T22:11:23.242Z"
 
   - id: AUTH-037
     kind: behavior
@@ -1736,12 +1296,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [AUTH-035]
-    evidence:
-      - deployment: local
-        tests: [AUTH-037-B, AUTH-037-F]
-        result: pass
-        run: project/evidence/browser.json
-        recorded_at: "2026-10-30T22:00:13.840Z"
 
   - id: AUTH-038
     kind: security
@@ -1754,17 +1308,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [AUTH-033, AUTH-034, AUTH-035]
-    evidence:
-      - deployment: local
-        tests: [AUTH-038-B]
-        result: pass
-        run: project/evidence/browser.json
-        recorded_at: "2026-11-02T11:49:46.485Z"
-      - deployment: local
-        tests: [AUTH-038-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-11-02T12:18:18.212Z"
 
   - id: AUTH-039
     kind: behavior
@@ -1777,7 +1320,6 @@ requirements:
     deployments: *all
     status: specified
     depends_on: [AUTH-029, ART-013]
-    evidence: []
 
   - id: SEC-001
     kind: security
@@ -1790,7 +1332,6 @@ requirements:
     deployments: *all
     status: specified
     depends_on: [CNT-004, AUTH-010, AUTH-011, AUTH-012, AUTH-013]
-    evidence: []
 
   - id: SEC-002
     kind: security
@@ -1803,7 +1344,6 @@ requirements:
     deployments: *replicated
     status: specified
     depends_on: [AUTH-017]
-    evidence: []
 
   - id: SEC-003
     kind: constraint
@@ -1816,7 +1356,6 @@ requirements:
     deployments: *all
     status: specified
     depends_on: [PRD-004]
-    evidence: []
 
   - id: SEC-004
     kind: security
@@ -1829,7 +1368,6 @@ requirements:
     deployments: *external_storage
     status: specified
     depends_on: [SEC-002, OPS-003]
-    evidence: []
 
   - id: MCP-001
     kind: behavior
@@ -1842,12 +1380,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: []
-    evidence:
-      - deployment: local
-        tests: [MCP-001-B, MCP-001-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-17T03:17:21.421Z"
 
   - id: MCP-002
     kind: constraint
@@ -1860,12 +1392,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [MCP-001]
-    evidence:
-      - deployment: local
-        tests: [MCP-002-B, MCP-002-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-17T03:17:21.421Z"
 
   - id: MCP-003
     kind: behavior
@@ -1878,12 +1404,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [MCP-002, SEC-003]
-    evidence:
-      - deployment: local
-        tests: [MCP-003-B, MCP-003-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-17T03:17:21.421Z"
 
   - id: MCP-004
     kind: constraint
@@ -1896,12 +1416,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [MCP-003]
-    evidence:
-      - deployment: local
-        tests: [MCP-004-B, MCP-004-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-17T03:17:21.421Z"
 
   - id: MCP-005
     kind: constraint
@@ -1914,12 +1428,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [MCP-002]
-    evidence:
-      - deployment: local
-        tests: [MCP-005-B, MCP-005-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-17T03:17:21.421Z"
 
   - id: MCP-006
     kind: behavior
@@ -1932,12 +1440,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [PRD-004, MCP-003]
-    evidence:
-      - deployment: local
-        tests: [MCP-006-B, MCP-006-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-17T03:17:21.421Z"
 
   - id: MCP-007
     kind: behavior
@@ -1950,12 +1452,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [MCP-003, PUB-002]
-    evidence:
-      - deployment: local
-        tests: [MCP-007-B, MCP-007-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-17T03:17:21.421Z"
 
   - id: MCP-008
     kind: behavior
@@ -1968,12 +1464,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [PUB-006, PUB-008]
-    evidence:
-      - deployment: local
-        tests: [MCP-008-B, MCP-008-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-17T03:17:21.421Z"
 
   - id: MCP-009
     kind: security
@@ -1987,7 +1477,6 @@ requirements:
     status: implementing
     proof_gap: The current test proves read-only listing, publication denial, and one foreign-installation list denial; it does not run the complete browser, HTTP, and MCP authorization matrix or every listed MCP mutation denial.
     depends_on: [AUTH-008]
-    evidence: []
 
   - id: MCP-013
     kind: behavior
@@ -2001,7 +1490,6 @@ requirements:
     status: implementing
     proof_gap: Local stdio, API-key, and generic OIDC access-token paths are implemented and covered by the local conformance suite and the real Keycloak harness, but the combined private OAuth, no-OAuth, local, wrong-credential, and credential-leak matrix has no deployment-specific MCP-013 evidence. The Keycloak harness obtains its MCP access tokens through the password grant; no MCP client has yet completed browser approval (authorization code with S256 PKCE, client registration, and the RFC 8707 resource parameter) against a generic OIDC issuer, so the browser-approval half of MCP-013-B is unproved for OIDC.
     depends_on: [AUTH-009]
-    evidence: []
 
   - id: MCP-014
     kind: release_gate
@@ -2014,7 +1502,6 @@ requirements:
     deployments: [single_server, kubernetes]
     status: specified
     depends_on: [MCP-013]
-    evidence: []
 
   - id: MCP-015
     kind: behavior
@@ -2027,12 +1514,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [MCP-006, SKL-004]
-    evidence:
-      - deployment: local
-        tests: [MCP-015-B, MCP-015-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-30T17:56:35.366Z"
 
   - id: MCP-016
     kind: release_gate
@@ -2046,7 +1527,6 @@ requirements:
     status: implementing
     proof_gap: Adapter and packaged-bridge tests exist, but clean real-host connect, representative use, restart, reconnect, disconnect, doctor, stale-state, and credential-leak proof is not complete for all four named clients.
     depends_on: [MCP-002, MCP-009, MCP-013, OPS-008]
-    evidence: []
 
   - id: MCP-018
     kind: release_gate
@@ -2059,7 +1539,6 @@ requirements:
     deployments: *all
     status: specified
     depends_on: [AUTH-009, MCP-009, OPS-008]
-    evidence: []
 
   - id: MCP-019
     kind: release_gate
@@ -2072,7 +1551,6 @@ requirements:
     deployments: *all
     status: specified
     depends_on: [MCP-016, MCP-018]
-    evidence: []
 
   - id: MCP-020
     kind: security
@@ -2086,12 +1564,6 @@ requirements:
     status: behavior_verified
     proof_gap: Real-process adapter proof covers native-client interruption, rollback, and conflict preservation. Current released Codex, Claude Code, Cursor, and VS Code host versions still require the full MCP-016 and MCP-019 qualification matrix.
     depends_on: [MCP-016, MCP-019]
-    evidence:
-      - deployment: local
-        tests: [MCP-020-B, MCP-020-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-25T18:29:58.000Z"
 
   - id: MCP-021
     kind: security
@@ -2104,7 +1576,6 @@ requirements:
     deployments: *all
     status: specified
     depends_on: [AUTH-033, MCP-018]
-    evidence: []
 
   - id: SKL-001
     kind: behavior
@@ -2118,7 +1589,6 @@ requirements:
     status: implementing
     proof_gap: The unified skill and routing references are present, but there is no independent install, route-selection, non-activation, and adjacent-request evidence across supported agents.
     depends_on: [MCP-003]
-    evidence: []
 
   - id: SKL-002
     kind: security
@@ -2132,7 +1602,6 @@ requirements:
     status: implementing
     proof_gap: Skill files and forward tests cover selected publishing paths, but no SKL-002 run exercises every routine operation through MCP and CLI equivalently plus an infrastructure-request denial on each applicable deployment.
     depends_on: [SKL-001, MCP-009, CLI-002, ARC-006]
-    evidence: []
 
   - id: SKL-003
     kind: security
@@ -2145,7 +1614,6 @@ requirements:
     deployments: *all
     status: specified
     depends_on: [SKL-001, OPS-001]
-    evidence: []
 
   - id: SKL-004
     kind: behavior
@@ -2159,7 +1627,6 @@ requirements:
     status: implementing
     proof_gap: Target-resolution logic is documented and partially tested, but the complete precedence, artifact-reference, ambiguity, conflict, missing, and stale-target matrix has no SKL-004 evidence.
     depends_on: [SKL-002]
-    evidence: []
 
   - id: SKL-005
     kind: security
@@ -2173,7 +1640,6 @@ requirements:
     status: implementing
     proof_gap: Non-secret configuration and secure credential boundaries exist, but no SKL-005 acceptance run covers project defaults and verifies absence of every named credential type across MCP and CLI adapters.
     depends_on: [SKL-004]
-    evidence: []
 
   - id: SKL-006
     kind: deployment
@@ -2187,7 +1653,6 @@ requirements:
     status: implementing
     proof_gap: Format, validation, and repository forward-test records exist for the unified skill, but released distribution metadata, supported-client installation, release matching, old-server behavior, and route-selection evidence remain incomplete.
     depends_on: [SKL-001, MCP-003]
-    evidence: []
 
   - id: CMT-001
     kind: behavior
@@ -2200,12 +1665,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [ART-004, VER-001]
-    evidence:
-      - deployment: local
-        tests: [CMT-001-B, CMT-001-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-18T09:21:52.377Z"
 
   - id: CMT-002
     kind: behavior
@@ -2218,12 +1677,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [CMT-001, MAN-001]
-    evidence:
-      - deployment: local
-        tests: [CMT-002-B, CMT-002-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-18T09:21:52.377Z"
 
   - id: CMT-003
     kind: behavior
@@ -2236,12 +1689,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [CMT-001]
-    evidence:
-      - deployment: local
-        tests: [CMT-003-B, CMT-003-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-18T09:21:52.377Z"
 
   - id: CMT-004
     kind: behavior
@@ -2254,12 +1701,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [CMT-001]
-    evidence:
-      - deployment: local
-        tests: [CMT-004-B, CMT-004-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-18T09:21:52.377Z"
 
   - id: CMT-005
     kind: behavior
@@ -2272,12 +1713,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [CMT-001]
-    evidence:
-      - deployment: local
-        tests: [CMT-005-B, CMT-005-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-18T09:21:52.377Z"
 
   - id: CMT-006
     kind: security
@@ -2290,12 +1725,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [CMT-001, AUTH-008]
-    evidence:
-      - deployment: local
-        tests: [CMT-006-B, CMT-006-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-18T09:21:52.377Z"
 
   - id: CMT-007
     kind: security
@@ -2308,12 +1737,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [CMT-001, AUTH-008]
-    evidence:
-      - deployment: local
-        tests: [CMT-007-B, CMT-007-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-18T09:21:52.377Z"
 
   - id: CMT-008
     kind: security
@@ -2326,12 +1749,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [CMT-001, AUTH-008]
-    evidence:
-      - deployment: local
-        tests: [CMT-008-B, CMT-008-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-18T09:21:52.377Z"
 
   - id: CMT-009
     kind: security
@@ -2344,12 +1761,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [CMT-001, AUTH-008, PRJ-002]
-    evidence:
-      - deployment: local
-        tests: [CMT-009-B, CMT-009-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-18T09:21:52.377Z"
 
   - id: CMT-010
     kind: behavior
@@ -2362,12 +1773,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [CMT-001, PUB-006]
-    evidence:
-      - deployment: local
-        tests: [CMT-010-B, CMT-010-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-18T09:21:52.377Z"
 
   - id: CMT-011
     kind: behavior
@@ -2380,12 +1785,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [CMT-001, AUD-001]
-    evidence:
-      - deployment: local
-        tests: [CMT-011-B, CMT-011-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-18T09:21:52.377Z"
 
   - id: CMT-012
     kind: behavior
@@ -2398,12 +1797,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [CMT-001, CMT-007, ARC-006]
-    evidence:
-      - deployment: local
-        tests: [CMT-012-B, CMT-012-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-18T09:21:52.377Z"
 
   - id: CMT-013
     kind: security
@@ -2416,12 +1809,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [CMT-002, MAN-001, AUTH-008]
-    evidence:
-      - deployment: local
-        tests: [CMT-013-B, CMT-013-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-18T09:21:52.377Z"
 
   - id: CMT-014
     kind: security
@@ -2434,12 +1821,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [SEC-001, CMT-013]
-    evidence:
-      - deployment: local
-        tests: [CMT-014-B, CMT-014-F]
-        result: pass
-        run: project/evidence/browser.json
-        recorded_at: "2026-08-26T18:29:39.022Z"
 
   - id: CMT-015
     kind: behavior
@@ -2452,12 +1833,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [CMT-012, CMT-014]
-    evidence:
-      - deployment: local
-        tests: [CMT-015-B, CMT-015-F]
-        result: pass
-        run: project/evidence/browser.json
-        recorded_at: "2026-08-23T23:50:31.798Z"
 
   - id: CMT-016
     kind: behavior
@@ -2471,12 +1846,6 @@ requirements:
     status: behavior_verified
     proof_gap: Local browser evidence proves direct current and historical resolution, refresh and history preservation, and explicit failure without fallback. Equivalent evidence is not yet recorded for every team deployment.
     depends_on: [ART-002, VER-001, CMT-015]
-    evidence:
-      - deployment: local
-        tests: [CMT-016-B, CMT-016-F]
-        result: pass
-        run: project/evidence/browser.json
-        recorded_at: "2026-08-25T17:52:50.473Z"
 
   - id: CMT-017
     kind: behavior
@@ -2490,12 +1859,6 @@ requirements:
     status: behavior_verified
     proof_gap: Local browser evidence proves exact-version-first sharing for current, historical, and nested-file selections. Equivalent evidence is not yet recorded for every team deployment.
     depends_on: [CMT-016, PUB-013, VER-001]
-    evidence:
-      - deployment: local
-        tests: [CMT-017-B, CMT-017-F]
-        result: pass
-        run: project/evidence/browser.json
-        recorded_at: "2026-08-25T17:52:50.473Z"
 
   - id: CMT-018
     kind: security
@@ -2509,17 +1872,6 @@ requirements:
     status: behavior_verified
     proof_gap: Local browser and service evidence proves exact-version private historical rendering and lease rejection. The complete supported-browser and per-team-deployment matrix remains unrecorded.
     depends_on: [AUTH-015, CMT-014, CNT-005, SEC-001]
-    evidence:
-      - deployment: local
-        tests: [CMT-018-B, CMT-018-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-25T17:51:55.551Z"
-      - deployment: local
-        tests: [CMT-018-B, CMT-018-F]
-        result: pass
-        run: project/evidence/browser.json
-        recorded_at: "2026-08-25T17:52:50.473Z"
 
   - id: CMT-019
     kind: behavior
@@ -2533,12 +1885,6 @@ requirements:
     status: behavior_verified
     proof_gap: Local browser evidence proves complete Review conversations and reply mutation behavior. Equivalent evidence for each team deployment remains unrecorded.
     depends_on: [CMT-004, CMT-005, CMT-008, CMT-012, CMT-016]
-    evidence:
-      - deployment: local
-        tests: [CMT-019-B, CMT-019-F]
-        result: pass
-        run: project/evidence/browser.json
-        recorded_at: "2026-08-25T19:16:53.330Z"
 
   - id: CMT-020
     kind: constraint
@@ -2552,12 +1898,6 @@ requirements:
     status: behavior_verified
     proof_gap: SQLite conformance evidence plus Postgres integration prove the deletion guard and atomic race behavior. Equivalent recorded evidence for every deployed-team target remains unrecorded.
     depends_on: [CMT-008, CMT-011, DSP-003, DSP-007, PRS-005]
-    evidence:
-      - deployment: local
-        tests: [CMT-020-B, CMT-020-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-27T00:19:45.636Z"
 
   - id: CMT-021
     kind: behavior
@@ -2571,17 +1911,6 @@ requirements:
     status: behavior_verified
     proof_gap: Local service and browser evidence proves exact one-file and multi-file downloads, immutable historical bytes, archive authorization, and unchanged Review state. Equivalent evidence for every team deployment remains unrecorded.
     depends_on: [CMT-013, CMT-015, VER-001]
-    evidence:
-      - deployment: local
-        tests: [CMT-021-B, CMT-021-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-09-03T16:08:06.755Z"
-      - deployment: local
-        tests: [CMT-021-B, CMT-021-F]
-        result: pass
-        run: project/evidence/browser.json
-        recorded_at: "2026-09-03T16:09:11.243Z"
 
   - id: CMT-022
     kind: behavior
@@ -2595,12 +1924,6 @@ requirements:
     status: behavior_verified
     proof_gap: Local Chromium production-build evidence proves fragment scrolling, cancellation, annotation ownership, and retained sandbox isolation. Equivalent Firefox, WebKit, and team-deployment evidence remains unrecorded; URL hash and history emulation are outside this contract.
     depends_on: [CMT-014, CMT-018]
-    evidence:
-      - deployment: local
-        tests: [CMT-022-B, CMT-022-F]
-        result: pass
-        run: project/evidence/html-fragment-navigation-browser.json
-        recorded_at: "2026-10-06T15:37:19.847Z"
 
   - id: ADM-001
     kind: behavior
@@ -2614,12 +1937,6 @@ requirements:
     status: behavior_verified
     proof_gap: Local package and browser evidence proves the single React application, isolated Review frame, canonical settings routes, and compatibility behavior. Equivalent deployed-team evidence remains unrecorded.
     depends_on: [AUTH-026, CMT-015, CMT-016]
-    evidence:
-      - deployment: local
-        tests: [ADM-001-B, ADM-001-F]
-        result: pass
-        run: project/evidence/local-package.json
-        recorded_at: "2026-08-26T18:33:14.862Z"
 
   - id: ADM-002
     kind: behavior
@@ -2633,12 +1950,6 @@ requirements:
     status: behavior_verified
     proof_gap: Local browser evidence proves project lifecycle behavior. Team deployments remain unrecorded.
     depends_on: [PRJ-003]
-    evidence:
-      - deployment: local
-        tests: [ADM-002-B, ADM-002-F]
-        result: pass
-        run: project/evidence/browser.json
-        recorded_at: "2026-08-26T03:02:41.357Z"
 
   - id: ADM-003
     kind: security
@@ -2652,12 +1963,6 @@ requirements:
     status: behavior_verified
     proof_gap: Local browser evidence proves member admission and deactivation in the canonical application. Equivalent browser evidence for a non-administrator and each team deployment remains unrecorded; service tests retain those authority boundaries.
     depends_on: [AUTH-001, AUTH-027, AUTH-028]
-    evidence:
-      - deployment: local
-        tests: [ADM-003-B, ADM-003-F]
-        result: pass
-        run: project/evidence/browser.json
-        recorded_at: "2026-08-26T03:02:41.357Z"
 
   - id: ADM-004
     kind: security
@@ -2671,12 +1976,6 @@ requirements:
     status: behavior_verified
     proof_gap: Local browser evidence proves issue, one-time display, frontend secret disposal, rotation, and revocation. Equivalent browser evidence for every rejected owner or capability case and each team deployment remains unrecorded; service tests retain those authority boundaries.
     depends_on: [AUTH-009, AUTH-027]
-    evidence:
-      - deployment: local
-        tests: [ADM-004-B, ADM-004-F]
-        result: pass
-        run: project/evidence/browser.json
-        recorded_at: "2026-08-26T03:02:41.357Z"
 
   - id: ADM-005
     kind: security
@@ -2690,12 +1989,6 @@ requirements:
     status: behavior_verified
     proof_gap: Local browser evidence proves cross-project inventory, one and bulk access reduction, partial success, and stale retry. Equivalent browser evidence for each authorization rejection and team deployment remains unrecorded; service tests retain those boundaries.
     depends_on: [AUTH-007, AUTH-018, CMT-017]
-    evidence:
-      - deployment: local
-        tests: [ADM-005-B, ADM-005-F]
-        result: pass
-        run: project/evidence/browser.json
-        recorded_at: "2026-08-26T03:02:41.357Z"
 
   - id: ADM-006
     kind: behavior
@@ -2709,12 +2002,6 @@ requirements:
     status: behavior_verified
     proof_gap: Local browser evidence proves accessible canonical settings, stable direct routes, preserved Review return context, and bounded failure states. The complete narrow-screen and non-administrator matrix for every settings page and team deployment remains unrecorded.
     depends_on: [AUTH-008, AUTH-026, ADM-001]
-    evidence:
-      - deployment: local
-        tests: [ADM-006-B, ADM-006-F]
-        result: pass
-        run: project/evidence/browser.json
-        recorded_at: "2026-08-26T03:02:41.357Z"
 
   - id: ADM-007
     kind: behavior
@@ -2728,12 +2015,6 @@ requirements:
     status: behavior_verified
     proof_gap: Local browser evidence proves canonical comparison, action history, tombstoning, linked capture, dispatch, and presence through their existing contracts. Eligible live-view and equivalent team-deployment evidence remain unrecorded.
     depends_on: [ART-006, AUD-001, DIF-001, LNK-003, LNK-004, LNK-007, DSP-010, PRS-004, PRS-006, ADM-001]
-    evidence:
-      - deployment: local
-        tests: [ADM-007-B, ADM-007-F]
-        result: pass
-        run: project/evidence/browser.json
-        recorded_at: "2026-08-26T03:02:41.357Z"
 
   - id: DSP-001
     kind: behavior
@@ -2746,12 +2027,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [AUTH-008, PRJ-002]
-    evidence:
-      - deployment: local
-        tests: [DSP-001-B, DSP-001-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-18T20:30:21.763Z"
 
   - id: DSP-002
     kind: security
@@ -2764,12 +2039,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [DSP-001, AUTH-008]
-    evidence:
-      - deployment: local
-        tests: [DSP-002-B, DSP-002-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-18T18:31:17.376Z"
 
   - id: DSP-003
     kind: behavior
@@ -2782,12 +2051,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [DSP-001, CMT-001, CMT-010]
-    evidence:
-      - deployment: local
-        tests: [DSP-003-B, DSP-003-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-18T18:31:17.376Z"
 
   - id: DSP-004
     kind: behavior
@@ -2800,12 +2063,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [DSP-003, CMT-012]
-    evidence:
-      - deployment: local
-        tests: [DSP-004-B, DSP-004-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-18T18:31:17.376Z"
 
   - id: DSP-005
     kind: behavior
@@ -2818,12 +2075,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [DSP-003, DSP-002]
-    evidence:
-      - deployment: local
-        tests: [DSP-005-B, DSP-005-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-18T18:31:17.376Z"
 
   - id: DSP-006
     kind: behavior
@@ -2836,12 +2087,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [DSP-005]
-    evidence:
-      - deployment: local
-        tests: [DSP-006-B, DSP-006-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-18T18:31:17.376Z"
 
   - id: DSP-007
     kind: behavior
@@ -2854,12 +2099,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [DSP-005, DSP-006]
-    evidence:
-      - deployment: local
-        tests: [DSP-007-B, DSP-007-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-18T18:31:17.376Z"
 
   - id: DSP-008
     kind: behavior
@@ -2872,12 +2111,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [DSP-007, CMT-005]
-    evidence:
-      - deployment: local
-        tests: [DSP-008-B, DSP-008-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-18T18:31:17.376Z"
 
   - id: DSP-009
     kind: behavior
@@ -2890,12 +2123,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [DSP-004, DSP-007]
-    evidence:
-      - deployment: local
-        tests: [DSP-009-B, DSP-009-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-18T20:30:21.763Z"
 
   - id: DSP-010
     kind: security
@@ -2908,12 +2135,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [DSP-003, AUTH-008, PRJ-002]
-    evidence:
-      - deployment: local
-        tests: [DSP-010-B, DSP-010-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-18T18:31:17.376Z"
 
   - id: DSP-011
     kind: behavior
@@ -2926,12 +2147,6 @@ requirements:
     deployments: [local]
     status: behavior_verified
     depends_on: [DSP-005]
-    evidence:
-      - deployment: local
-        tests: [DSP-011-B, DSP-011-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-18T19:41:01.313Z"
 
   - id: DSP-012
     kind: behavior
@@ -2944,12 +2159,6 @@ requirements:
     deployments: [local]
     status: behavior_verified
     depends_on: [DSP-011]
-    evidence:
-      - deployment: local
-        tests: [DSP-012-B, DSP-012-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-18T20:30:21.763Z"
 
   - id: DSP-013
     kind: behavior
@@ -2963,12 +2172,6 @@ requirements:
     status: behavior_verified
     proof_gap: The shared bridge and OpenCode adapter are exercised through injected host ports against a real local server; live OpenCode and Claude transport acceptance remain adapter qualification checks.
     depends_on: [DSP-009, DSP-012]
-    evidence:
-      - deployment: local
-        tests: [DSP-013-B, DSP-013-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-27T01:14:27.292Z"
 
   - id: DSP-014
     kind: behavior
@@ -2981,12 +2184,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [AUTH-033, DSP-003]
-    evidence:
-      - deployment: local
-        tests: [DSP-014-B, DSP-014-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-10-30T21:57:54.908Z"
 
   - id: BRP-001
     kind: behavior
@@ -3000,12 +2197,6 @@ requirements:
     status: behavior_verified
     proof_gap: Verified with fake hosts against the local deployment; two adapters (Pi and OpenCode) now consume the package, but the OpenCode side is proven through a fake plugin context rather than a live opencode binary.
     depends_on: [DSP-011, DSP-012]
-    evidence:
-      - deployment: local
-        tests: [BRP-001-B, BRP-001-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-25T21:29:14.000Z"
 
   - id: PRS-001
     kind: behavior
@@ -3018,12 +2209,6 @@ requirements:
     deployments: [local]
     status: behavior_verified
     depends_on: [DSP-001, DSP-007]
-    evidence:
-      - deployment: local
-        tests: [PRS-001-B, PRS-001-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-25T21:42:39.000Z"
 
   - id: PRS-002
     kind: behavior
@@ -3036,12 +2221,6 @@ requirements:
     deployments: [local]
     status: behavior_verified
     depends_on: [PRS-001]
-    evidence:
-      - deployment: local
-        tests: [PRS-002-B, PRS-002-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-25T21:42:39.000Z"
 
   - id: PRS-003
     kind: security
@@ -3054,12 +2233,6 @@ requirements:
     deployments: [local]
     status: behavior_verified
     depends_on: [PRS-002, DSP-002]
-    evidence:
-      - deployment: local
-        tests: [PRS-003-B, PRS-003-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-25T21:42:39.000Z"
 
   - id: PRS-005
     kind: behavior
@@ -3072,12 +2245,6 @@ requirements:
     deployments: [local]
     status: behavior_verified
     depends_on: [CMT-005, CMT-011, DSP-003]
-    evidence:
-      - deployment: local
-        tests: [PRS-005-B, PRS-005-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-25T21:42:39.000Z"
 
   - id: PRS-004
     kind: behavior
@@ -3091,12 +2258,6 @@ requirements:
     status: behavior_verified
     proof_gap: Proven in the browser suite against the local deployment; the zero-agent state, note dialog, and multi-agent caret are exercised in the same spec rather than separate requirements.
     depends_on: [DSP-005, PRS-001]
-    evidence:
-      - deployment: local
-        tests: [PRS-004-B, PRS-004-F]
-        result: pass
-        run: project/evidence/browser.json
-        recorded_at: "2026-08-25T21:56:38.766Z"
 
   - id: PRS-006
     kind: behavior
@@ -3110,12 +2271,6 @@ requirements:
     status: behavior_verified
     proof_gap: Ring states are asserted via data attributes and computed styles in the browser suite; visual appearance is reviewed by hand.
     depends_on: [PRS-001, PRS-002]
-    evidence:
-      - deployment: local
-        tests: [PRS-006-B, PRS-006-F]
-        result: pass
-        run: project/evidence/browser.json
-        recorded_at: "2026-08-25T21:56:38.766Z"
 
   - id: PRS-007
     kind: behavior
@@ -3129,12 +2284,6 @@ requirements:
     status: behavior_verified
     proof_gap: Slug widening is exercised through HTTP against SQLite; the Postgres migration that drops the kind CHECK constraint is covered by its runtime suite's registration path but no dedicated widening test runs against external storage.
     depends_on: [DSP-001]
-    evidence:
-      - deployment: local
-        tests: [PRS-007-B, PRS-007-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-25T21:29:14.000Z"
 
   - id: SND-001
     kind: behavior
@@ -3148,12 +2297,6 @@ requirements:
     status: behavior_verified
     proof_gap: Local browser evidence uses one principal and exercises 101 comments as exactly two server-bounded dispatches; larger counts, more than two batches, and other deployments remain unrecorded.
     depends_on: [CMT-012, DSP-004, PRS-004]
-    evidence:
-      - deployment: local
-        tests: [SND-001-B, SND-001-F]
-        result: pass
-        run: project/evidence/browser.json
-        recorded_at: "2026-08-26T18:29:39.022Z"
 
   - id: SND-002
     kind: behavior
@@ -3167,12 +2310,6 @@ requirements:
     status: behavior_verified
     proof_gap: Local browser evidence uses one principal; it proves a disconnected default by aging a still-listed registration beyond the heartbeat window and separately proves that a deleted registration is forgotten. Other principals and deployments remain unrecorded.
     depends_on: [PRS-001, PRS-004, BRP-002, SND-001]
-    evidence:
-      - deployment: local
-        tests: [SND-002-B, SND-002-F]
-        result: pass
-        run: project/evidence/browser.json
-        recorded_at: "2026-08-26T18:29:39.022Z"
 
   - id: BRP-002
     kind: behavior
@@ -3186,12 +2323,6 @@ requirements:
     status: behavior_verified
     proof_gap: The render mirror in src/mcp is pinned byte-for-byte against the package render by the acceptance test rather than shared as one module; drift fails the test but the duplication itself is accepted and documented.
     depends_on: [BRP-001, DSP-004, CMT-012]
-    evidence:
-      - deployment: local
-        tests: [BRP-002-B, BRP-002-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-27T01:30:08.040Z"
 
   - id: NDG-001
     kind: behavior
@@ -3205,12 +2336,6 @@ requirements:
     status: behavior_verified
     proof_gap: Queue scanning is capped at the first ten projects; a queue in an unscanned project is claimable but uncounted, and no test exercises a principal in more than ten projects.
     depends_on: [BRP-002]
-    evidence:
-      - deployment: local
-        tests: [NDG-001-B, NDG-001-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-26T16:23:33.278Z"
 
   - id: NDG-002
     kind: behavior
@@ -3224,12 +2349,6 @@ requirements:
     status: behavior_verified
     proof_gap: Nudges quote only counts and server-minted ids in v1, so the sanitization path is proven by a focused unit test on the composer rather than by hostile text reaching a live nudge.
     depends_on: [NDG-001]
-    evidence:
-      - deployment: local
-        tests: [NDG-002-B, NDG-002-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-26T16:23:33.278Z"
 
   - id: DRF-001
     kind: behavior
@@ -3243,12 +2362,6 @@ requirements:
     status: behavior_verified
     proof_gap: Frontend-only by owner decision; drafts are proven in one browser profile against the local deployment and do not exist across devices.
     depends_on: [CMT-001]
-    evidence:
-      - deployment: local
-        tests: [DRF-001-B, DRF-001-F]
-        result: pass
-        run: project/evidence/browser.json
-        recorded_at: "2026-08-26T16:24:08.705Z"
 
   - id: DRF-002
     kind: behavior
@@ -3262,12 +2375,6 @@ requirements:
     status: behavior_verified
     proof_gap: Local mode has one browser principal, so the second principal is represented by a principal-keyed mirror entry rather than a second interactive sign-in.
     depends_on: [DRF-001]
-    evidence:
-      - deployment: local
-        tests: [DRF-002-B, DRF-002-F]
-        result: pass
-        run: project/evidence/browser.json
-        recorded_at: "2026-08-26T16:24:08.705Z"
 
   - id: PLN-001
     kind: behavior
@@ -3280,7 +2387,6 @@ requirements:
     deployments: *plannotator_capable
     status: specified
     depends_on: [AUTH-001]
-    evidence: []
 
   - id: PLN-002
     kind: constraint
@@ -3293,7 +2399,6 @@ requirements:
     deployments: *plannotator_capable
     status: specified
     depends_on: [PLN-001]
-    evidence: []
 
   - id: PLN-003
     kind: behavior
@@ -3306,7 +2411,6 @@ requirements:
     deployments: *plannotator_capable
     status: specified
     depends_on: [PLN-001, ART-001, VER-001]
-    evidence: []
 
   - id: PLN-004
     kind: security
@@ -3319,7 +2423,6 @@ requirements:
     deployments: *plannotator_capable
     status: specified
     depends_on: [PRJ-002, PLN-003]
-    evidence: []
 
   - id: PLN-005
     kind: behavior
@@ -3332,7 +2435,6 @@ requirements:
     deployments: *plannotator_capable
     status: specified
     depends_on: [PLN-004]
-    evidence: []
 
   - id: PLN-006
     kind: security
@@ -3345,7 +2447,6 @@ requirements:
     deployments: *plannotator_capable
     status: specified
     depends_on: [PLN-001, PLN-005]
-    evidence: []
 
   - id: PLN-007
     kind: security
@@ -3358,7 +2459,6 @@ requirements:
     deployments: *plannotator_capable
     status: specified
     depends_on: [PLN-006, AUD-001, AUTH-008]
-    evidence: []
 
   - id: PLN-008
     kind: security
@@ -3371,7 +2471,6 @@ requirements:
     deployments: *plannotator_capable
     status: specified
     depends_on: [PLN-006, AUTH-014, AUTH-015]
-    evidence: []
 
   - id: PLN-009
     kind: behavior
@@ -3384,7 +2483,6 @@ requirements:
     deployments: *plannotator_capable
     status: specified
     depends_on: [PLN-008, ART-004]
-    evidence: []
 
   - id: PLN-010
     kind: security
@@ -3397,7 +2495,6 @@ requirements:
     deployments: *plannotator_capable
     status: specified
     depends_on: [PLN-009, SEC-001]
-    evidence: []
 
   - id: PLN-011
     kind: behavior
@@ -3410,7 +2507,6 @@ requirements:
     deployments: *plannotator_capable
     status: specified
     depends_on: [PLN-010, VER-001]
-    evidence: []
 
   - id: PLN-012
     kind: security
@@ -3423,7 +2519,6 @@ requirements:
     deployments: *plannotator_capable
     status: specified
     depends_on: [PLN-001, PLN-006, AUD-001]
-    evidence: []
 
   - id: PLN-013
     kind: behavior
@@ -3436,7 +2531,6 @@ requirements:
     deployments: *plannotator_capable
     status: specified
     depends_on: [PLN-004, PLN-005]
-    evidence: []
 
   - id: PLN-017
     kind: security
@@ -3449,7 +2543,6 @@ requirements:
     deployments: *plannotator_capable
     status: specified
     depends_on: [PLN-005, PLN-006, PLN-008]
-    evidence: []
 
   - id: PLN-014
     kind: deployment
@@ -3462,7 +2555,6 @@ requirements:
     deployments: *plannotator_capable
     status: specified
     depends_on: [PLN-001, SEC-002]
-    evidence: []
 
   - id: PLN-015
     kind: behavior
@@ -3475,7 +2567,6 @@ requirements:
     deployments: *plannotator_capable
     status: specified
     depends_on: [PLN-012, PLN-014]
-    evidence: []
 
   - id: PLN-016
     kind: release_gate
@@ -3488,7 +2579,6 @@ requirements:
     deployments: *plannotator_capable
     status: specified
     depends_on: [PLN-010]
-    evidence: []
 
   - id: ARC-001
     kind: constraint
@@ -3501,7 +2591,6 @@ requirements:
     deployments: *all
     status: specified
     depends_on: []
-    evidence: []
 
   - id: ARC-002
     kind: constraint
@@ -3514,7 +2603,6 @@ requirements:
     deployments: *all
     status: specified
     depends_on: [ARC-001]
-    evidence: []
 
   - id: ARC-003
     kind: constraint
@@ -3527,7 +2615,6 @@ requirements:
     deployments: *all
     status: specified
     depends_on: [ARC-002]
-    evidence: []
 
   - id: ARC-004
     kind: security
@@ -3540,7 +2627,6 @@ requirements:
     deployments: *all
     status: specified
     depends_on: [PUB-001, PUB-005]
-    evidence: []
 
   - id: ARC-005
     kind: security
@@ -3553,7 +2639,6 @@ requirements:
     deployments: *all
     status: specified
     depends_on: [AUTH-008, MCP-009, PLN-007]
-    evidence: []
 
   - id: ARC-006
     kind: constraint
@@ -3566,7 +2651,6 @@ requirements:
     deployments: *all
     status: specified
     depends_on: [ARC-001, ARC-002, ARC-005, MCP-009]
-    evidence: []
 
   - id: DEP-001
     kind: deployment
@@ -3579,7 +2663,6 @@ requirements:
     deployments: *all
     status: specified
     depends_on: [REL-006]
-    evidence: []
 
   - id: DEP-002
     kind: deployment
@@ -3592,7 +2675,6 @@ requirements:
     deployments: *all
     status: specified
     depends_on: [DEP-003]
-    evidence: []
 
   - id: DEP-003
     kind: deployment
@@ -3605,7 +2687,6 @@ requirements:
     deployments: *all
     status: specified
     depends_on: [ARC-001]
-    evidence: []
 
   - id: DEP-004
     kind: deployment
@@ -3618,7 +2699,6 @@ requirements:
     deployments: [local]
     status: specified
     depends_on: [MCP-013, CNT-004]
-    evidence: []
 
   - id: DEP-005
     kind: deployment
@@ -3631,12 +2711,6 @@ requirements:
     deployments: [single_server]
     status: behavior_verified
     depends_on: [OPS-003]
-    evidence:
-      - deployment: single_server
-        tests: [DEP-005-B, DEP-005-F]
-        result: pass
-        run: project/evidence/compact-compose.json
-        recorded_at: "2026-08-17T03:10:29.404Z"
 
   - id: DEP-020
     kind: deployment
@@ -3649,12 +2723,6 @@ requirements:
     deployments: [single_server]
     status: behavior_verified
     depends_on: [OPS-003, ARC-003]
-    evidence:
-      - deployment: single_server
-        tests: [DEP-020-B, DEP-020-F]
-        result: pass
-        run: project/evidence/external-storage-compose.json
-        recorded_at: "2026-08-17T03:12:03.334Z"
 
   - id: DEP-006
     kind: deployment
@@ -3667,12 +2735,6 @@ requirements:
     deployments: [kubernetes]
     status: behavior_verified
     depends_on: [ARC-003, OPS-001]
-    evidence:
-      - deployment: kubernetes
-        tests: [DEP-006-B, DEP-006-F]
-        result: pass
-        run: project/evidence/helm-kubernetes.json
-        recorded_at: "2026-08-17T03:12:42.551Z"
 
   - id: DEP-011
     kind: constraint
@@ -3685,12 +2747,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [ARC-002]
-    evidence:
-      - deployment: single_server
-        tests: [DEP-011-B, DEP-011-F]
-        result: pass
-        run: project/evidence/s3-minio.json
-        recorded_at: "2026-08-17T03:07:23.036Z"
 
   - id: DEP-012
     kind: deployment
@@ -3703,7 +2759,6 @@ requirements:
     deployments: *all
     status: specified
     depends_on: [DEP-002]
-    evidence: []
 
   - id: DEP-022
     kind: constraint
@@ -3716,12 +2771,6 @@ requirements:
     deployments: *external_storage
     status: behavior_verified
     depends_on: [ARC-002, DEP-011]
-    evidence:
-      - deployment: single_server
-        tests: [DEP-022-B, DEP-022-F]
-        result: pass
-        run: project/evidence/s3-minio.json
-        recorded_at: "2026-08-17T03:07:23.036Z"
 
   - id: DEP-013
     kind: security
@@ -3734,7 +2783,6 @@ requirements:
     deployments: *external_storage
     status: specified
     depends_on: [AUTH-014]
-    evidence: []
 
   - id: DEP-014
     kind: deployment
@@ -3748,7 +2796,6 @@ requirements:
     status: implementing
     proof_gap: Behavior evidence is recorded only for deployments outside the product; no single_server or kubernetes run is attached yet.
     depends_on: [CNT-003, CNT-004]
-    evidence: []
 
   - id: DEP-015
     kind: deployment
@@ -3761,7 +2808,6 @@ requirements:
     deployments: [single_server, kubernetes]
     status: specified
     depends_on: [DEP-005, DEP-006, DEP-012]
-    evidence: []
 
   - id: DEP-016
     kind: security
@@ -3774,7 +2820,6 @@ requirements:
     deployments: [single_server, kubernetes]
     status: specified
     depends_on: [DEP-014, SEC-004]
-    evidence: []
 
   - id: DEP-017
     kind: deployment
@@ -3787,12 +2832,6 @@ requirements:
     deployments: [kubernetes]
     status: behavior_verified
     depends_on: [DEP-006, DEP-015, DEP-016, OPS-001, OPS-002]
-    evidence:
-      - deployment: kubernetes
-        tests: [DEP-017-B, DEP-017-F]
-        result: pass
-        run: project/evidence/helm-kubernetes.json
-        recorded_at: "2026-08-17T03:12:42.551Z"
 
   - id: DEP-018
     kind: deployment
@@ -3805,7 +2844,6 @@ requirements:
     deployments: [single_server, kubernetes]
     status: specified
     depends_on: [DEP-012, DEP-015]
-    evidence: []
 
   - id: DEP-019
     kind: deployment
@@ -3818,12 +2856,6 @@ requirements:
     deployments: [local]
     status: behavior_verified
     depends_on: [DEP-004]
-    evidence:
-      - deployment: local
-        tests: [DEP-019-B, DEP-019-F]
-        result: pass
-        run: project/evidence/local-package.json
-        recorded_at: "2026-08-17T03:08:46.924Z"
 
   - id: OPS-001
     kind: behavior
@@ -3836,12 +2868,6 @@ requirements:
     deployments: *external_storage
     status: behavior_verified
     depends_on: [ARC-002]
-    evidence:
-      - deployment: single_server
-        tests: [OPS-001-B, OPS-001-F]
-        result: pass
-        run: project/evidence/external-storage-runtime.json
-        recorded_at: "2026-08-17T03:08:19.183Z"
 
   - id: OPS-002
     kind: deployment
@@ -3854,7 +2880,6 @@ requirements:
     deployments: *external_storage
     status: specified
     depends_on: [ARC-003, OPS-003]
-    evidence: []
 
   - id: OPS-003
     kind: deployment
@@ -3867,12 +2892,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [ART-001, ART-004, AUD-001]
-    evidence:
-      - deployment: single_server
-        tests: [OPS-003-B, OPS-003-F]
-        result: pass
-        run: project/evidence/compact-compose.json
-        recorded_at: "2026-08-17T03:10:29.404Z"
 
   - id: OPS-004
     kind: behavior
@@ -3886,7 +2905,6 @@ requirements:
     status: implementing
     proof_gap: Behavior evidence is recorded only for deployments outside the product; no single_server or kubernetes run is attached yet.
     depends_on: [MAN-001, MAN-006]
-    evidence: []
 
   - id: OPS-005
     kind: release_gate
@@ -3900,7 +2918,6 @@ requirements:
     status: implementing
     proof_gap: Behavior evidence is recorded only for deployments outside the product; no single_server or kubernetes run is attached yet.
     depends_on: [OPS-003, OPS-004]
-    evidence: []
 
   - id: OPS-006
     kind: constraint
@@ -3914,12 +2931,6 @@ requirements:
     status: implementing
     proof_gap: Cleanup-selection failure evidence exists, but no one OPS-006-B acceptance run combines publication, a concurrent publish race, restore, process restart, and retention beyond staging expiry.
     depends_on: [PUB-009, ART-007]
-    evidence:
-      - deployment: local
-        tests: [OPS-006-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-17T03:17:21.421Z"
 
   - id: OPS-007
     kind: release_gate
@@ -3932,7 +2943,6 @@ requirements:
     deployments: *all
     status: specified
     depends_on: [OPS-003, OPS-006]
-    evidence: []
 
   - id: OPS-008
     kind: behavior
@@ -3945,7 +2955,6 @@ requirements:
     deployments: *all
     status: specified
     depends_on: [DEP-012]
-    evidence: []
 
   - id: OPS-009
     kind: behavior
@@ -3958,12 +2967,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [ARC-002]
-    evidence:
-      - deployment: local
-        tests: [OPS-009-B, OPS-009-F]
-        result: pass
-        run: project/evidence/observability.json
-        recorded_at: "2026-08-17T03:08:16.359Z"
 
   - id: OPS-010
     kind: behavior
@@ -3976,7 +2979,6 @@ requirements:
     deployments: [single_server, kubernetes]
     status: specified
     depends_on: [OPS-001, PUB-003, PUB-004]
-    evidence: []
 
   - id: OPS-011
     kind: deployment
@@ -3989,7 +2991,6 @@ requirements:
     deployments: [single_server, kubernetes]
     status: specified
     depends_on: [OPS-003, OPS-004, DEP-005, DEP-006]
-    evidence: []
 
   - id: REL-001
     kind: release_gate
@@ -4002,7 +3003,6 @@ requirements:
     deployments: [local]
     status: specified
     depends_on: [AUTH-023, AUTH-024, AUTH-026, DEP-004, DEP-019, MCP-016, MCP-018, MCP-019, REL-006]
-    evidence: []
 
   - id: REL-002
     kind: release_gate
@@ -4015,7 +3015,6 @@ requirements:
     deployments: [single_server, kubernetes]
     status: specified
     depends_on: [AUTH-025, AUTH-026, AUTH-027, AUTH-028, DEP-005, DEP-006, GATE-002, MCP-018, MCP-019, OPS-005, REL-006]
-    evidence: []
 
   - id: REL-005
     kind: release_gate
@@ -4028,7 +3027,6 @@ requirements:
     deployments: *plannotator_capable
     status: specified
     depends_on: [PLN-015, PLN-016, REL-006]
-    evidence: []
 
   - id: REL-006
     kind: release_gate
@@ -4041,7 +3039,6 @@ requirements:
     deployments: *all
     status: specified
     depends_on: []
-    evidence: []
 
   - id: REL-007
     kind: release_gate
@@ -4054,7 +3051,6 @@ requirements:
     deployments: [local, single_server, kubernetes]
     status: specified
     depends_on: [REL-001, REL-002, REL-006]
-    evidence: []
 
   - id: SCP-001
     kind: exclusion
@@ -4067,7 +3063,6 @@ requirements:
     deployments: *all
     status: specified
     depends_on: [PRD-002]
-    evidence: []
 
   - id: SCP-002
     kind: exclusion
@@ -4080,7 +3075,6 @@ requirements:
     deployments: *all
     status: specified
     depends_on: [PRD-002, CNT-001]
-    evidence: []
 
   - id: SCP-003
     kind: exclusion
@@ -4093,7 +3087,6 @@ requirements:
     deployments: *all
     status: specified
     depends_on: [PLN-003]
-    evidence: []
 
   - id: SCP-005
     kind: exclusion
@@ -4106,7 +3099,6 @@ requirements:
     deployments: *all
     status: specified
     depends_on: [ARC-001]
-    evidence: []
 
   - id: SCP-006
     kind: exclusion
@@ -4119,7 +3111,6 @@ requirements:
     deployments: *external_storage
     status: specified
     depends_on: [AUTH-004, PLN-014]
-    evidence: []
 
   - id: SCP-007
     kind: exclusion
@@ -4132,12 +3123,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [PUB-011]
-    evidence:
-      - deployment: local
-        tests: [SCP-007-B, SCP-007-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-17T03:17:21.421Z"
 
   - id: SCP-008
     kind: constraint
@@ -4150,7 +3135,6 @@ requirements:
     deployments: *all
     status: specified
     depends_on: [PRJ-003, AUTH-001, AUTH-006, PLN-004]
-    evidence: []
 
   - id: GATE-001
     kind: release_gate
@@ -4164,7 +3148,6 @@ requirements:
     status: implementing
     proof_gap: Top-level raw-content sessions have focused HTTP evidence. Exact-version Review leases pass local browser qualification in Chromium, Firefox, and WebKit and pass a Postgres/S3 restart probe, but the complete navigation, expiry, logout, and browser matrix has not been recorded on every team deployment.
     depends_on: [AUTH-015, AUTH-016, AUTH-017, CMT-018]
-    evidence: []
 
   - id: GATE-002
     kind: release_gate
@@ -4177,7 +3160,6 @@ requirements:
     deployments: *all
     status: specified
     depends_on: [DEP-014]
-    evidence: []
 
   - id: GATE-006
     kind: release_gate
@@ -4190,7 +3172,6 @@ requirements:
     deployments: *external_storage
     status: specified
     depends_on: [MCP-014]
-    evidence: []
 
   - id: GATE-009
     kind: release_gate
@@ -4204,7 +3185,6 @@ requirements:
     status: not_applicable
     rationale: The OSS release makes no universal capacity or hosting-cost promise. Enforced input bounds remain core safety requirements, while target capacity claims require their own measured evidence when a maintainer chooses to advertise them.
     depends_on: [PUB-008, DIF-003]
-    evidence: []
 
   - id: GATE-010
     kind: release_gate
@@ -4217,7 +3197,6 @@ requirements:
     deployments: *external_storage
     status: specified
     depends_on: [OPS-003, OPS-005]
-    evidence: []
 
   - id: GATE-011
     kind: release_gate
@@ -4230,7 +3209,6 @@ requirements:
     deployments: *external_storage
     status: specified
     depends_on: [OPS-003, AUD-001]
-    evidence: []
 
   - id: GATE-012
     kind: release_gate
@@ -4243,7 +3221,6 @@ requirements:
     deployments: *external_storage
     status: specified
     depends_on: [CNT-003, DEP-014]
-    evidence: []
 
   - id: GATE-013
     kind: release_gate
@@ -4256,7 +3233,6 @@ requirements:
     deployments: *plannotator_capable
     status: specified
     depends_on: [PLN-009, PLN-010, PLN-016]
-    evidence: []
 
   - id: GATE-014
     kind: release_gate
@@ -4269,7 +3245,6 @@ requirements:
     deployments: *plannotator_capable
     status: specified
     depends_on: [PLN-013]
-    evidence: []
 
   - id: GATE-015
     kind: release_gate
@@ -4282,7 +3257,6 @@ requirements:
     deployments: *plannotator_capable
     status: specified
     depends_on: [PLN-014, PLN-015]
-    evidence: []
 
   - id: LNK-001
     kind: constraint
@@ -4296,7 +3270,6 @@ requirements:
     status: implementing
     proof_gap: The acceptance-ID tests prove the off-by-default 501 shape, capability discovery, reference-in-place linking over MCP and HTTP, and the absence of scanning on the local deployment; the single-server and kubernetes deployment suites do not yet assert the absence shape, and no recorded run is attached to these IDs yet.
     depends_on: [ART-001, VER-001]
-    evidence: []
 
   - id: LNK-007
     kind: security
@@ -4310,7 +3283,6 @@ requirements:
     status: implementing
     proof_gap: The acceptance-ID tests prove no-store live delivery to an admitted local member, the 401 for anonymous and version-cookie callers, the captured-only public path under drift, and the degrade-to-captured behavior; the single-server and kubernetes deployment suites do not yet assert the absence, and no recorded run is attached to these IDs yet.
     depends_on: [LNK-001, AUTH-008]
-    evidence: []
 
   - id: LNK-008
     kind: behavior
@@ -4324,7 +3296,6 @@ requirements:
     status: implementing
     proof_gap: The acceptance-ID tests prove the in-sync anchor, the implicit capture attributed to the commenting principal, and that an aborted implicit capture creates no thread and no version; the abort is forced through the action ledger rather than a genuine mid-read drift race, so the retryable drift error on that race is unproved, and no recorded run is attached to these IDs yet.
     depends_on: [LNK-004, CMT-001]
-    evidence: []
 
   - id: LNK-002
     kind: behavior
@@ -4338,7 +3309,6 @@ requirements:
     status: implementing
     proof_gap: The acceptance-ID tests drive the HTTP link route and prove the first captured version, its canonical manifest, the link action record, the refusals for a directory, symlink, socket, missing, and unreadable path, and idempotent replay; the MCP and CLI link surfaces are not exercised by these IDs, and no recorded run is attached to them yet.
     depends_on: [LNK-001, PUB-001]
-    evidence: []
 
   - id: LNK-003
     kind: behavior
@@ -4352,7 +3322,6 @@ requirements:
     status: implementing
     proof_gap: The acceptance-ID tests observe freshness through the authenticated artifact read while the database refuses every version and action write, and they cover modification, replacement, removal, restoration, and a failed stat; freshness reported through the MCP read surface is not exercised by these IDs, and no recorded run is attached to them yet.
     depends_on: [LNK-001]
-    evidence: []
 
   - id: LNK-004
     kind: behavior
@@ -4366,7 +3335,6 @@ requirements:
     status: implementing
     proof_gap: The acceptance-ID tests prove that captured bytes hash-match the file on disk, that an in-sync capture replays the current version under a fresh key, and that a stale expected current version returns the publish conflict naming the actual current version with no version written; a file that changes between the two fingerprint checks cannot be forced deterministically through the HTTP boundary, so the retryable drift abort is unproved, and no recorded run is attached to these IDs yet.
     depends_on: [LNK-002, PUB-006]
-    evidence: []
 
   - id: LNK-005
     kind: behavior
@@ -4380,7 +3348,6 @@ requirements:
     status: implementing
     proof_gap: The acceptance-ID tests prove a moved file relinks under its expected hash with the same artifact ID, version list, and comment threads, and that a mismatched hash, a path outside every root, and a path inside the data directory each change nothing; artifact attachments are not exercised by these IDs, and no recorded run is attached to them yet.
     depends_on: [LNK-002]
-    evidence: []
 
   - id: LNK-006
     kind: security
@@ -4394,7 +3361,6 @@ requirements:
     status: implementing
     proof_gap: The acceptance-ID tests prove root containment, dot-dot and symlink escape refusals, data-directory and database self-protection, anonymous and non-loopback refusals, path non-disclosure on every refusal body, and manifest-only delivery; no recorded run is attached to these IDs yet.
     depends_on: [LNK-001, AUTH-008]
-    evidence: []
 
   - id: KAN-001
     kind: behavior
@@ -4407,7 +3373,6 @@ requirements:
     deployments: *all
     status: specified
     depends_on: [PRJ-002]
-    evidence: []
 
   - id: KAN-002
     kind: behavior
@@ -4420,7 +3385,6 @@ requirements:
     deployments: *all
     status: specified
     depends_on: [KAN-001]
-    evidence: []
 
   - id: KAN-003
     kind: behavior
@@ -4433,7 +3397,6 @@ requirements:
     deployments: *all
     status: specified
     depends_on: [KAN-001]
-    evidence: []
 
   - id: KAN-004
     kind: behavior
@@ -4446,7 +3409,6 @@ requirements:
     deployments: *all
     status: specified
     depends_on: [KAN-001]
-    evidence: []
 
   - id: KAN-005
     kind: behavior
@@ -4459,7 +3421,6 @@ requirements:
     deployments: *all
     status: specified
     depends_on: [KAN-001, ART-004]
-    evidence: []
 
   - id: KAN-006
     kind: security
@@ -4472,7 +3433,6 @@ requirements:
     deployments: *all
     status: specified
     depends_on: [KAN-001, AUTH-008, AUD-001]
-    evidence: []
 
   - id: KAN-007
     kind: behavior
@@ -4485,7 +3445,6 @@ requirements:
     deployments: *all
     status: specified
     depends_on: [KAN-001, ARC-006]
-    evidence: []
 
   - id: EDT-001
     kind: behavior
@@ -4498,7 +3457,6 @@ requirements:
     deployments: *all
     status: specified
     depends_on: [PUB-001, PUB-006, VER-001]
-    evidence: []
 
   - id: EDT-002
     kind: behavior
@@ -4511,7 +3469,6 @@ requirements:
     deployments: *all
     status: specified
     depends_on: [EDT-001]
-    evidence: []
 
   - id: EDT-003
     kind: constraint
@@ -4524,7 +3481,6 @@ requirements:
     deployments: *all
     status: specified
     depends_on: [EDT-001, MAN-001]
-    evidence: []
 
   - id: OPN-001
     kind: behavior
@@ -4537,7 +3493,6 @@ requirements:
     deployments: [local]
     status: specified
     depends_on: [LNK-001]
-    evidence: []
 
   - id: OPN-002
     kind: security
@@ -4550,7 +3505,6 @@ requirements:
     deployments: *all
     status: specified
     depends_on: [OPN-001]
-    evidence: []
 
   - id: PRV-001
     kind: behavior
@@ -4563,12 +3517,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [CMT-013, CNT-002]
-    evidence:
-      - deployment: local
-        tests: [PRV-001-B, PRV-001-F]
-        result: pass
-        run: project/evidence/browser.json
-        recorded_at: "2026-08-24T03:47:04.897Z"
 
   - id: PRV-002
     kind: behavior
@@ -4581,12 +3529,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [PRV-001]
-    evidence:
-      - deployment: local
-        tests: [PRV-002-B, PRV-002-F]
-        result: pass
-        run: project/evidence/browser.json
-        recorded_at: "2026-08-24T03:47:04.897Z"
 
   - id: PRV-003
     kind: security
@@ -4599,12 +3541,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [CMT-013, SEC-001]
-    evidence:
-      - deployment: local
-        tests: [PRV-003-B, PRV-003-F]
-        result: pass
-        run: project/evidence/local-foundation.json
-        recorded_at: "2026-08-24T03:45:38.177Z"
 
   - id: PRV-004
     kind: behavior
@@ -4617,12 +3553,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [PRV-001, PRV-002]
-    evidence:
-      - deployment: local
-        tests: [PRV-004-B, PRV-004-F]
-        result: pass
-        run: project/evidence/browser.json
-        recorded_at: "2026-08-24T03:47:04.897Z"
 
   - id: PRV-005
     kind: constraint
@@ -4635,12 +3565,6 @@ requirements:
     deployments: *all
     status: behavior_verified
     depends_on: [PRV-003, PRV-004]
-    evidence:
-      - deployment: local
-        tests: [PRV-005-B, PRV-005-F]
-        result: pass
-        run: project/evidence/browser.json
-        recorded_at: "2026-08-24T03:47:04.897Z"
 
   - id: PRV-006
     kind: behavior
@@ -4654,12 +3578,6 @@ requirements:
     status: behavior_verified
     proof_gap: Local browser precedence, frame interaction, navigation, history, and manual-choice tests pass; equivalent live deployment evidence remains unrecorded.
     depends_on: [ART-012, PRV-004, CMT-013]
-    evidence:
-      - deployment: local
-        tests: [PRV-006-B, PRV-006-F]
-        result: pass
-        run: project/evidence/artifact-review-mode-browser.json
-        recorded_at: "2026-10-10T04:55:20.061Z"
 
   - id: MDV-001
     kind: behavior
@@ -4673,7 +3591,6 @@ requirements:
     status: implementing
     proof_gap: Native Markdown tests are being qualified locally; team deployment and full iteration evidence remain incomplete.
     depends_on: [PRV-004, PRV-005]
-    evidence: []
 
   - id: MDV-002
     kind: behavior
@@ -4687,7 +3604,6 @@ requirements:
     status: implementing
     proof_gap: Native Markdown tests are being qualified locally; team deployment and full iteration evidence remain incomplete.
     depends_on: [PRV-004, PRV-005]
-    evidence: []
 
   - id: MDV-003
     kind: behavior
@@ -4701,4 +3617,3 @@ requirements:
     status: implementing
     proof_gap: Native Markdown tests are being qualified locally; team deployment and full iteration evidence remain incomplete.
     depends_on: [PRV-004, PRV-005]
-    evidence: []

@@ -314,8 +314,9 @@ describe("direct local release package", () => {
         },
       });
 
+      await mkdir(path.join(repositoryRoot, "test-results/runtime-baselines"), {recursive: true});
       await writeFile(
-        path.join(repositoryRoot, "project/evidence/local-package-build.json"),
+        path.join(repositoryRoot, "test-results/runtime-baselines/local-package-build.json"),
         `${JSON.stringify({
           ...releaseManifest,
           verification: {

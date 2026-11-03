@@ -42,6 +42,26 @@ claimed_by.each do |test_id, locations|
   errors << "#{test_id} is claimed by more than one test: #{locations.join(", ")}"
 end
 
+# A status that claims proof needs its tests to exist, in Vitest or Playwright files.
+test_line_pattern = /\b(?:test|it)\(/u
+existing_test_ids = test_roots.flat_map do |directory|
+  Dir.glob(File.join(root, directory, "**", "*.{test,spec}.ts"))
+end.uniq.flat_map do |file|
+  File.foreach(file).select { |line| line.match?(test_line_pattern) }.flat_map { |line| line.scan(test_id_pattern) }
+end.uniq
+
+requirements.each do |requirement|
+  id = requirement.fetch("id")
+  status = requirement.fetch("status")
+  required = case status
+             when "behavior_verified" then ["#{id}-B"]
+             when "verified" then ["#{id}-B", "#{id}-F"]
+             else []
+             end
+  missing = required - existing_test_ids
+  errors << "#{id} is #{status} but has no test titled #{missing.join(", ")}" unless missing.empty?
+end
+
 unless errors.empty?
   warn "Conformance test-ID validation failed:"
   errors.each { |error| warn "- #{error}" }

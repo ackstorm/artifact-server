@@ -64,7 +64,4 @@ ARTIFACT_SERVER_AWS_S3_PROBE_REGION="$artifactserver_region" \
 pnpm exec vitest run \
   --config tests/configs/vitest.slow.config.ts \
   tests/integration/aws-s3-object-storage.probe.test.ts \
-  --testTimeout=60000 \
-  --reporter=default \
-  --reporter=json \
-  --outputFile.json=project/evidence/s3-aws-probe.json
+  --testTimeout=60000

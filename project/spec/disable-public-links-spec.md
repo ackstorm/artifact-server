@@ -322,12 +322,12 @@ Nothing else in the modal changes.
 ## 8. Conformance
 
 AUTH-006 keeps its ID, owner, `deployments: *all` and `depends_on: [AUTH-003]`.
-It moves to `behavior_verified` with local evidence:
+It moves to `behavior_verified`:
 
-| ID | Proof | Evidence |
+| ID | Proof | Test |
 | --- | --- | --- |
-| AUTH-006-B | Browser: an administrator turns public links off in place, an existing Public artifact stops opening anonymously, the Share modal shows Public disabled, and turning them back on restores the anonymous read | `project/evidence/browser.json` |
-| AUTH-006-F | HTTP, MCP and CLI: every raise path is refused for every principal kind, anonymous reads and revalidation are refused on every public route, non-administrators cannot read or change the policy, and an administrator cannot change a configured policy (the configured value overrides the stored one in both directions) | `project/evidence/local-foundation.json` |
+| AUTH-006-B | Browser: an administrator turns public links off in place, an existing Public artifact stops opening anonymously, the Share modal shows Public disabled, and turning them back on restores the anonymous read | `tests/browser/auth-006-public-link-policy.spec.ts` |
+| AUTH-006-F | HTTP, MCP and CLI: every raise path is refused for every principal kind, anonymous reads and revalidation are refused on every public route, non-administrators cannot read or change the policy, and an administrator cannot change a configured policy (the configured value overrides the stored one in both directions) | `tests/conformance/auth-006-public-link-policy.test.ts` |
 
 The acceptance text is reworded to match the decisions:
 

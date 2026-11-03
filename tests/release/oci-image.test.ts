@@ -1,6 +1,6 @@
 import {execFile} from "node:child_process";
 import {randomBytes, randomUUID} from "node:crypto";
-import {chmod, mkdtemp, readFile, rm, writeFile} from "node:fs/promises";
+import {chmod, mkdir, mkdtemp, readFile, rm, writeFile} from "node:fs/promises";
 import {request} from "node:http";
 import {tmpdir} from "node:os";
 import path from "node:path";
@@ -622,14 +622,15 @@ async function recordRuntimeBaseline(
   kind: "compact" | "externalStorage",
   measurement: RuntimeMeasurement,
 ): Promise<void> {
-  const outputPath = path.join(repositoryRoot, "project/evidence/oci-runtime-baseline.json");
+  await mkdir(path.join(repositoryRoot, "test-results/runtime-baselines"), {recursive: true});
+  const outputPath = path.join(repositoryRoot, "test-results/runtime-baselines/oci-runtime-baseline.json");
   let current: z.infer<typeof runtimeBaselineSchema> = {};
   try {
     current = runtimeBaselineSchema.parse(
       JSON.parse(await readFile(outputPath, "utf8")),
     );
   } catch {
-    // The first result creates the evidence record.
+    // The first result creates the baseline file.
   }
   await writeFile(outputPath, `${JSON.stringify({
     ...current,

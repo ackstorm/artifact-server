@@ -10,7 +10,7 @@ Build toward the contracts in `project/spec/conformance.yml`. Product prose live
 - Do not use module mocks. Tests should use real application services, temporary disk storage, temporary SQLite databases, and real HTTP boundaries where those behaviors matter.
 - Test observable behavior and failure recovery, not private implementation details.
 - Name conformance tests with their requirement IDs, such as `ART-004-B` and `ART-004-F`.
-- A feature is not complete until its normal and hostile tests pass and durable evidence can be attached to the ledger.
+- A feature is not complete until its normal (`-B`) and hostile (`-F`) tests pass and its ledger status says so.
 - Preserve immutable version bytes and IDs across retries, crashes, restarts, and restores.
 - Never let untrusted paths, hostnames, tokens, or installation IDs select raw storage locations.
 

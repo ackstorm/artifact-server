@@ -50,7 +50,4 @@ pnpm exec vitest run \
   --config tests/configs/vitest.slow.config.ts \
   tests/release/helm-chart.test.ts \
   --testTimeout=900000 \
-  --hookTimeout=600000 \
-  --reporter=default \
-  --reporter=json \
-  --outputFile.json=project/evidence/helm-kubernetes.json
+  --hookTimeout=600000

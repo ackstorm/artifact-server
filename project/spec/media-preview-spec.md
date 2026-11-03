@@ -2,7 +2,7 @@
 
 **Status:** Accepted and implemented with local HTTP and browser proof; multi-deployment verification remains open (`PRV-001` through `PRV-005`, August 23, 2026)
 **Owner:** Artifact Server web application
-**Companion documents:** [Product specification](./artifact-server-product-spec.md), [Local workspace features](./local-workspace-spec.md), [Artifact comments](./artifact-comments-spec.md), [Conformance ledger](./conformance.yml)
+**Companion documents:** [Product specification](./artifact-server-product-spec.html), [Local workspace features](./local-workspace-spec.md), [Artifact comments](./artifact-comments-spec.md), [Conformance ledger](./conformance.yml)
 
 ## 1. Outcome
 

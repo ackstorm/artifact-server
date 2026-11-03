@@ -5,9 +5,6 @@ This directory contains the records that define and qualify Artifact Server.
 | Directory | Contents |
 | --- | --- |
 | [`spec`](./spec) | Product specifications, decisions, and the conformance ledger. |
-| [`evidence`](./evidence) | Machine-readable qualification and test reports. |
-| [`performance`](./performance) | Baselines, measurement tools, and the performance risk register. |
-| [`prototypes`](./prototypes) | Product and interface prototypes. |
 
 Public operator and user guides live in [`docs`](../docs).
 
