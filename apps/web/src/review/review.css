@@ -2295,6 +2295,45 @@ select:focus-visible {
   grid-column: 2;
 }
 
+.as-device-switch {
+  align-items: center;
+  align-self: center;
+  border: 1px solid var(--as-border);
+  border-radius: var(--as-radius);
+  display: inline-flex;
+  gap: 0.15rem;
+  grid-column: 1;
+  justify-self: start;
+  padding: 0.12rem;
+}
+
+.as-device-switch .as-icon-button {
+  height: 1.7rem;
+  min-width: 1.9rem;
+}
+
+.as-device-switch .as-icon-button svg {
+  height: 0.85rem;
+  width: 0.85rem;
+}
+
+/* Tablet and mobile widths centre a fixed-width frame on the dotted canvas. */
+.as-preview-panel__body:is([data-device="tablet"], [data-device="mobile"])
+  > :is(.as-artifact-frame, .as-markdown-preview) {
+  border-inline: 1px solid var(--as-border);
+  box-shadow: 0 0 2rem rgb(0 0 0 / 22%);
+  margin-inline: auto;
+  max-width: 100%;
+}
+
+.as-preview-panel__body[data-device="tablet"] > :is(.as-artifact-frame, .as-markdown-preview) {
+  width: 768px;
+}
+
+.as-preview-panel__body[data-device="mobile"] > :is(.as-artifact-frame, .as-markdown-preview) {
+  width: 390px;
+}
+
 .as-preview-footer__status {
   align-items: center;
   display: flex;

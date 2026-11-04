@@ -15,6 +15,7 @@ import {
   BookOpen01Icon,
   Cancel01Icon,
   Comment01Icon,
+  ComputerIcon,
   Download04Icon,
   Edit02Icon,
   ExternalLinkIcon,
@@ -29,6 +30,8 @@ import {
   PinIcon,
   RefreshIcon,
   Search01Icon,
+  SmartPhone01Icon,
+  Tablet01Icon,
   Tick02Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -673,6 +676,14 @@ function ArtifactReview({
   const [focusControlsCollapsed, setFocusControlsCollapsed] = useState(false);
   const [focusControlsInstant, setFocusControlsInstant] = useState(false);
   const [markdownSourceViewActive, setMarkdownSourceViewActive] = useState(false);
+  const [previewDevice, setPreviewDevice] = useState<PreviewDevice>(readInitialPreviewDevice);
+  useEffect(() => {
+    try {
+      window.localStorage.setItem("artifact-review-device", previewDevice);
+    } catch {
+      // A blocked store only loses the remembered choice.
+    }
+  }, [previewDevice]);
   const [htmlAnnotateModeActive, setHtmlAnnotateModeActive] = useState(
     initialLocation.mode !== "interact",
   );
@@ -2142,7 +2153,11 @@ function ArtifactReview({
             </div>
           </header>
 
-          <div className="as-preview-panel__body" data-preview-kind={previewKind}>
+          <div
+            className="as-preview-panel__body"
+            data-device={focusMode ? "desktop" : previewDevice}
+            data-preview-kind={previewKind}
+          >
             {detailError === null ? null : (
               <div className="as-preview-error" role="alert">{detailError.message}</div>
             )}
@@ -2208,6 +2223,25 @@ function ArtifactReview({
           </div>
 
           <footer className="as-app-footer as-preview-footer">
+            {previewKind === "html" || previewKind === "markdown" ? (
+              <div aria-label="Preview width" className="as-device-switch" role="radiogroup">
+                {previewDevices.map(({device, icon, label}) => (
+                  <button
+                    aria-checked={previewDevice === device}
+                    aria-label={label}
+                    className="as-icon-button"
+                    data-active={previewDevice === device}
+                    key={device}
+                    onClick={() => setPreviewDevice(device)}
+                    role="radio"
+                    title={label}
+                    type="button"
+                  >
+                    <HugeiconsIcon icon={icon} strokeWidth={1.8} />
+                  </button>
+                ))}
+              </div>
+            ) : null}
             <div className="as-preview-footer__nav">
               <IconButton
                 disabled={selectedIndex <= 0}
@@ -3110,6 +3144,23 @@ function ReviewGate({
       </section>
     </main>
   );
+}
+
+type PreviewDevice = "desktop" | "mobile" | "tablet";
+
+const previewDevices = [
+  {device: "desktop", icon: ComputerIcon, label: "Desktop width"},
+  {device: "tablet", icon: Tablet01Icon, label: "Tablet width (768 px)"},
+  {device: "mobile", icon: SmartPhone01Icon, label: "Mobile width (390 px)"},
+] as const;
+
+function readInitialPreviewDevice(): PreviewDevice {
+  try {
+    const stored = window.localStorage.getItem("artifact-review-device");
+    return stored === "tablet" || stored === "mobile" ? stored : "desktop";
+  } catch {
+    return "desktop";
+  }
 }
 
 function readInitialTheme(): ReviewTheme {
