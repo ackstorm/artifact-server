@@ -1123,7 +1123,7 @@ select:focus-visible {
 .as-artifact-card {
   align-items: center;
   background: transparent;
-  border: 1px solid transparent;
+  border: 1px solid var(--as-border);
   border-radius: var(--as-radius);
   color: var(--as-text);
   cursor: pointer;
@@ -4215,6 +4215,11 @@ body:has(.as-settings) [data-slot="dialog-trigger"]:active:not(:disabled) {
   margin: 0;
   padding: 0.5rem 0.75rem 0.35rem;
   text-transform: uppercase;
+}
+
+.as-catalog-group {
+  display: grid;
+  gap: 0.35rem;
 }
 
 .as-artifact-card-row {
