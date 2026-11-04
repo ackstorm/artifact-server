@@ -156,7 +156,7 @@ jobs:
 
   portable:
     name: macOS portability
-    if: inputs.tier != 'release'
+    if: inputs.tier != 'release' && github.event_name != 'pull_request'
     runs-on: macos-15
     timeout-minutes: 12
     steps:
