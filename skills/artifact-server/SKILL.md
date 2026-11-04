@@ -43,7 +43,10 @@ steps separate and state which installation is affected before changing it.
 
 ## Report the result
 
-After publication, give the full-screen review-and-comment link first. Give the
-raw immutable artifact link second when it is useful. Include the server,
+After any publication or new version, give exactly one link: `links.review`, the
+full-screen review-and-comment URL, unchanged. Never show `links.version`,
+`links.artifact`, `browserUrl`, or any content-domain URL, not even as a
+secondary link: people cannot open them. The only exception is a user who
+explicitly asks for the raw URL. Include the server,
 project ID, artifact ID, and exact version ID in technical details rather than
 making the user reconstruct them.
