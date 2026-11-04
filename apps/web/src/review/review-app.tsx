@@ -25,9 +25,11 @@ import {
   GithubIcon,
   KeyboardIcon,
   LayoutLeftIcon,
+  MinusSignIcon,
   Link01Icon,
   PanelRightIcon,
   PinIcon,
+  PlusSignIcon,
   RefreshIcon,
   Search01Icon,
   SmartPhone01Icon,
@@ -677,6 +679,22 @@ function ArtifactReview({
   const [focusControlsInstant, setFocusControlsInstant] = useState(false);
   const [markdownSourceViewActive, setMarkdownSourceViewActive] = useState(false);
   const [previewDevice, setPreviewDevice] = useState<PreviewDevice>(readInitialPreviewDevice);
+  const [previewZoom, setPreviewZoom] = useState(readInitialPreviewZoom);
+  const previewBodyRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    previewBodyRef.current?.style.setProperty(
+      "--as-preview-zoom",
+      String(focusMode ? 1 : previewZoom / 100),
+    );
+  }, [focusMode, previewZoom]);
+  const changePreviewZoom = (zoom: number) => {
+    setPreviewZoom(zoom);
+    try {
+      window.localStorage.setItem("artifact-review-zoom", String(zoom));
+    } catch {
+      // A blocked store only loses the remembered choice.
+    }
+  };
   const [htmlAnnotateModeActive, setHtmlAnnotateModeActive] = useState(
     initialLocation.mode !== "interact",
   );
@@ -1681,7 +1699,8 @@ function ArtifactReview({
               <button
                 aria-controls="review-catalog-panel"
                 aria-selected={catalogTab === tab}
-                className="as-catalog-tabs__tab"
+                className="as-tab"
+                data-active={catalogTab === tab}
                 key={tab}
                 onClick={() => {
                   setCatalogTab(tab);
@@ -2160,6 +2179,7 @@ function ArtifactReview({
             className="as-preview-panel__body"
             data-device={focusMode ? "desktop" : previewDevice}
             data-preview-kind={previewKind}
+            ref={previewBodyRef}
           >
             {detailError === null ? null : (
               <div className="as-preview-error" role="alert">{detailError.message}</div>
@@ -2227,6 +2247,7 @@ function ArtifactReview({
 
           <footer className="as-app-footer as-preview-footer">
             {previewKind === "html" || previewKind === "markdown" ? (
+              <div className="as-preview-footer__view">
               <div aria-label="Preview width" className="as-device-switch" role="radiogroup">
                 {previewDevices.map(({device, icon, label}) => (
                   <button
@@ -2250,6 +2271,38 @@ function ArtifactReview({
                     <HugeiconsIcon icon={icon} strokeWidth={1.8} />
                   </button>
                 ))}
+              </div>
+              <div aria-label="Preview zoom" className="as-zoom" role="group">
+                <IconButton
+                  disabled={previewZoom <= 50}
+                  label="Zoom out"
+                  onClick={() => changePreviewZoom(
+                    previewZoomSteps.findLast((step) => step < previewZoom) ?? previewZoom,
+                  )}
+                  title="Zoom out"
+                >
+                  <HugeiconsIcon icon={MinusSignIcon} strokeWidth={1.8} />
+                </IconButton>
+                <button
+                  aria-label={`Zoom ${previewZoom}%, reset to 100%`}
+                  className="as-zoom__value as-tabular"
+                  onClick={() => changePreviewZoom(100)}
+                  title="Reset to 100%"
+                  type="button"
+                >
+                  {previewZoom} %
+                </button>
+                <IconButton
+                  disabled={previewZoom >= 200}
+                  label="Zoom in"
+                  onClick={() => changePreviewZoom(
+                    previewZoomSteps.find((step) => step > previewZoom) ?? previewZoom,
+                  )}
+                  title="Zoom in"
+                >
+                  <HugeiconsIcon icon={PlusSignIcon} strokeWidth={1.8} />
+                </IconButton>
+              </div>
               </div>
             ) : null}
             <div className="as-preview-footer__status">
@@ -3155,6 +3208,17 @@ const previewDevices = [
   {device: "tablet", icon: Tablet01Icon, label: "Tablet width (768 px)"},
   {device: "mobile", icon: SmartPhone01Icon, label: "Mobile width (390 px)"},
 ] as const;
+
+const previewZoomSteps = [50, 67, 75, 80, 90, 100, 110, 125, 150, 175, 200] as const;
+
+function readInitialPreviewZoom(): number {
+  try {
+    const stored = Number(window.localStorage.getItem("artifact-review-zoom"));
+    return previewZoomSteps.find((step) => step === stored) ?? 100;
+  } catch {
+    return 100;
+  }
+}
 
 function readInitialPreviewDevice(): PreviewDevice {
   try {

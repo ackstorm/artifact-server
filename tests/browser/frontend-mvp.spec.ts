@@ -431,6 +431,19 @@ test.describe("Artifact Server frontend MVP", () => {
         .toHaveText(/^(\d+) \/ \1$/u);
       await expect(fixture.page.getByRole("button", {name: "Next version"})).toBeDisabled();
 
+      // Width and zoom change the preview, not the canvas it sits on.
+      const previewFrame = fixture.page.locator(".as-artifact-frame");
+      await fixture.page.getByRole("radio", {name: /^Mobile width/u}).click();
+      await expect.poll(async () => (await previewFrame.boundingBox())?.width).toBe(390);
+      await fixture.page.getByRole("radio", {name: "Desktop width"}).click();
+      await fixture.page.getByRole("button", {name: "Zoom in"}).click();
+      await expect(fixture.page.getByRole("button", {name: /^Zoom 110%/u})).toBeVisible();
+      await expect(previewFrame).toHaveCSS("zoom", "1.1");
+      const canvasBox = await fixture.page.locator(".as-preview-panel__body").boundingBox();
+      expect((await previewFrame.boundingBox())?.width).toBe(canvasBox?.width);
+      await fixture.page.getByRole("button", {name: /^Zoom 110%/u}).click();
+      await expect(previewFrame).toHaveCSS("zoom", "1");
+
       await fixture.page.reload();
       await expect(preview.locator("#review-target")).toBeVisible();
       await expect(preview.locator("button[data-plannotator-marker]"))

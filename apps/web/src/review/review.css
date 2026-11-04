@@ -2315,11 +2315,8 @@ select:focus-visible {
 
 .as-device-switch {
   align-items: center;
-  align-self: center;
   display: inline-flex;
   gap: 0.25rem;
-  grid-column: 1;
-  justify-self: start;
 }
 
 .as-preview-footer .as-icon-button {
@@ -2330,6 +2327,48 @@ select:focus-visible {
 .as-preview-footer .as-icon-button svg {
   height: 0.85rem;
   width: 0.85rem;
+}
+
+/*
+ * Zoom scales the whole preview, artifact and comment markers together.
+ * Percentage sizes are not zoomed, so the frame still fills the canvas.
+ */
+.as-preview-panel__body > :is(.as-artifact-frame, .as-markdown-preview) {
+  zoom: var(--as-preview-zoom, 1);
+}
+
+.as-preview-footer__view {
+  align-items: center;
+  display: flex;
+  gap: 0.6rem;
+  grid-column: 1;
+  justify-self: start;
+}
+
+/* One framed control: − value +, with borderless buttons inside. */
+.as-zoom {
+  align-items: center;
+  border: 1px solid var(--as-border);
+  border-radius: var(--as-radius);
+  display: inline-flex;
+  height: 1.7rem;
+  padding-inline: 0.1rem;
+}
+
+.as-preview-footer .as-zoom .as-icon-button {
+  border-color: transparent;
+  height: 1.4rem;
+  min-width: 1.5rem;
+}
+
+.as-zoom__value {
+  background: transparent;
+  border: 0;
+  color: var(--as-text);
+  cursor: pointer;
+  font-size: 0.72rem;
+  min-width: 3rem;
+  padding: 0;
 }
 
 /* Tablet and mobile widths centre a fixed-width frame on the dotted canvas. */
@@ -2371,14 +2410,21 @@ select:focus-visible {
   width: 0.8rem;
 }
 
+/* Narrow panels drop the footer's text first so the controls never overlap. */
+@container preview-panel (max-width: 42rem) {
+  .as-preview-footer__metadata {
+    display: none;
+  }
+}
+
 @container preview-panel (max-width: 36rem) {
   .as-preview-footer__label {
     display: none;
   }
 }
 
-@container preview-panel (max-width: 23rem) {
-  .as-preview-footer__metadata {
+@container preview-panel (max-width: 30rem) {
+  .as-zoom {
     display: none;
   }
 }
@@ -2482,10 +2528,9 @@ select:focus-visible {
 .as-tab {
   align-items: center;
   background: transparent;
-  border: 1px solid transparent;
-  border-bottom: 0;
-  border-radius: var(--as-radius-sm);
-  color: var(--as-iris);
+  border: 0;
+  border-bottom: 2px solid transparent;
+  color: var(--as-subtle);
   cursor: pointer;
   display: flex;
   font-size: 0.78rem;
@@ -2494,22 +2539,33 @@ select:focus-visible {
   padding: 0 0.65rem;
 }
 
-.as-tab[data-active="true"] {
-  background: var(--as-surface);
-  border-color: var(--as-border);
+.as-tab:hover {
   color: var(--as-text);
-  position: relative;
-  top: 1px;
+}
+
+/* The active tab is marked by a green underline sitting on the header's bottom border. */
+.as-tab[data-active="true"] {
+  border-bottom-color: var(--as-action);
+  color: var(--as-iris);
+  font-weight: 600;
+  margin-bottom: -1px;
 }
 
 .as-tab > span {
   background: var(--as-iris-soft);
-  border-radius: var(--as-radius);
+  border-radius: var(--as-radius-sm);
+  color: var(--as-iris);
   font-family: "Atkinson Hyperlegible Mono", monospace;
   font-size: 0.62rem;
+  font-weight: 400;
   min-width: 1.15rem;
   padding: 0.15rem 0.32rem;
   text-align: center;
+}
+
+.as-tab[data-active="true"] > span {
+  background: var(--as-action);
+  color: var(--as-on-action);
 }
 
 .as-inspector__body {
@@ -4287,27 +4343,12 @@ body:has(.as-settings) [data-slot="dialog-trigger"]:active:not(:disabled) {
   padding-right: 1.9rem;
 }
 
+/* Mine / Shared with me use the inspector's underlined tabs on a hairline. */
 .as-catalog-tabs {
+  border-bottom: 1px solid var(--as-border);
   display: flex;
   gap: 0.15rem;
-  margin-bottom: 0.5rem;
-}
-
-.as-catalog-tabs__tab {
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: var(--as-radius-sm);
-  color: var(--as-iris);
-  cursor: pointer;
-  flex: 1;
-  font-size: 0.76rem;
-  min-height: 1.9rem;
-}
-
-.as-catalog-tabs__tab[aria-selected="true"] {
-  background: var(--as-surface);
-  border-color: var(--as-border);
-  color: var(--as-text);
+  margin-bottom: 0.65rem;
 }
 
 .as-artifact-card__listed {
