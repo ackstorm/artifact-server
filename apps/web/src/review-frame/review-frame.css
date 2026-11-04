@@ -34,3 +34,12 @@ body {
 [data-comment-popover] button[aria-label="Attachments"] {
   display: none;
 }
+
+/*
+ * A browser paints a page with no background white. The artifact sandbox
+ * would otherwise show this frame's themed surface through it, hiding
+ * default black text on the dark theme. A page's own background covers this.
+ */
+iframe {
+  background: #fff;
+}
