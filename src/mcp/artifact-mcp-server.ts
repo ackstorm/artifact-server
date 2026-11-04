@@ -96,7 +96,7 @@ import {
   type ToolResultNudgeFacts,
 } from "./tool-result-nudges.js";
 
-const serverVersion = "0.5.4";
+const serverVersion = "0.5.5";
 const maximumListedArtifacts = 100;
 const maximumTextDiffBytes = 256 * 1_024;
 const maximumInlineFileBytes = 1_024 * 1_024;
