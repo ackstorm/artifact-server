@@ -28,21 +28,7 @@ if git rev-parse --quiet --verify "refs/tags/${tag}" >/dev/null; then
   fail "tag ${tag} already exists."
 fi
 
-current="$(node -p 'require("./package.json").version')"
-if [[ "$current" != "$version" ]]; then
-  old="${current//./\\.}"
-  sed -i "s/\"version\": \"${old}\"/\"version\": \"${version}\"/" \
-    package.json integrations/*/package.json
-  sed -i "s/\"${old}\"/\"${version}\"/" \
-    integrations/claude-channel/index.ts \
-    src/mcp/artifact-mcp-server.ts \
-    packaging/helm/artifact-server/values.yaml \
-    packaging/helm/artifact-server/Chart.yaml
-  sed -i "s/^version: ${old}$/version: ${version}/" \
-    packaging/helm/artifact-server/Chart.yaml
-  sed -i "s/--version ${old}/--version ${version}/" \
-    packaging/helm/artifact-server/README.md
-fi
+bash scripts/set-release-version.sh "$version"
 node scripts/check-release-version.mjs --tag "$tag"
 
 if [[ -n "$(git status --porcelain)" ]]; then
@@ -65,7 +51,7 @@ for _ in $(seq 1 12); do
 done
 [[ -n "$run_id" ]] || fail "no ackstorm-release.yml run appeared for ${tag}; check the Actions tab."
 
-# Past release runs took 30 to 70 minutes.
+# A run takes minutes after a passed main gate, and up to 70 minutes otherwise.
 timeout 5400 gh run watch "$run_id" --exit-status --interval 60 >/dev/null ||
   fail "release run ${run_id} failed or timed out: gh run view ${run_id} --log-failed"
 gh release view "$tag" --json url --jq '"release: published " + .url'

@@ -17,7 +17,7 @@ It publishes:
 - You are on `main`, the working tree is clean, and `main` matches `origin/main`.
 - The tag `vVERSION` does not exist yet, and the chart version has not been published.
 - `node`, `git`, and an authenticated `gh` (`gh auth status`) are on your `PATH`.
-- You can push to `main` and push tags.
+- You are a repository admin, because the version bump goes straight to the protected `main`, and you can push tags.
 
 ## What the command does
 
@@ -35,19 +35,20 @@ It publishes:
 5. Pushes the annotated tag `vVERSION`.
 6. Waits up to 90 minutes for the `Ackstorm Release` workflow, then prints the release URL.
 
-Past release runs took 30 to 70 minutes. The command keeps waiting for that whole time, so you can stop it with Ctrl-C at any point. The release continues on GitHub, and `gh run watch <run-id>` picks up where it left off.
+A release takes a few minutes when `main`'s full gate has already passed, and up to 70 minutes when it has to run its own gate. The command keeps waiting for that whole time, so you can stop it with Ctrl-C at any point. The release continues on GitHub, and `gh run watch <run-id>` picks up where it left off.
 
 ## The release workflow
 
 The tag push starts `.github/workflows/ackstorm-release.yml`:
 
-1. It runs the full release gate, `ci.yml` with `tier: release`, without the pnpm cache.
+1. `scripts/check-release-gate.sh` looks for a passed `Full / Linux iteration gate` on `main`, on the tagged commit or on its parent. The parent counts only if replaying the version bump on it reproduces the tagged tree exactly.
+   If it finds none, for example because the gate is still running or failed, the workflow runs the full release gate, `ci.yml` with `tier: release`, without the pnpm cache.
 2. It refuses to publish over an existing image tag or chart version.
 3. It builds and pushes the multi-architecture image with provenance and an SBOM.
 4. It packages the chart with `image.digest` set to the pushed image, checks the digest, and pushes the chart.
 5. It creates the GitHub release.
 
-Nothing is published unless the gate passes.
+Nothing is published unless one of those gates passes. To skip the wait, release once `main` is green.
 
 ## When a release fails
 
