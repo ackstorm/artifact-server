@@ -738,7 +738,11 @@ function ArtifactReview({
     side: "right",
     storageKey: "artifact-review-inspector-width",
   });
-  const catalogMotion = useReviewPanelMotion(catalogOpen, catalogResize.width);
+  const catalogMotion = useReviewPanelMotion(
+    catalogOpen,
+    catalogResize.width,
+    inspectorGapPixels,
+  );
   const inspectorMotion = useReviewPanelMotion(
     inspectorOpen,
     inspectorResize.width,
