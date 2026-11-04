@@ -25,13 +25,10 @@ import {
   KeyboardIcon,
   LayoutLeftIcon,
   Link01Icon,
-  Moon02Icon,
   PanelRightIcon,
   PinIcon,
   RefreshIcon,
   Search01Icon,
-  Settings02Icon,
-  Sun03Icon,
   Tick02Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -65,7 +62,6 @@ import {
   sourceFreshnessLabel,
 } from "@/lib/presentation";
 import artifactServerAnimationUrl from "./assets/artifact-server.svg";
-import {ArtifactMark} from "./artifact-mark.tsx";
 import {ArtifactMoreMenu} from "./artifact-more-menu.tsx";
 import {
   useReviewComments,
@@ -73,6 +69,7 @@ import {
   type ReviewCommentsInspectorHandle,
 } from "./review-comments.tsx";
 import {PrincipalChip} from "./principal-chip.tsx";
+import {ReviewTopbar} from "./review-topbar.tsx";
 import { ReviewPreview } from "./review-preview.tsx";
 import {ReviewProjectPicker} from "./review-project-picker.tsx";
 import {isSettingsPath} from "./review-routes.ts";
@@ -672,7 +669,6 @@ function ArtifactReview({
   const [focusMode, setFocusMode] = useState(initialLocation.view === "focus");
   const [focusCommentsOpen, setFocusCommentsOpen] = useState(false);
   const [focusControlsCollapsed, setFocusControlsCollapsed] = useState(false);
-  const [focusControlsHoverArmed, setFocusControlsHoverArmed] = useState(true);
   const [focusControlsInstant, setFocusControlsInstant] = useState(false);
   const [markdownSourceViewActive, setMarkdownSourceViewActive] = useState(false);
   const [htmlAnnotateModeActive, setHtmlAnnotateModeActive] = useState(
@@ -1466,7 +1462,6 @@ function ArtifactReview({
   ]);
   const hideFocusControls = (event: ReactMouseEvent<HTMLButtonElement>): void => {
     previewPanelRef.current?.focus({preventScroll: true});
-    setFocusControlsHoverArmed(event.detail === 0);
     setFocusControlsCollapsed(true);
     if (event.detail === 0) {
       window.requestAnimationFrame(() => {
@@ -1475,7 +1470,6 @@ function ArtifactReview({
     }
   };
   const showFocusControls = (): void => {
-    setFocusControlsHoverArmed(true);
     setFocusControlsCollapsed(false);
     window.requestAnimationFrame(() => focusCommentsButtonRef.current?.focus({preventScroll: true}));
   };
@@ -1530,6 +1524,19 @@ function ArtifactReview({
       data-panel-resizing={catalogResize.isDragging || inspectorResize.isDragging}
     >
       <a className="as-skip-link" href="#review-preview">Skip to artifact preview</a>
+      {focusMode ? null : (
+        <ReviewTopbar
+          homeHref="/review"
+          onHome={returnHome}
+          onThemeChange={onThemeChange}
+          principal={session.principal}
+          settingsHref={selectedProject === null
+            ? "/review/settings/projects"
+            : `/review/settings/projects/${encodeURIComponent(selectedProject.id)}`}
+          theme={theme}
+        />
+      )}
+      <div className="as-app__body">
 
       <Dialog.Root onOpenChange={setHomeOpen} open={homeOpen}>
         <Dialog.Portal>
@@ -1619,15 +1626,6 @@ function ArtifactReview({
             >
         <header className="as-pane-header as-catalog__header">
           <div className="as-catalog__context">
-            <a
-              aria-label="Artifact Server"
-              className="as-catalog__brand"
-              href="/review"
-              onClick={returnHome}
-              title="Artifact Server"
-            >
-              <ArtifactMark className="as-catalog__brand-mark" />
-            </a>
             <ReviewProjectPicker
               canCreate={canManageProjects}
               onCreate={onCreateProject}
@@ -1637,22 +1635,6 @@ function ArtifactReview({
             />
           </div>
           <div className="as-catalog__header-actions">
-            <IconButton
-              label={theme === "moon" ? "Use light theme" : "Use dark theme"}
-              onClick={onThemeChange}
-            >
-              <HugeiconsIcon icon={theme === "moon" ? Sun03Icon : Moon02Icon} strokeWidth={1.8} />
-            </IconButton>
-            <a
-              aria-label="Open settings"
-              className="as-icon-button"
-              href={selectedProject === null
-                ? "/review/settings/projects"
-                : `/review/settings/projects/${encodeURIComponent(selectedProject.id)}`}
-              title="Open settings"
-            >
-              <HugeiconsIcon icon={Settings02Icon} strokeWidth={1.8} />
-            </a>
             <IconButton
               keyShortcuts="["
               label="Collapse artifact catalog"
@@ -1887,11 +1869,8 @@ function ArtifactReview({
                 className="as-focus-controls-dock"
                 data-collapsed={focusControlsCollapsed}
                 data-comments-open={focusCommentsOpen}
-                data-hover-armed={focusControlsHoverArmed}
                 data-instant={focusControlsInstant}
-                onPointerLeave={() => setFocusControlsHoverArmed(true)}
               >
-                <span aria-hidden="true" className="as-focus-controls__hover-zone" />
                 <div
                   aria-hidden={focusControlsCollapsed}
                   aria-label="Artifact viewer controls"
@@ -1957,7 +1936,7 @@ function ArtifactReview({
                   </button>
                   <button
                     aria-label="Hide viewer controls"
-                    className="as-icon-button as-focus-controls__collapse"
+                    className="as-icon-button as-dock-toggle as-focus-controls__collapse"
                     onClick={hideFocusControls}
                     title="Hide viewer controls"
                     type="button"
@@ -1969,7 +1948,7 @@ function ArtifactReview({
                   aria-hidden={!focusControlsCollapsed}
                   aria-keyshortcuts="Meta+\\ Control+\\"
                   aria-label="Show viewer controls"
-                  className="as-focus-controls__restore"
+                  className="as-icon-button as-dock-toggle as-focus-controls__restore"
                   onClick={showFocusControls}
                   ref={focusControlsRestoreRef}
                   tabIndex={focusControlsCollapsed ? 0 : -1}
@@ -2325,6 +2304,7 @@ function ArtifactReview({
           </div>
         ) : null}
       </main>
+      </div>
     </div>
   );
 }

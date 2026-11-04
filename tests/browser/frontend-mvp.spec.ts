@@ -815,18 +815,18 @@ test.describe("Artifact Server frontend MVP", () => {
       const restoreFocusViewer = fixture.page.getByRole("button", {
         name: "Show viewer controls",
       });
-      await focusViewerControls.hover();
+      // Both handles stay visible without hovering, so a collapsed toolbar
+      // is never lost.
+      await fixture.page.mouse.move(100, 400);
+      await expect(fixture.page.getByRole("button", {name: "Hide viewer controls"}))
+        .toBeVisible();
       await fixture.page.getByRole("button", {name: "Hide viewer controls"}).click();
-      await expect(focusViewerDock).toHaveAttribute("data-hover-armed", "false");
-      await expect(restoreFocusViewer).toHaveCSS("opacity", "0");
+      await expect(focusViewerDock).toHaveAttribute("data-collapsed", "true");
       await expect.poll(() => fixture.page.locator(".as-preview-panel")
         .evaluate((node) => node.scrollLeft)).toBe(0);
-      await fixture.page.mouse.move(100, 160);
-      await expect(focusViewerDock).toHaveAttribute("data-hover-armed", "true");
-      const reviewViewport = fixture.page.viewportSize();
-      expect(reviewViewport).not.toBeNull();
-      await fixture.page.mouse.move((reviewViewport?.width ?? 0) - 160, 48);
-      await expect(restoreFocusViewer).toHaveCSS("opacity", "1");
+      await fixture.page.mouse.move(100, 400);
+      await expect(restoreFocusViewer).toBeVisible();
+      await expect(restoreFocusViewer).not.toHaveCSS("opacity", "0");
       await restoreFocusViewer.click();
       await expect(focusViewerControls).toBeVisible();
       await fixture.page.reload();

@@ -112,9 +112,118 @@ select:focus-visible {
 .as-app {
   background: var(--as-canvas);
   display: flex;
+  flex-direction: column;
   height: 100dvh;
   min-width: 0;
   overflow: hidden;
+}
+
+.as-app__body {
+  display: flex;
+  flex: 1 1 0;
+  min-height: 0;
+  min-width: 0;
+}
+
+.as-topbar {
+  align-items: center;
+  display: flex;
+  flex: 0 0 auto;
+  gap: 1rem;
+  height: var(--as-header-height);
+  justify-content: space-between;
+  padding: 0 var(--as-gap);
+}
+
+.as-topbar__brand {
+  align-items: center;
+  border-radius: var(--as-radius);
+  color: var(--as-text);
+  display: inline-flex;
+  gap: 0.6rem;
+  min-width: 0;
+  text-decoration: none;
+}
+
+.as-topbar__name {
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.as-topbar__actions {
+  align-items: center;
+  display: flex;
+  gap: 0.35rem;
+}
+
+.as-topbar__avatar {
+  align-items: center;
+  background: color-mix(in oklab, var(--as-action) 22%, var(--as-surface-raised));
+  border: 1px solid color-mix(in oklab, var(--as-action) 45%, transparent);
+  border-radius: 999px;
+  color: var(--as-text);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 0.72rem;
+  font-weight: 700;
+  height: 2rem;
+  justify-content: center;
+  margin-left: 0.35rem;
+  width: 2rem;
+}
+
+.as-topbar__menu {
+  background: var(--as-surface);
+  border: 1px solid var(--as-border);
+  border-radius: var(--as-radius);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.28);
+  display: grid;
+  min-width: 13rem;
+  padding: 0.35rem;
+}
+
+.as-topbar__identity {
+  border-bottom: 1px solid var(--as-border);
+  display: grid;
+  gap: 0.15rem;
+  margin-bottom: 0.35rem;
+  padding: 0.45rem 0.55rem 0.6rem;
+}
+
+.as-topbar__identity strong {
+  color: var(--as-text);
+  font-size: 0.82rem;
+}
+
+.as-topbar__identity span {
+  color: var(--as-muted);
+  font-size: 0.7rem;
+}
+
+.as-topbar__menu-item {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: var(--as-radius-sm);
+  color: var(--as-text);
+  cursor: pointer;
+  display: flex;
+  font-size: 0.8rem;
+  gap: 0.5rem;
+  padding: 0.45rem 0.55rem;
+  text-align: left;
+}
+
+.as-topbar__menu-item:hover,
+.as-topbar__menu-item:focus-visible {
+  background: var(--as-surface-raised);
+}
+
+.as-topbar__menu-item svg {
+  height: 0.95rem;
+  width: 0.95rem;
 }
 
 .as-app[data-panel-resizing="true"] {
@@ -374,7 +483,7 @@ select:focus-visible {
 }
 
 .as-catalog-clip {
-  padding: var(--as-gap) 0 var(--as-gap) var(--as-gap);
+  padding: 0 0 var(--as-gap) var(--as-gap);
 }
 
 .as-catalog {
@@ -475,7 +584,7 @@ select:focus-visible {
   flex: 1;
 }
 
-.as-catalog__brand {
+.as-topbar__mark {
   align-items: center;
   background: var(--as-action);
   border-radius: var(--as-radius);
@@ -484,13 +593,12 @@ select:focus-visible {
   flex: 0 0 auto;
   height: 2rem;
   justify-content: center;
-  text-decoration: none;
   width: 2rem;
 }
 
-.as-catalog__brand-mark {
-  height: 1.15rem;
-  width: 1.15rem;
+.as-topbar__mark svg {
+  height: 1.2rem;
+  width: 1.2rem;
 }
 
 .as-project-trigger {
@@ -1017,7 +1125,7 @@ select:focus-visible {
 }
 
 .as-artifact-card[data-selected="true"] {
-  background: color-mix(in oklab, var(--as-action) 10%, var(--as-surface-raised));
+  background: var(--as-surface-raised);
   border-color: color-mix(in oklab, var(--as-action) 55%, transparent);
 }
 
@@ -1290,7 +1398,7 @@ select:focus-visible {
   min-height: 0;
   min-width: 0;
   overflow: hidden;
-  padding: var(--as-gap);
+  padding: 0 var(--as-gap) var(--as-gap);
   position: relative;
 }
 
@@ -1336,22 +1444,6 @@ select:focus-visible {
   width: 0.75rem;
 }
 
-.as-focus-controls__hover-zone {
-  display: none;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .as-focus-controls-dock[data-collapsed="true"][data-comments-open="false"]
-    .as-focus-controls__hover-zone {
-    display: block;
-    height: 6.5rem;
-    position: absolute;
-    right: 0;
-    top: 0;
-    width: min(18rem, 42vw);
-  }
-}
-
 .as-focus-controls-dock[data-collapsed="true"][data-comments-open="true"] {
   transform: none;
 }
@@ -1374,8 +1466,7 @@ select:focus-visible {
 }
 
 .as-focus-controls__button,
-.as-focus-controls__collapse,
-.as-focus-controls__restore {
+.as-dock-toggle.as-dock-toggle {
   background: color-mix(in oklab, var(--as-surface) 88%, transparent);
   border-color: color-mix(in oklab, var(--as-border) 80%, transparent);
   box-shadow: 0 0.5rem 1.5rem rgb(0 0 0 / 18%);
@@ -1407,61 +1498,51 @@ select:focus-visible {
   padding: 0 0.2rem;
 }
 
-.as-focus-controls__collapse {
-  opacity: 0;
-  pointer-events: none;
-  transform: translateX(0.35rem);
+/* One toggle for both directions; the doubled class outranks .as-icon-button. */
+.as-dock-toggle.as-dock-toggle {
+  border: 1px solid color-mix(in oklab, var(--as-border) 80%, transparent);
+  border-radius: var(--as-radius);
+  color: var(--as-text);
+  height: 2.15rem;
+  min-width: 2.15rem;
   transition:
     background-color 140ms ease,
     border-color 140ms ease,
+    box-shadow 140ms ease,
     opacity 140ms ease,
     transform 180ms cubic-bezier(0.19, 1, 0.22, 1);
+  width: 2.15rem;
 }
 
-.as-focus-controls__collapse:focus-visible {
-  opacity: 1;
-  pointer-events: auto;
-  transform: translateX(0);
+@media (hover: hover) and (pointer: fine) {
+  .as-dock-toggle.as-dock-toggle:hover {
+    background: color-mix(in oklab, var(--as-action) 18%, var(--as-surface));
+    border-color: color-mix(in oklab, var(--as-action) 70%, transparent);
+    box-shadow:
+      0 0 0 3px color-mix(in oklab, var(--as-action) 22%, transparent),
+      0 0.5rem 1.5rem rgb(0 0 0 / 18%);
+  }
+}
+
+/* Position only: collapse sits at the end of the bar, restore at the edge. */
+.as-focus-controls__collapse {
+  margin-left: 0.15rem;
 }
 
 .as-focus-controls__restore {
-  align-items: center;
-  border: 1px solid color-mix(in oklab, var(--as-border) 80%, transparent);
-  border-right: 0;
-  cursor: pointer;
-  display: flex;
-  height: 2.5rem;
-  justify-content: center;
   opacity: 0;
-  padding: 0;
   pointer-events: none;
   position: absolute;
-  right: -0.75rem;
+  right: 0;
   top: 0;
-  transform: translateX(100%);
-  transition:
-    background-color 140ms ease,
-    opacity 140ms ease,
-    transform 180ms cubic-bezier(0.19, 1, 0.22, 1);
-  width: 1.85rem;
-}
-
-.as-focus-controls__restore svg {
-  height: 0.95rem;
-  width: 0.95rem;
+  transform: translateX(calc(100% + 0.75rem));
 }
 
 .as-focus-controls-dock[data-collapsed="true"] .as-focus-controls__restore {
-  opacity: 0;
-  pointer-events: none;
-  right: 0;
-  top: 0.75rem;
-  transform: translateX(calc(100% + 1px));
-}
-
-.as-focus-controls-dock[data-collapsed="true"]:focus-within .as-focus-controls__restore {
   opacity: 1;
   pointer-events: auto;
+  right: 0.75rem;
+  top: 0.75rem;
   transform: translateX(0);
 }
 
@@ -3386,27 +3467,11 @@ select:focus-visible {
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .as-focus-controls-dock:hover .as-focus-controls__collapse {
-    opacity: 1;
-    pointer-events: auto;
-    transform: translateX(0);
-  }
-
-  .as-focus-controls-dock[data-collapsed="true"][data-hover-armed="true"]:hover
-    .as-focus-controls__restore {
-    opacity: 1;
-    pointer-events: auto;
-    transform: translateX(0);
-  }
-
-  .as-focus-controls__button:hover,
-  .as-focus-controls__collapse:hover,
-  .as-focus-controls__restore:hover {
+  .as-focus-controls__button:hover {
     background: color-mix(in oklab, var(--as-surface-raised) 88%, transparent);
     border-color: var(--as-subtle);
   }
 
-  .as-catalog__brand:hover,
   .as-icon-button:hover {
     background: var(--as-iris-soft);
     color: var(--as-text);
@@ -3791,21 +3856,14 @@ body:has(.as-settings) [data-slot="dialog-trigger"]:active:not(:disabled) {
 }
 
 @media (pointer: coarse) {
-  .as-focus-controls__collapse {
-    min-height: 2.75rem;
-    min-width: 2.75rem;
-    opacity: 1;
-    pointer-events: auto;
-    transform: translateX(0);
-  }
-
-  .as-focus-controls__restore {
+  .as-dock-toggle.as-dock-toggle {
     height: 2.75rem;
+    min-width: 2.75rem;
     width: 2.75rem;
   }
 
   .as-icon-button,
-  .as-catalog__brand {
+  .as-topbar__avatar {
     height: 2.75rem;
     min-width: 2.75rem;
   }
@@ -3887,14 +3945,6 @@ body:has(.as-settings) [data-slot="dialog-trigger"]:active:not(:disabled) {
 
   .as-share-link .as-button {
     justify-self: stretch;
-  }
-}
-
-@media (hover: none) {
-  .as-focus-controls-dock[data-collapsed="true"] .as-focus-controls__restore {
-    opacity: 1;
-    pointer-events: auto;
-    transform: translateX(0);
   }
 }
 
