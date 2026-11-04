@@ -25,14 +25,17 @@ import {
   GithubIcon,
   KeyboardIcon,
   LayoutLeftIcon,
-  MinusSignIcon,
   Link01Icon,
+  MinusSignIcon,
+  Moon02Icon,
   PanelRightIcon,
   PinIcon,
   PlusSignIcon,
   RefreshIcon,
   Search01Icon,
+  Settings02Icon,
   SmartPhone01Icon,
+  Sun03Icon,
   Tablet01Icon,
   Tick02Icon,
 } from "@hugeicons/core-free-icons";
@@ -75,7 +78,7 @@ import {
 } from "./review-comments.tsx";
 import {ArtifactMark} from "./artifact-mark.tsx";
 import {PrincipalChip} from "./principal-chip.tsx";
-import {ReviewTopbar} from "./review-topbar.tsx";
+import {ReviewAccountMenu} from "./review-account-menu.tsx";
 import { ReviewPreview } from "./review-preview.tsx";
 import {ReviewProjectPicker} from "./review-project-picker.tsx";
 import {isSettingsPath} from "./review-routes.ts";
@@ -391,7 +394,7 @@ function ReviewKeyboardShortcuts() {
         render={(
           <button
             aria-label="Keyboard shortcuts"
-            className="as-keyboard-shortcuts__trigger"
+            className="as-icon-button as-keyboard-shortcuts__trigger"
             title="Keyboard shortcuts"
             type="button"
           />
@@ -1571,18 +1574,6 @@ function ArtifactReview({
       data-panel-resizing={catalogResize.isDragging || inspectorResize.isDragging}
     >
       <a className="as-skip-link" href="#review-preview">Skip to artifact preview</a>
-      {focusMode ? null : (
-        <ReviewTopbar
-          homeHref="/review"
-          onHome={returnHome}
-          onThemeChange={onThemeChange}
-          principal={session.principal}
-          settingsHref={selectedProject === null
-            ? "/review/settings/projects"
-            : `/review/settings/projects/${encodeURIComponent(selectedProject.id)}`}
-          theme={theme}
-        />
-      )}
       <div className="as-app__body">
 
       <Dialog.Root onOpenChange={setHomeOpen} open={homeOpen}>
@@ -1673,6 +1664,15 @@ function ArtifactReview({
             >
         <header className="as-pane-header as-catalog__header">
           <div className="as-catalog__context">
+            <a
+              aria-label="Artifact Server"
+              className="as-catalog__brand"
+              href="/review"
+              onClick={returnHome}
+              title="Artifact Server"
+            >
+              <ArtifactMark className="as-catalog__brand-mark" />
+            </a>
             <ReviewProjectPicker
               canCreate={canManageProjects}
               onCreate={onCreateProject}
@@ -1682,6 +1682,22 @@ function ArtifactReview({
             />
           </div>
           <div className="as-catalog__header-actions">
+            <IconButton
+              label={theme === "moon" ? "Use light theme" : "Use dark theme"}
+              onClick={onThemeChange}
+            >
+              <HugeiconsIcon icon={theme === "moon" ? Sun03Icon : Moon02Icon} strokeWidth={1.8} />
+            </IconButton>
+            <a
+              aria-label="Open settings"
+              className="as-icon-button"
+              href={selectedProject === null
+                ? "/review/settings/projects"
+                : `/review/settings/projects/${encodeURIComponent(selectedProject.id)}`}
+              title="Open settings"
+            >
+              <HugeiconsIcon icon={Settings02Icon} strokeWidth={1.8} />
+            </a>
             <IconButton
               keyShortcuts="["
               label="Collapse artifact catalog"
@@ -1694,7 +1710,8 @@ function ArtifactReview({
         </header>
 
         <div className="as-catalog__tools">
-          <div aria-label="Artifact catalog scope" className="as-catalog-tabs" role="tablist">
+          <div className="as-catalog-tabs">
+          <div aria-label="Artifact catalog scope" className="as-catalog-tabs__list" role="tablist">
             {([["mine", "Mine"], ["shared", "Shared with me"]] as const).map(([tab, label]) => (
               <button
                 aria-controls="review-catalog-panel"
@@ -1714,6 +1731,34 @@ function ArtifactReview({
                 {label}
               </button>
             ))}
+          </div>
+            <div className="as-catalog-tabs__actions">
+              <button
+                aria-busy={catalogRefreshState === "loading"}
+                aria-label="Refresh artifacts published by agents, the CLI, or other sessions"
+                className="as-icon-button as-catalog-refresh"
+                data-state={catalogRefreshState}
+                disabled={listLoading}
+                onClick={() => void refreshArtifacts()}
+                title="Refresh artifacts published by agents, the CLI, or other sessions"
+                type="button"
+              >
+                <HugeiconsIcon
+                  aria-hidden="true"
+                  className="as-catalog-refresh__icon"
+                  icon={catalogRefreshState === "complete" ? Tick02Icon : RefreshIcon}
+                  strokeWidth={1.8}
+                />
+              </button>
+              <span aria-live="polite" className="as-visually-hidden">
+                {catalogRefreshState === "loading"
+                  ? "Refreshing artifact catalog."
+                  : catalogRefreshState === "complete"
+                    ? "Artifact catalog refreshed."
+                    : ""}
+              </span>
+              <ReviewKeyboardShortcuts />
+            </div>
           </div>
           <div className="as-search-group">
             <label className="as-search">
@@ -1870,45 +1915,12 @@ function ArtifactReview({
         </div>
 
         <footer className="as-app-footer as-catalog__footer">
-          <button
-            aria-busy={catalogRefreshState === "loading"}
-            aria-label="Refresh artifacts published by agents, the CLI, or other sessions"
-            className="as-catalog-refresh"
-            data-state={catalogRefreshState}
-            disabled={listLoading}
-            onClick={() => void refreshArtifacts()}
-            title="Refresh artifacts published by agents, the CLI, or other sessions"
-            type="button"
-          >
-            <HugeiconsIcon
-              aria-hidden="true"
-              className="as-catalog-refresh__icon"
-              icon={catalogRefreshState === "complete" ? Tick02Icon : RefreshIcon}
-              strokeWidth={1.8}
-            />
-            <span>
-              {catalogRefreshState === "loading"
-                ? "Refreshing…"
-                : catalogRefreshState === "complete"
-                  ? "Refreshed"
-                  : "Refresh"}
-            </span>
-          </button>
-          <span aria-live="polite" className="as-visually-hidden">
-            {catalogRefreshState === "loading"
-              ? "Refreshing artifact catalog."
-              : catalogRefreshState === "complete"
-                ? "Artifact catalog refreshed."
-                : ""}
-          </span>
-          <div className="as-catalog__footer-actions">
-            {nextCursor === null ? null : (
-              <button disabled={listLoading} onClick={() => void loadArtifacts(nextCursor, false)} type="button">
-                {listLoading ? "Loading…" : "Load more"}
-              </button>
-            )}
-            <ReviewKeyboardShortcuts />
-          </div>
+          <ReviewAccountMenu principal={session.principal} />
+          {nextCursor === null ? null : (
+            <button disabled={listLoading} onClick={() => void loadArtifacts(nextCursor, false)} type="button">
+              {listLoading ? "Loading…" : "Load more"}
+            </button>
+          )}
         </footer>
             </motion.aside>
           </motion.div>

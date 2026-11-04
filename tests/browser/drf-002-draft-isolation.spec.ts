@@ -69,7 +69,7 @@ test.describe("DRF-002 draft isolation", () => {
       expect(await page.evaluate(([key]) => localStorage.getItem(key ?? ""), [foreignKey]))
         .not.toBeNull();
 
-      // A real sign-out (the account menu, through api.logout) purges the
+      // A real sign-out (the catalog's account menu, through api.logout) purges the
       // departing principal's drafts and nobody else's.
       await page.getByRole("button", {name: /^Account: /u}).click();
       await page.getByRole("button", {name: "Sign out"}).click();

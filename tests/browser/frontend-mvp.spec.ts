@@ -89,29 +89,30 @@ test.describe("Artifact Server frontend MVP", () => {
       );
       await catalogRefresh.click();
       await expect(catalogRefresh).toHaveAttribute("data-state", "complete");
-      const catalogFooter = fixture.page.locator(".as-catalog__footer");
-      await expect(catalogFooter).toHaveCount(1);
-      await expect(catalogFooter.getByRole("button", {
+      // Refresh and keyboard shortcuts sit at the right end of the scope tabs;
+      // the footer holds the signed-in account.
+      const catalogTabs = fixture.page.locator(".as-catalog-tabs");
+      await expect(catalogTabs.getByRole("button", {
         name: "Refresh artifacts published by agents, the CLI, or other sessions",
       })).toBeVisible();
-      await expect(fixture.page.locator(".as-catalog__tools").getByRole("button", {
-        name: "Refresh artifacts published by agents, the CLI, or other sessions",
-      })).toHaveCount(0);
+      const catalogFooter = fixture.page.locator(".as-catalog__footer");
+      await expect(catalogFooter).toHaveCount(1);
+      await expect(catalogFooter.getByRole("button", {name: /^Account: /u})).toBeVisible();
       await expect(catalogFooter.getByRole("button", {name: "Load more"})).toHaveCount(0);
-      const shortcutTrigger = catalogFooter.getByRole("button", {
+      const shortcutTrigger = catalogTabs.getByRole("button", {
         name: "Keyboard shortcuts",
       });
       await expect(shortcutTrigger).toBeVisible();
       await expect(shortcutTrigger).toHaveAttribute("title", "Keyboard shortcuts");
-      const catalogFooterBox = await catalogFooter.boundingBox();
+      const catalogTabsBox = await catalogTabs.boundingBox();
       const shortcutTriggerBox = await shortcutTrigger.boundingBox();
-      expect(catalogFooterBox).not.toBeNull();
+      expect(catalogTabsBox).not.toBeNull();
       expect(shortcutTriggerBox).not.toBeNull();
-      if (catalogFooterBox === null || shortcutTriggerBox === null) {
-        throw new Error("Keyboard shortcut footer geometry was unavailable.");
+      if (catalogTabsBox === null || shortcutTriggerBox === null) {
+        throw new Error("Keyboard shortcut geometry was unavailable.");
       }
       expect(shortcutTriggerBox.x).toBeGreaterThan(
-        catalogFooterBox.x + catalogFooterBox.width / 2,
+        catalogTabsBox.x + catalogTabsBox.width / 2,
       );
       await shortcutTrigger.click();
       const shortcutMap = fixture.page.locator(".as-keyboard-shortcuts[data-open]");
@@ -1664,14 +1665,13 @@ test.describe("Artifact Server frontend MVP", () => {
       const defaultProjectRow = fixture.page.getByRole("row").filter({hasText: "Default"});
       await defaultProjectRow.getByRole("link", {name: "Settings"}).click();
       await expect(fixture.page.getByRole("heading", {name: "Project identity"})).toBeVisible();
-      // Settings shares Review's top bar: brand, theme, settings and the account menu.
-      await expect(fixture.page.getByRole("link", {name: "Artifact Server"})).toBeVisible();
-      const settingsTopbarBox = await fixture.page.locator(".as-settings > .as-topbar").boundingBox();
-      const settingsMarkBox = await fixture.page.locator(".as-topbar__mark").boundingBox();
-      expect(settingsTopbarBox?.height).toBeLessThanOrEqual(48);
+      await expect(fixture.page.getByRole("link", {name: "Artifact Server"})).toContainText("Settings");
+      const settingsHeaderBox = await fixture.page.locator(".as-settings__header-inner").boundingBox();
+      const settingsMarkBox = await fixture.page.locator(".as-settings__brand-mark").boundingBox();
+      expect(settingsHeaderBox?.height).toBeLessThanOrEqual(48);
       expect(settingsMarkBox).toMatchObject({height: 32, width: 32});
-      await expect(fixture.page.getByRole("button", {name: /^Account: /u})).toBeVisible();
       const compactSettingsActions = [
+        fixture.page.getByRole("button", {name: "Sign out"}),
         fixture.page.getByRole("link", {name: "Back to review"}),
         fixture.page.getByRole("button", {name: "Save name"}),
         fixture.page.getByRole("button", {name: "Archive project"}),
