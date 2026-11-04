@@ -770,10 +770,11 @@ export const ReviewCommentsInspector = forwardRef<ReviewCommentsInspectorHandle,
         <p className="as-comments__error" role="alert">{sentError.message}</p>
       )}
       <nav aria-label="Comment filters" className="as-comments__filters">
+        <div className="as-segmented">
         {(["open", "all", "resolved", "sent"] as const).map((candidate) => (
           <button
             aria-pressed={view === candidate}
-            className="as-button"
+            className="as-segmented__option"
             key={candidate}
             onClick={() => setView(candidate)}
             type="button"
@@ -785,6 +786,7 @@ export const ReviewCommentsInspector = forwardRef<ReviewCommentsInspectorHandle,
                 : `${candidate[0]?.toUpperCase()}${candidate.slice(1)}`}
           </button>
         ))}
+        </div>
       </nav>
       {canComment && versionId !== null && session.artifactId !== null ? (
         <NewThreadComposer

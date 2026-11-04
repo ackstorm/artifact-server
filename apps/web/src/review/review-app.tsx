@@ -2260,13 +2260,12 @@ function ArtifactReview({
           <footer className="as-app-footer as-preview-footer">
             {previewKind === "html" || previewKind === "markdown" ? (
               <div className="as-preview-footer__view">
-              <div aria-label="Preview width" className="as-device-switch" role="radiogroup">
+              <div aria-label="Preview width" className="as-segmented" role="radiogroup">
                 {previewDevices.map(({device, icon, label}) => (
                   <button
                     aria-checked={previewDevice === device}
                     aria-label={label}
-                    className="as-icon-button"
-                    data-active={previewDevice === device}
+                    className="as-segmented__option"
                     key={device}
                     onClick={() => {
                       setPreviewDevice(device);
