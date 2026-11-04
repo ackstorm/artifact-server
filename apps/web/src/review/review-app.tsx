@@ -677,13 +677,6 @@ function ArtifactReview({
   const [focusControlsInstant, setFocusControlsInstant] = useState(false);
   const [markdownSourceViewActive, setMarkdownSourceViewActive] = useState(false);
   const [previewDevice, setPreviewDevice] = useState<PreviewDevice>(readInitialPreviewDevice);
-  useEffect(() => {
-    try {
-      window.localStorage.setItem("artifact-review-device", previewDevice);
-    } catch {
-      // A blocked store only loses the remembered choice.
-    }
-  }, [previewDevice]);
   const [htmlAnnotateModeActive, setHtmlAnnotateModeActive] = useState(
     initialLocation.mode !== "interact",
   );
@@ -2232,7 +2225,14 @@ function ArtifactReview({
                     className="as-icon-button"
                     data-active={previewDevice === device}
                     key={device}
-                    onClick={() => setPreviewDevice(device)}
+                    onClick={() => {
+                      setPreviewDevice(device);
+                      try {
+                        window.localStorage.setItem("artifact-review-device", device);
+                      } catch {
+                        // A blocked store only loses the remembered choice.
+                      }
+                    }}
                     role="radio"
                     title={label}
                     type="button"

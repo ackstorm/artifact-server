@@ -72,8 +72,8 @@ test.describe("Artifact Server frontend MVP", () => {
         fixture.page.getByRole("heading", {exact: true, name: "Review fixture"}),
       ).toBeVisible();
       const previewHeader = fixture.page.locator(".as-preview-header");
-      await expect(previewHeader.locator("p")).toHaveCount(0);
-      await expect(previewHeader.locator(".as-pill")).toHaveCount(0);
+      await expect(previewHeader.locator(".as-preview-header__meta")).toContainText(/Version \d+/u);
+      await expect(previewHeader.locator(".as-pill")).toHaveCount(1);
       await expect(
         fixture.page.locator(".as-artifact-card").filter({hasText: "Review fixture"}),
       ).toHaveAttribute("aria-current", "true");
@@ -499,8 +499,9 @@ test.describe("Artifact Server frontend MVP", () => {
       });
       await viewerControls.hover();
       await fixture.page.getByRole("button", {name: "Hide viewer controls"}).click();
-      await expect(restoreViewerControls).toHaveCSS("opacity", "0");
-      await expect(restoreViewerControls).toHaveCSS("pointer-events", "none");
+      // The collapsed dock keeps its restore arrow visible and clickable.
+      await expect(restoreViewerControls).toHaveCSS("opacity", "1");
+      await expect(restoreViewerControls).toHaveCSS("pointer-events", "auto");
       await expect(viewerControlsDock).toHaveCSS("width", "12px");
       await expect(viewerControlsElement).toHaveCSS("pointer-events", "none");
       await expect(viewerControlsElement).toHaveCSS("visibility", "hidden");
@@ -525,7 +526,7 @@ test.describe("Artifact Server frontend MVP", () => {
       await viewerControls.hover();
       await fixture.page.getByRole("button", {name: "Hide viewer controls"}).click();
       await fixture.page.mouse.move(100, 100);
-      await expect(restoreViewerControls).toHaveCSS("opacity", "0");
+      await expect(restoreViewerControls).toHaveCSS("opacity", "1");
       await fixture.page.keyboard.press("Control+Backslash");
       await expect(viewerControlsDock).toHaveAttribute("data-collapsed", "false");
       await expect(viewerControls).toBeVisible();
@@ -585,7 +586,8 @@ test.describe("Artifact Server frontend MVP", () => {
       const catalogBox = await fixture.page.getByRole("complementary", {
         name: "Artifact catalog",
       }).boundingBox();
-      expect(catalogBox?.x).toBe(0);
+      // The catalog card sits in the page gutter, flush with the left edge.
+      expect(catalogBox?.x).toBeLessThanOrEqual(12);
       await fixture.page.getByRole("button", {name: "Collapse artifact catalog"})
         .click();
       await expect(fixture.page.getByRole("complementary", {name: "Artifact catalog"}))
@@ -1649,13 +1651,14 @@ test.describe("Artifact Server frontend MVP", () => {
       const defaultProjectRow = fixture.page.getByRole("row").filter({hasText: "Default"});
       await defaultProjectRow.getByRole("link", {name: "Settings"}).click();
       await expect(fixture.page.getByRole("heading", {name: "Project identity"})).toBeVisible();
-      await expect(fixture.page.getByRole("link", {name: "Artifact Server"})).toContainText("Settings");
-      const settingsHeaderBox = await fixture.page.locator(".as-settings__header-inner").boundingBox();
-      const settingsMarkBox = await fixture.page.locator(".as-settings__brand-mark").boundingBox();
-      expect(settingsHeaderBox?.height).toBeLessThanOrEqual(48);
+      // Settings shares Review's top bar: brand, theme, settings and the account menu.
+      await expect(fixture.page.getByRole("link", {name: "Artifact Server"})).toBeVisible();
+      const settingsTopbarBox = await fixture.page.locator(".as-settings > .as-topbar").boundingBox();
+      const settingsMarkBox = await fixture.page.locator(".as-topbar__mark").boundingBox();
+      expect(settingsTopbarBox?.height).toBeLessThanOrEqual(48);
       expect(settingsMarkBox).toMatchObject({height: 32, width: 32});
+      await expect(fixture.page.getByRole("button", {name: /^Account: /u})).toBeVisible();
       const compactSettingsActions = [
-        fixture.page.getByRole("button", {name: "Sign out"}),
         fixture.page.getByRole("link", {name: "Back to review"}),
         fixture.page.getByRole("button", {name: "Save name"}),
         fixture.page.getByRole("button", {name: "Archive project"}),

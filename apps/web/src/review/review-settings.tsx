@@ -1,11 +1,11 @@
-import {ArrowLeft01Icon, Moon02Icon, Sun03Icon} from "@hugeicons/core-free-icons";
+import {ArrowLeft01Icon} from "@hugeicons/core-free-icons";
 import {HugeiconsIcon} from "@hugeicons/react";
 
-import {api, type Project, type Session} from "@/api/client";
+import {type Project, type Session} from "@/api/client";
 import {StatePanel} from "@/components/product";
-import {Button, ButtonLink} from "@/components/ui/button";
-import {ArtifactMark} from "./artifact-mark.tsx";
+import {ButtonLink} from "@/components/ui/button";
 import {parseSettingsRoute, type SettingsRoute} from "./review-routes.ts";
+import {ReviewTopbar} from "./review-topbar.tsx";
 import {ApiKeysScreen} from "./settings-api-keys.tsx";
 import {McpScreen} from "./settings-mcp.tsx";
 import {MembersScreen} from "./settings-members.tsx";
@@ -40,40 +40,19 @@ export function ReviewSettings({
 
   return (
     <div className="as-settings">
-      <header className="as-settings__header">
-        <div className="as-settings__header-inner">
-          <a aria-label="Artifact Server" className="as-settings__brand" href={reviewHref}>
-            <span className="as-settings__brand-mark">
-              <ArtifactMark className="as-settings__mark" />
-            </span>
-            <span className="as-settings__brand-label">Settings</span>
-          </a>
-          <div className="as-settings__header-actions">
-            <button
-              aria-label={theme === "moon" ? "Use light theme" : "Use dark theme"}
-              className="as-icon-button"
-              onClick={onThemeChange}
-              title={theme === "moon" ? "Use light theme" : "Use dark theme"}
-              type="button"
-            >
-              <HugeiconsIcon icon={theme === "moon" ? Sun03Icon : Moon02Icon} strokeWidth={1.8} />
-            </button>
-            <ButtonLink href={reviewHref} size="sm" variant="outline">
-              <HugeiconsIcon data-icon="inline-start" icon={ArrowLeft01Icon} strokeWidth={1.8} />
-              Back to review
-            </ButtonLink>
-            <Button
-              onClick={() => void api.logout().finally(() => window.location.assign("/review"))}
-              size="sm"
-              variant="ghost"
-            >
-              Sign out
-            </Button>
-          </div>
-        </div>
-      </header>
+      <ReviewTopbar
+        homeHref={reviewHref}
+        onThemeChange={onThemeChange}
+        principal={principal}
+        settingsHref={window.location.pathname}
+        theme={theme}
+      />
       <div className="as-settings__layout">
         <nav aria-label="Settings" className="as-settings__nav">
+          <a className="as-settings__back" href={reviewHref}>
+            <HugeiconsIcon aria-hidden="true" icon={ArrowLeft01Icon} strokeWidth={1.8} />
+            Back to review
+          </a>
           <p>Settings</p>
           {canManageProjects ? (
             <SettingsLink active={route.kind === "projects" || route.kind === "project"} href="/review/settings/projects">
