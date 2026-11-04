@@ -2030,12 +2030,12 @@ requirements:
 
   - id: DSP-002
     kind: security
-    behavior: Registering, claiming, and reporting on a dispatch require a service principal holding the agent-connect capability, and only the principal holding the claim may report on it.
+    behavior: Registering, claiming, and reporting on a dispatch require an API key holding the agent-connect capability, service or member-bound, and only the principal holding the claim may report on it.
     owner: agent-dispatch
     source: {file: agent-dispatch-spec.md, anchor: conformance-and-testing}
     acceptance:
-      behavior: {id: DSP-002-B, description: "Register, claim, and report delivered and failed with a service key that holds the agent-connect capability and with the local all-capability token."}
-      failure: {id: DSP-002-F, description: "A key that holds only artifact read authority cannot register or claim, and a report from a principal that does not hold the claim is refused as a state conflict."}
+      behavior: {id: DSP-002-B, description: "Register, claim, and report delivered and failed with a service key and a member-bound key that hold the agent-connect capability and with the local all-capability token."}
+      failure: {id: DSP-002-F, description: "A direct human session and a key that holds only artifact read authority cannot register or claim, and a report from a principal that does not hold the claim is refused as a state conflict."}
     deployments: *all
     status: behavior_verified
     depends_on: [DSP-001, AUTH-008]
