@@ -75,7 +75,8 @@ import {ReviewProjectPicker} from "./review-project-picker.tsx";
 import {isSettingsPath} from "./review-routes.ts";
 import {ReviewSettings} from "./review-settings.tsx";
 import {ReviewPanelEdge} from "./review-panel-edge.tsx";
-import {AgentLogos, ReviewShareControl} from "./review-share.tsx";
+import {AgentLogos, exactReviewLink, ReviewShareControl} from "./review-share.tsx";
+import {useCopy} from "./use-copy.ts";
 import {useReviewPanelMotion} from "./use-review-panel-motion.ts";
 import {useReviewResizablePanel} from "./use-review-resizable-panel.ts";
 
@@ -1165,6 +1166,7 @@ function ArtifactReview({
   const canDeleteAnyComment = humanAdministrator
     || session.principal.capabilities.includes("artifact:manage:any");
   const previewKind = reviewPreviewKind(selectedVersion, selectedPath);
+  const {copiedTarget, copy: copyText} = useCopy<"review-link">();
   const download = reviewDownload(
     projectId,
     selectedArtifactId,
@@ -1881,7 +1883,7 @@ function ArtifactReview({
                   {(previewKind === "html" || previewKind === "markdown") && !markdownSourceViewActive && canComment ? (
                     <button
                       aria-pressed={htmlAnnotateModeActive}
-                      className="as-button as-focus-controls__button"
+                      className="as-button as-button--secondary as-focus-controls__button"
                       data-active={htmlAnnotateModeActive}
                       onClick={() => changeHtmlAnnotateMode((active) => !active)}
                       title={htmlAnnotateModeActive
@@ -1897,7 +1899,7 @@ function ArtifactReview({
                     aria-controls="review-focus-comments"
                     aria-expanded={focusCommentsOpen}
                     aria-keyshortcuts="]"
-                    className="as-button as-focus-controls__button"
+                    className="as-button as-button--secondary as-focus-controls__button"
                     data-active={focusCommentsOpen}
                     onClick={() => setFocusCommentsOpen((current) => !current)}
                     ref={focusCommentsButtonRef}
@@ -1918,15 +1920,15 @@ function ArtifactReview({
                     publicLinksEnabled={session.installation.publicLinksEnabled}
                     selectedPath={selectedPath}
                     selectedVersion={selectedVersion}
-                    triggerClassName="as-button as-focus-controls__button"
+                    triggerClassName="as-button as-button--secondary as-focus-controls__button"
                   />
                   <ReviewDownloadControl
-                    className="as-button as-focus-controls__button"
+                    className="as-button as-button--secondary as-focus-controls__button"
                     download={download}
                   />
                   <button
                     aria-keyshortcuts="F"
-                    className="as-button as-focus-controls__button"
+                    className="as-button as-button--secondary as-focus-controls__button"
                     onClick={exitFocusMode}
                     title="Exit full screen (F)"
                     type="button"
@@ -2006,7 +2008,21 @@ function ArtifactReview({
                   <HugeiconsIcon icon={LayoutLeftIcon} strokeWidth={1.8} />
                 </IconButton>
               ) : null}
-              <h1>{details?.artifact.name ?? selectedItem?.artifact.name ?? "Artifact Server"}</h1>
+              <div className="as-preview-header__title">
+                <div className="as-preview-header__name">
+                  <h1>{details?.artifact.name ?? selectedItem?.artifact.name ?? "Artifact Server"}</h1>
+                  {details === null ? null : <AccessPill access={details.artifact.accessSetting} />}
+                </div>
+                {selectedVersion === null ? null : (
+                  <p className="as-preview-header__meta">
+                    Published{" "}
+                    <time dateTime={selectedVersion.version.createdAt}>
+                      {formatTimestamp(selectedVersion.version.createdAt)}
+                    </time>
+                    {" · "}Version {selectedVersion.version.number}
+                  </p>
+                )}
+              </div>
             </div>
             <div className="as-preview-header__actions">
               {(previewKind === "html" || previewKind === "markdown") && !markdownSourceViewActive && canComment ? (
@@ -2020,6 +2036,26 @@ function ArtifactReview({
                   <HugeiconsIcon icon={Edit02Icon} strokeWidth={1.8} />
                 </IconButton>
               ) : null}
+              <button
+                aria-label={copiedTarget === "review-link" ? "Review link copied" : "Copy review link"}
+                className="as-icon-button"
+                disabled={selectedVersion === null}
+                onClick={() => {
+                  if (selectedVersion === null) return;
+                  void copyText(
+                    exactReviewLink(selectedVersion, selectedPath),
+                    "review-link",
+                    "Unable to copy the review link.",
+                  );
+                }}
+                title={copiedTarget === "review-link" ? "Copied" : "Copy review link"}
+                type="button"
+              >
+                <HugeiconsIcon
+                  icon={copiedTarget === "review-link" ? Tick02Icon : Link01Icon}
+                  strokeWidth={1.8}
+                />
+              </button>
               <button
                 aria-label={opening ? "Opening raw artifact" : "Open raw artifact"}
                 className="as-button as-button--secondary as-preview-header__raw"
