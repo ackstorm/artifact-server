@@ -5,7 +5,9 @@ import {
   dispatchCreationSchema,
   dispatchPageSchema,
   failureSchema,
+  issueApiKey,
   type RegisteredAgent,
+  signInAdministrator,
 } from "../support/agent-dispatch.js";
 import {
   createTestInstallation,
@@ -21,6 +23,7 @@ describe("agent dispatch of private artifacts", () => {
   let server: RunningTestServer;
   let client: ApiClient;
   let agent: RegisteredAgent;
+  let foreignAgent: RegisteredAgent;
 
   beforeEach(async () => {
     installation = await createTestInstallation();
@@ -32,6 +35,15 @@ describe("agent dispatch of private artifacts", () => {
       displayName: "site",
       workingDirectory: "/work/site",
     });
+    const administrator = await signInAdministrator(server, installation);
+    foreignAgent = await new ApiClient(
+      server,
+      await issueApiKey(server, administrator, ["agent:connect"], "Foreign bridge"),
+    ).registerAgent({
+      connectionKey: "dispatch-private-foreign-connection-key",
+      displayName: "foreign",
+      workingDirectory: "/work/foreign",
+    });
   });
 
   afterEach(async () => {
@@ -39,7 +51,7 @@ describe("agent dispatch of private artifacts", () => {
     await removeTestInstallation(installation);
   });
 
-  test("DSP-014-B DSP-014-F: threads of a Signed-in artifact dispatch, threads of a Private artifact are refused with ARTIFACT_PRIVATE and stay undispatched", async () => {
+  test("DSP-014-B DSP-014-F: threads of a Signed-in artifact dispatch to any agent and a Private artifact's to its owner's agent, while another principal's agent is refused with ARTIFACT_PRIVATE and the thread stays undispatched", async () => {
     expect.hasAssertions();
     const shared = (await publishNew(server, installation, {
       accessSetting: "account_required",
@@ -53,7 +65,7 @@ describe("agent dispatch of private artifacts", () => {
       "dispatch-private-shared-thread",
     );
     const accepted = await client.sendDispatch({
-      agentId: agent.id,
+      agentId: foreignAgent.id,
       idempotencyKey: "dispatch-private-shared-send",
       projectId: shared.artifact.projectId,
       threadIds: [sharedThread.id],
@@ -73,7 +85,7 @@ describe("agent dispatch of private artifacts", () => {
       "dispatch-private-hidden-thread",
     );
     const refused = await client.sendDispatch({
-      agentId: agent.id,
+      agentId: foreignAgent.id,
       idempotencyKey: "dispatch-private-hidden-send",
       projectId: hidden.artifact.projectId,
       threadIds: [hiddenThread.id],
@@ -91,5 +103,16 @@ describe("agent dispatch of private artifacts", () => {
     expect(dispatches.items.map((dispatch) => dispatch.id))
       .toEqual([created.dispatch.id]);
     expect(await client.listThreadIds(hidden)).toEqual([hiddenThread.id]);
+
+    // The owner's own agent acts as the owner, so it can read the artifact.
+    const owned = await client.sendDispatch({
+      agentId: agent.id,
+      idempotencyKey: "dispatch-private-owner-send",
+      projectId: hidden.artifact.projectId,
+      threadIds: [hiddenThread.id],
+    });
+    expect(owned.status).toBe(201);
+    expect(dispatchCreationSchema.parse(await owned.json()).dispatch.threadIds)
+      .toEqual([hiddenThread.id]);
   });
 });

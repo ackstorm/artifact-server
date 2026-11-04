@@ -112,10 +112,11 @@ Human administrators moderate without reading:
 
 ### Dispatch
 
-Sending threads of a Private artifact to an agent is refused with
-`409 ARTIFACT_PRIVATE`. The message says to share the artifact with the
-organization first. Agents connect with service keys and could not read the
-artifact.
+Only the owner can read a Private artifact, so its threads go only to an agent
+the owner registered: the owner's member-bound key acts as the owner. Sending
+them to any other principal's agent, such as a service-key bridge, is refused
+with `409 ARTIFACT_PRIVATE`. The message says to share the artifact with the
+organization first.
 
 ## 4. Changing the level
 
@@ -227,7 +228,7 @@ These requirements are new:
 | AUTH-035 | **B:** The owner publishes, tags, restores, changes review mode and raises the level. An administrator lowers any level and manages service-owned artifacts. **F:** Another member, and a non-owning key with `manage:any` or `publish:any`, receive 403 on Signed-in or Public artifacts and 404 on Private ones. An administrator cannot raise a member's level or publish to it. |
 | AUTH-036 | **B:** The migration fills the owner from version 1 on SQLite and Postgres and keeps every level and idempotency replay unchanged. **F:** A migrated artifact whose version 1 publisher is another member is unlisted for the reader but readable by link at Signed-in. |
 | AUTH-037 | **B:** In the Share modal the owner moves between the three levels, confirming in place before Public, and the note and links follow. **F:** A non-owner sees the selector disabled; a failed save returns to the saved level with the message. |
-| DSP-014 | **B:** Dispatching threads of a Signed-in artifact works as before. **F:** Dispatching threads of a Private artifact returns 409 `ARTIFACT_PRIVATE` and creates no dispatch. |
+| DSP-014 | **B:** Dispatching threads of a Signed-in artifact works as before, and a Private artifact's threads dispatch to an agent its owner registered. **F:** Dispatching threads of a Private artifact to another principal's agent returns 409 `ARTIFACT_PRIVATE` and creates no dispatch. |
 
 These existing requirements are reworded:
 
