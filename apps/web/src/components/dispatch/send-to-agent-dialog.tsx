@@ -115,11 +115,13 @@ async function createDispatchBatches(
 /**
  * Send one exact annotation set to an agent with an honest tier-aware control.
  *
- * The remembered destination is a per-principal, per-project convenience. A
- * disconnected remembered agent disables the main action instead of silently
- * choosing another. The caret remains available to pick a connected agent or
- * add the optional bundle note. Sets above the server's per-dispatch bound are
- * split into ordered batches while one human click remains the initiating act.
+ * Renders nothing until an agent is connected and something is open: the
+ * panel offers a copyable prompt instead. The main action targets the
+ * remembered destination while it is connected, otherwise the first connected
+ * agent; its accessible name and tooltip name that agent. The caret picks
+ * another connected agent or adds the optional bundle note. Sets above the
+ * server's per-dispatch bound are split into ordered batches while one human
+ * click remains the initiating act.
  */
 export function SendToAgentControl({
   agents,
@@ -128,11 +130,9 @@ export function SendToAgentControl({
   feedback,
   label,
   onSent,
-  oneAgentLabel,
   openCount,
   principalId,
   projectId,
-  reasonDisplay = "inline",
   resolveBundle,
 }: {
   /** The polled presence list, or null while the surface is reading it. */
@@ -140,16 +140,13 @@ export function SendToAgentControl({
   readonly buttonSize?: "default" | "sm" | "xs";
   readonly buttonVariant?: "default" | "outline" | "secondary";
   readonly feedback: DispatchFeedback;
-  /** Label used before the first destination is chosen. */
+  /** Visible label; the accessible name adds the destination agent. */
   readonly label: string;
   readonly onSent: () => Promise<void>;
   /** Exact number of open, undispatched annotations represented. */
   readonly openCount: number;
-  readonly oneAgentLabel?: (name: string) => string;
   readonly principalId: string;
   readonly projectId: string;
-  /** Whether this control repeats its disabled-state explanation beside the buttons. */
-  readonly reasonDisplay?: "hidden" | "inline";
   readonly resolveBundle: () => Promise<DispatchBundle>;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -196,29 +193,7 @@ export function SendToAgentControl({
 
   const mainAgent = rememberedAgent?.connected === true
     ? rememberedAgent
-    : (rememberedDefault === null || rememberedDefaultMissing)
-        && knownConnected?.length === 1
-      ? knownConnected[0] ?? null
-      : null;
-  const disconnectedDefaultName = rememberedAgent !== null && !rememberedAgent.connected
-    ? rememberedAgent.displayName
-    : null;
-  const noAgents = knownConnected !== null && knownConnected.length === 0;
-  const nothingToSend = openCount === 0;
-  const mainReason = nothingToSend
-    ? "Nothing open to send."
-    : disconnectedDefaultName !== null
-      ? `${disconnectedDefaultName} disconnected — pick another`
-      : noAgents
-        ? "No agent connected — connect one to send."
-        : null;
-  const mainLabel = mainAgent === null
-    ? disconnectedDefaultName === null || oneAgentLabel === undefined
-      ? label
-      : oneAgentLabel(disconnectedDefaultName)
-    : oneAgentLabel === undefined
-      ? label
-      : oneAgentLabel(mainAgent.displayName);
+    : knownConnected?.[0] ?? null;
   const trimmedNote = note.trim();
   const noteTooLong = trimmedNote.length > maximumDispatchNoteCharacters;
   const connectedDialogAgents = dialogAgents.filter((agent) => agent.connected);
@@ -360,39 +335,31 @@ export function SendToAgentControl({
     }
   };
 
-  const menuAgents = knownConnected?.filter((agent) =>
-    mainAgent === null || agent.id !== mainAgent.id
-  ) ?? [];
-  const caretDisabled = agents === null || noAgents || nothingToSend || quickPending;
+  if (mainAgent === null || openCount === 0) return null;
+  const menuAgents = knownConnected?.filter((agent) => agent.id !== mainAgent.id) ?? [];
+  const destinationLabel = `${label} to ${mainAgent.displayName}`;
 
   return (
     <div className="as-send-to-agent inline-flex flex-wrap items-center gap-2">
       <span className="as-send-to-agent__buttons inline-flex">
         <Button
-          aria-busy={quickPending || agents === null}
+          aria-busy={quickPending}
+          aria-label={destinationLabel}
           className="as-send-to-agent__primary"
-          disabled={mainAgent === null || mainReason !== null || quickPending}
-          onClick={() => {
-            if (mainAgent !== null) void quickSend(mainAgent);
-          }}
+          disabled={quickPending}
+          onClick={() => void quickSend(mainAgent)}
           size={buttonSize}
+          title={destinationLabel}
           type="button"
           variant={buttonVariant}
         >
-          {agents === null ? (
-            <span
-              aria-hidden
-              className="size-3 animate-spin rounded-full border border-current border-t-transparent motion-reduce:animate-none"
-            />
-          ) : mainAgent === null ? null : (
-            <PresenceGlyph
-              className="-my-1"
-              kind={mainAgent.kind}
-              ring={presenceRing(mainAgent)}
-            />
-          )}
+          <PresenceGlyph
+            className="-my-1"
+            kind={mainAgent.kind}
+            ring={presenceRing(mainAgent)}
+          />
           <span className="min-w-0 truncate">
-            {quickPending ? "Sending…" : mainLabel}
+            {quickPending ? "Sending…" : label}
           </span>
         </Button>
         <Popover onOpenChange={setMenuOpen} open={menuOpen}>
@@ -401,7 +368,7 @@ export function SendToAgentControl({
               <Button
                 aria-label="Choose agent or send with a note"
                 className="as-send-to-agent__menu -ml-px px-1.5"
-                disabled={caretDisabled}
+                disabled={quickPending}
                 size={buttonSize}
                 type="button"
                 variant={buttonVariant}
@@ -447,11 +414,6 @@ export function SendToAgentControl({
           </PopoverContent>
         </Popover>
       </span>
-      {mainReason === null || reasonDisplay === "hidden" ? null : (
-        <span className="text-xs text-muted-foreground" role="status">
-          {mainReason}
-        </span>
-      )}
 
       <Dialog onOpenChange={changeNoteOpen} open={noteOpen}>
         <DialogContent>

@@ -120,14 +120,14 @@ test.describe("Review send-all", () => {
       );
       await page.getByRole("tab", {name: "Comments"}).click();
       await expect(page.getByRole("button", {
-        name: "Send all open (101) to builder",
+        name: "Send all (101) to builder",
       })).toBeVisible();
       await expect(page.locator(".as-comment-card")).toHaveCount(101);
       const preview = page.frameLocator(".as-artifact-frame")
         .frameLocator("iframe");
       await expect(preview.locator("button[data-plannotator-marker]")).toHaveCount(1);
 
-      await page.getByRole("button", {name: "Send all open (101) to builder"}).click();
+      await page.getByRole("button", {name: "Send all (101) to builder"}).click();
       await expect(page.getByText("Sent 101 threads to builder")).toBeVisible();
       await expect(page.locator(".as-comment-card")).toHaveCount(0);
       await expect(preview.locator("button[data-plannotator-marker]")).toHaveCount(0);
@@ -169,14 +169,14 @@ test.describe("Review send-all", () => {
       await expect(page.locator(".as-comment-card")).toHaveCount(1);
       await expect(page.getByText(queuedThread.body)).toBeVisible();
       await expect(page.getByRole("button", {
-        name: "Send all open (1) to builder",
+        name: "Send all (1) to builder",
       })).toBeVisible();
     } finally {
       await stopBrowserFixture(fixture);
     }
   });
 
-  test("SND-002-B SND-002-F: destination defaults and mailbox copy follow real presence without fallback", async ({browser}) => {
+  test("SND-002-B SND-002-F: no send control without an agent, a copyable prompt instead, and destination defaults that fall back to a connected agent", async ({browser}) => {
     const fixture = await startSendFixture(browser);
     try {
       const published = (await publishNew(fixture.server, fixture.installation, {
@@ -200,8 +200,8 @@ test.describe("Review send-all", () => {
         `${fixture.server.baseUrl}/review?project=prj_default&artifact=${published.artifact.id}&version=${published.version.id}`,
       );
       await page.getByRole("tab", {name: "Comments"}).click();
-      await expect(page.getByText("No agent connected — connect one to send."))
-        .toBeVisible();
+      await expect(page.getByText("None online", {exact: true})).toBeVisible();
+      await expect(page.getByRole("button", {name: /^Send/u})).toHaveCount(0);
       await fixture.context.grantPermissions(
         ["clipboard-read", "clipboard-write"],
         {origin: fixture.server.baseUrl},
@@ -227,8 +227,8 @@ test.describe("Review send-all", () => {
         key: "snd-002-mailbox",
         name: "mailbox",
       });
-      await expect(page.getByRole("button", {name: "Send all open (1)…"}))
-        .toBeDisabled();
+      await expect(page.getByRole("button", {name: /^Send all \(1\) to /u}))
+        .toBeEnabled();
       await expect(agentPrompt).toBeHidden();
       await page.getByRole("button", {
         name: "Choose agent or send with a note",
@@ -247,7 +247,7 @@ test.describe("Review send-all", () => {
       });
       await page.getByRole("button", {name: "Reload"}).click();
       await expect(page.getByRole("button", {
-        name: "Send all open (1) to mailbox",
+        name: "Send all (1) to mailbox",
       })).toBeVisible();
       const rememberedDestination = () => page.evaluate(() =>
         Object.entries(window.localStorage).find(([key]) =>
@@ -257,31 +257,16 @@ test.describe("Review send-all", () => {
       await expect.poll(rememberedDestination).toContain('"displayName":"mailbox"');
 
       // A stale heartbeat leaves the remembered row present but disconnected.
-      // A newly registered peer stays live, so silent fall-through would be
-      // observable if the control chose it.
+      // The main action then targets the connected peer and names it.
       fixture.clock.advance(100_000);
       const replacement = await connectAgent(fixture, {
         evidence: "native",
         key: "snd-002-replacement",
         name: "replacement",
       });
-      await expect(page.getByText("mailbox disconnected — pick another"))
-        .toBeVisible({timeout: 20_000});
-      const owner = new ApiClient(fixture.server, fixture.installation.apiToken);
-      const before = dispatchPageSchema.parse(
-        await (await owner.listDispatches("prj_default")).json(),
-      ).items.length;
-      await expect(page.getByRole("button", {
-        name: "Send all open (1) to mailbox",
-      })).toBeDisabled();
-      expect(dispatchPageSchema.parse(
-        await (await owner.listDispatches("prj_default")).json(),
-      ).items).toHaveLength(before);
-
       await page.getByRole("button", {
-        name: "Choose agent or send with a note",
-      }).first().click();
-      await page.getByRole("button", {name: "replacement /work/replacement"}).click();
+        name: "Send all (1) to replacement",
+      }).click({timeout: 20_000});
       await expect(page.getByText("Sent 1 thread to replacement")).toBeVisible();
 
       // A clean disconnect deletes the registration. The dead id is not a
@@ -296,7 +281,7 @@ test.describe("Review send-all", () => {
       });
       await page.getByRole("button", {name: "Reload"}).click();
       await expect(page.getByRole("button", {
-        name: "Send all open (1) to replacement",
+        name: "Send all (1) to replacement",
       })).toBeEnabled();
       expect((await replacement.client.fetch(
         `/api/v1/agents/${replacement.agentId}/disconnect`,
@@ -308,10 +293,8 @@ test.describe("Review send-all", () => {
         name: "replacement",
       });
       expect(restarted.agentId).not.toBe(replacement.agentId);
-      await expect(page.getByText("replacement disconnected — pick another"))
-        .toHaveCount(0, {timeout: 20_000});
       await expect(page.getByRole("button", {
-        name: "Send all open (1) to replacement",
+        name: "Send all (1) to replacement",
       })).toBeEnabled();
       await expect.poll(rememberedDestination).toBeNull();
       expect(first.id).toMatch(/^cmt_/u);

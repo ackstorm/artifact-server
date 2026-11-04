@@ -123,7 +123,7 @@ test.describe("PRS-006 presence avatar", () => {
       // Pi brand mark in a circle whose solid ring is the state, not a bare
       // dot. Individual comments are now a secondary selection path.
       const sendButton = page.getByRole("button", {
-        name: "Send all open (2) to pres",
+        name: "Send all (2) to pres",
       });
       await expect(sendButton).toBeVisible();
       await expect(sendButton).toHaveCSS("text-transform", "none");
@@ -210,11 +210,11 @@ test.describe("PRS-006 presence avatar", () => {
       fixture.clock.advance(100_000);
       await expect(page.getByRole("button", {name: "pres — Disconnected"}))
         .toBeVisible({timeout: 30_000});
-      await expect(page.getByText("0 connected · 1 offline", {exact: true}))
+      await expect(page.getByText("None online", {exact: true}))
         .toBeVisible();
 
-      // Add another open comment so the disconnected default and replacement
-      // destination remain observable on the primary control.
+      // Add another open comment; with no agent online the panel offers the
+      // copyable prompt instead of a send control.
       await createThreadOverApi(fixture, {
         artifactId,
         body: "The third claim needs a source.",
@@ -223,7 +223,7 @@ test.describe("PRS-006 presence avatar", () => {
         versionId: published.version.id,
       });
       await page.getByRole("button", {name: "Reload"}).click();
-      await expect(page.getByText("pres disconnected — pick another"))
+      await expect(page.getByRole("textbox", {name: "Prompt for your agent"}))
         .toBeVisible();
 
       // A second agent connects; the disconnected one keeps its hollow ring
