@@ -2283,7 +2283,8 @@ select:focus-visible {
 .as-preview-footer {
   border-top: 1px solid var(--as-border);
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto max-content;
+  column-gap: 0.6rem;
+  grid-template-columns: minmax(0, 1fr) max-content;
   padding: 0 0.6rem;
   position: relative;
 }
@@ -2292,27 +2293,41 @@ select:focus-visible {
   align-items: center;
   display: flex;
   gap: 0.4rem;
-  grid-column: 2;
+}
+
+/* Footer groups and items are split by a hairline: Versions | files | routing | Reload. */
+.as-preview-footer__nav,
+.as-preview-footer__metadata > span {
+  border-right: 1px solid var(--as-border);
+  padding-right: 0.6rem;
+}
+
+.as-preview-footer__metadata {
+  display: flex;
+  gap: 0.6rem;
+}
+
+/* Footer icon buttons share the toolbar's bordered secondary look. */
+.as-preview-footer .as-icon-button:not([data-active="true"]) {
+  border-color: var(--as-border);
+  color: var(--as-text);
 }
 
 .as-device-switch {
   align-items: center;
   align-self: center;
-  border: 1px solid var(--as-border);
-  border-radius: var(--as-radius);
   display: inline-flex;
-  gap: 0.15rem;
+  gap: 0.25rem;
   grid-column: 1;
   justify-self: start;
-  padding: 0.12rem;
 }
 
-.as-device-switch .as-icon-button {
+.as-preview-footer .as-icon-button {
   height: 1.7rem;
   min-width: 1.9rem;
 }
 
-.as-device-switch .as-icon-button svg {
+.as-preview-footer .as-icon-button svg {
   height: 0.85rem;
   width: 0.85rem;
 }
@@ -2337,8 +2352,8 @@ select:focus-visible {
 .as-preview-footer__status {
   align-items: center;
   display: flex;
-  gap: 0.25rem;
-  grid-column: 3;
+  gap: 0.6rem;
+  grid-column: 2;
   justify-self: end;
   min-width: 0;
   white-space: nowrap;
@@ -2354,6 +2369,12 @@ select:focus-visible {
 .as-preview-footer__reload svg {
   height: 0.8rem;
   width: 0.8rem;
+}
+
+@container preview-panel (max-width: 36rem) {
+  .as-preview-footer__label {
+    display: none;
+  }
 }
 
 @container preview-panel (max-width: 23rem) {

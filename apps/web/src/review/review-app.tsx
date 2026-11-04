@@ -2252,36 +2252,40 @@ function ArtifactReview({
                 ))}
               </div>
             ) : null}
-            <div className="as-preview-footer__nav">
-              <IconButton
-                disabled={previousVersion === undefined}
-                label="Previous version"
-                onClick={() => {
-                  if (previousVersion !== undefined) selectVersion(previousVersion.version.id);
-                }}
-                title="Previous version"
-              >
-                <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={1.8} />
-              </IconButton>
-              <span className="as-tabular">
-                {versionIndex < 0 ? "0" : versionIndex + 1} / {orderedVersions.length}
-              </span>
-              <IconButton
-                disabled={nextVersion === undefined}
-                label="Next version"
-                onClick={() => {
-                  if (nextVersion !== undefined) selectVersion(nextVersion.version.id);
-                }}
-                title="Next version"
-              >
-                <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={1.8} />
-              </IconButton>
-            </div>
             <div className="as-preview-footer__status">
+              <div className="as-preview-footer__nav">
+                <span className="as-preview-footer__label">Versions:</span>
+                <IconButton
+                  disabled={previousVersion === undefined}
+                  label="Previous version"
+                  onClick={() => {
+                    if (previousVersion !== undefined) selectVersion(previousVersion.version.id);
+                  }}
+                  title="Previous version"
+                >
+                  <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={1.8} />
+                </IconButton>
+                <span className="as-tabular">
+                  {versionIndex < 0 ? "0" : versionIndex + 1} / {orderedVersions.length}
+                </span>
+                <IconButton
+                  disabled={nextVersion === undefined}
+                  label="Next version"
+                  onClick={() => {
+                    if (nextVersion !== undefined) selectVersion(nextVersion.version.id);
+                  }}
+                  title="Next version"
+                >
+                  <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={1.8} />
+                </IconButton>
+              </div>
               <span className="as-preview-footer__metadata">
-                {selectedVersion === null
-                  ? "No version selected"
-                  : `${selectedVersion.manifest.entries.length} file${selectedVersion.manifest.entries.length === 1 ? "" : "s"} · ${selectedVersion.version.routingMode.toUpperCase()}`}
+                {selectedVersion === null ? "No version selected" : (
+                  <>
+                    <span>{selectedVersion.manifest.entries.length} file{selectedVersion.manifest.entries.length === 1 ? "" : "s"}</span>
+                    <span>{selectedVersion.version.routingMode.toUpperCase()}</span>
+                  </>
+                )}
               </span>
               <button
                 className="as-button as-preview-footer__reload"
