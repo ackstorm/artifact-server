@@ -426,10 +426,10 @@ test.describe("Artifact Server frontend MVP", () => {
       await fixture.page.keyboard.press("]");
       await expect(inspector).toBeVisible();
 
-      await expect(fixture.page.getByRole("button", {name: "Previous artifact"}))
-        .toHaveAttribute("aria-keyshortcuts", "K ArrowUp");
-      await expect(fixture.page.getByRole("button", {name: "Next artifact"}))
-        .toHaveAttribute("aria-keyshortcuts", "J ArrowDown");
+      // The footer pager moves through versions and opens on the latest one.
+      await expect(fixture.page.locator(".as-preview-footer__nav .as-tabular"))
+        .toHaveText(/^(\d+) \/ \1$/u);
+      await expect(fixture.page.getByRole("button", {name: "Next version"})).toBeDisabled();
 
       await fixture.page.reload();
       await expect(preview.locator("#review-target")).toBeVisible();

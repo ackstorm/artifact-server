@@ -74,21 +74,26 @@ test.describe("DRF-001 draft durability", () => {
         .toHaveValue(replyText);
       await page.waitForTimeout(mirrorSettle);
 
-      // In-app version switch and back: the drafts never left.
-      await page.getByRole("tab", {name: /Versions/u}).click();
-      await page.getByRole("button", {name: /Version 1/u}).click();
+      // In-app version switch and back: the drafts never left. The footer
+      // pager steps through versions and stops at both ends.
+      const pagerPosition = page.locator(".as-preview-footer__nav .as-tabular");
+      await expect(pagerPosition).toHaveText("2 / 2");
+      await expect(page.getByRole("button", {name: "Next version"})).toBeDisabled();
+      await page.getByRole("button", {name: "Previous version"}).click();
+      await expect(pagerPosition).toHaveText("1 / 2");
+      await expect(page.getByRole("button", {name: "Previous version"})).toBeDisabled();
       await page.getByRole("tab", {name: /Versions/u}).click();
       await page.getByRole("button", {name: /Version 2/u}).click();
+      await expect(pagerPosition).toHaveText("2 / 2");
       await page.getByRole("tab", {name: "Comments"}).click();
       await expect(page.getByLabel("Add a comment")).toHaveValue(newText);
       await expect(page.getByLabel("Reply", {exact: true})).toHaveValue(replyText);
       await expect(page.locator("[data-draft-marker]")).toHaveCount(2);
 
-      // Artifact navigation and back (the newer "Other fixture" sorts first,
-      // so the drafted artifact is the last catalog entry).
-      await page.getByRole("button", {name: "Previous artifact"}).click();
+      // Artifact navigation and back through the catalog.
+      await page.locator(".as-artifact-card").filter({hasText: "Other fixture"}).click();
       await expect(page).not.toHaveURL(new RegExp(`artifact=${artifactId}`, "u"));
-      await page.getByRole("button", {name: "Next artifact"}).click();
+      await page.locator(".as-artifact-card").filter({hasText: "Draft fixture"}).click();
       await page.getByRole("tab", {name: "Comments"}).click();
       await expect(page.getByLabel("Add a comment")).toHaveValue(newText);
       await expect(page.getByLabel("Reply", {exact: true})).toHaveValue(replyText);

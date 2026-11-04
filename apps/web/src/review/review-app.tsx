@@ -848,6 +848,16 @@ function ArtifactReview({
     ({artifact}) => artifact.id === selectedArtifactId,
   );
   const selectedItem = selectedIndex < 0 ? null : catalogItems[selectedIndex] ?? null;
+  // The footer pager steps through the selected artifact's versions, oldest first.
+  const orderedVersions = versions.toSorted((left, right) => left.version.number - right.version.number);
+  const versionIndex = orderedVersions.findIndex(({version}) => version.id === selectedVersionId);
+  const previousVersion = versionIndex > 0 ? orderedVersions[versionIndex - 1] : undefined;
+  const nextVersion = versionIndex < 0 ? undefined : orderedVersions[versionIndex + 1];
+  const selectVersion = (versionId: string) => {
+    setDetailError(null);
+    setSelectedVersionId(versionId);
+    setSelectedPath(null);
+  };
   const mergePrincipalNames = useCallback((
     ...maps: readonly Readonly<Record<string, string>>[]
   ): void => {
@@ -2244,33 +2254,25 @@ function ArtifactReview({
             ) : null}
             <div className="as-preview-footer__nav">
               <IconButton
-                disabled={selectedIndex <= 0}
-                keyShortcuts="K ArrowUp"
-                label="Previous artifact"
+                disabled={previousVersion === undefined}
+                label="Previous version"
                 onClick={() => {
-                  const previous = catalogItems[selectedIndex - 1];
-                  if (previous !== undefined) {
-                    selectArtifact(previous.artifact.id, previous.artifact.currentVersionId);
-                  }
+                  if (previousVersion !== undefined) selectVersion(previousVersion.version.id);
                 }}
-                title="Previous artifact (K or ↑)"
+                title="Previous version"
               >
                 <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={1.8} />
               </IconButton>
               <span className="as-tabular">
-                {selectedIndex < 0 ? "0" : selectedIndex + 1} / {catalogItems.length}
+                {versionIndex < 0 ? "0" : versionIndex + 1} / {orderedVersions.length}
               </span>
               <IconButton
-                disabled={selectedIndex < 0 || selectedIndex >= catalogItems.length - 1}
-                keyShortcuts="J ArrowDown"
-                label="Next artifact"
+                disabled={nextVersion === undefined}
+                label="Next version"
                 onClick={() => {
-                  const next = catalogItems[selectedIndex + 1];
-                  if (next !== undefined) {
-                    selectArtifact(next.artifact.id, next.artifact.currentVersionId);
-                  }
+                  if (nextVersion !== undefined) selectVersion(nextVersion.version.id);
                 }}
-                title="Next artifact (J or ↓)"
+                title="Next version"
               >
                 <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={1.8} />
               </IconButton>
@@ -2380,11 +2382,7 @@ function ArtifactReview({
                 names={principalNames}
                 onCompare={compareVersions}
                 onMakeCurrent={makeVersionCurrent}
-                onSelect={(versionId) => {
-                  setDetailError(null);
-                  setSelectedVersionId(versionId);
-                  setSelectedPath(null);
-                }}
+                onSelect={selectVersion}
                 selectedVersionId={selectedVersionId}
                 versions={versions}
               />
