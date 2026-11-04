@@ -4167,3 +4167,28 @@ body:has(.as-settings) [data-slot="dialog-trigger"]:active:not(:disabled) {
   line-height: 1.45;
   margin: 0.4rem 0 0;
 }
+
+.as-comments__agent-prompt {
+  display: grid;
+  gap: 0.4rem;
+  justify-items: start;
+  margin-top: 0.6rem;
+  min-width: 0;
+}
+
+.as-comments__agent-prompt label {
+  color: var(--as-muted);
+  font-size: 0.66rem;
+}
+
+.as-comments__agent-prompt textarea {
+  background: transparent;
+  border: 1px solid var(--as-border);
+  color: inherit;
+  font-family: "Atkinson Hyperlegible Mono", monospace;
+  font-size: 0.7rem;
+  line-height: 1.4;
+  padding: 0.4rem 0.5rem;
+  resize: vertical;
+  width: 100%;
+}

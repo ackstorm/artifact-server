@@ -202,6 +202,20 @@ test.describe("Review send-all", () => {
       await page.getByRole("tab", {name: "Comments"}).click();
       await expect(page.getByText("No agent connected — connect one to send."))
         .toBeVisible();
+      await fixture.context.grantPermissions(
+        ["clipboard-read", "clipboard-write"],
+        {origin: fixture.server.baseUrl},
+      );
+      const agentPrompt = page.getByRole("textbox", {name: "Prompt for your agent"});
+      await expect(agentPrompt).toHaveValue(new RegExp(
+        `artifact ${published.artifact.id}[\\s\\S]*version ${published.version.id}` +
+          `[\\s\\S]*${first.id}`,
+        "u",
+      ));
+      await page.getByRole("button", {name: "Copy prompt for your agent"}).click();
+      await expect(page.getByRole("button", {name: "Copied"})).toBeVisible();
+      expect(await page.evaluate(() => navigator.clipboard.readText()))
+        .toBe(await agentPrompt.inputValue());
 
       await connectAgent(fixture, {
         evidence: "native",
@@ -215,6 +229,7 @@ test.describe("Review send-all", () => {
       });
       await expect(page.getByRole("button", {name: "Send all open (1)…"}))
         .toBeDisabled();
+      await expect(agentPrompt).toBeHidden();
       await page.getByRole("button", {
         name: "Choose agent or send with a note",
       }).first().click();
