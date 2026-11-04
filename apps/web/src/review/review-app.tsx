@@ -68,6 +68,7 @@ import {
   ReviewCommentsInspector,
   type ReviewCommentsInspectorHandle,
 } from "./review-comments.tsx";
+import {ArtifactMark} from "./artifact-mark.tsx";
 import {PrincipalChip} from "./principal-chip.tsx";
 import {ReviewTopbar} from "./review-topbar.tsx";
 import { ReviewPreview } from "./review-preview.tsx";
@@ -1394,6 +1395,18 @@ function ArtifactReview({
     setFocusControlsCollapsed(false);
     setFocusMode(false);
   }, [modeOverride, projectId, selectedArtifactId, selectedPath, selectedVersionId]);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  useEffect(() => {
+    const focusSearch = (event: KeyboardEvent): void => {
+      if (event.key.toLowerCase() !== "k" || !(event.metaKey || event.ctrlKey)) return;
+      if (event.altKey || event.shiftKey || focusMode) return;
+      event.preventDefault();
+      setCatalogOpen(true);
+      window.requestAnimationFrame(() => searchInputRef.current?.focus());
+    };
+    window.addEventListener("keydown", focusSearch);
+    return () => window.removeEventListener("keydown", focusSearch);
+  }, [focusMode]);
   useEffect(() => {
     const handleReviewShortcut = (event: KeyboardEvent): void => {
       if (homeOpen || reviewShortcutBlocked(event)) return;
@@ -1674,12 +1687,18 @@ function ArtifactReview({
               <span className="as-visually-hidden">Search artifacts</span>
               <HugeiconsIcon aria-hidden="true" icon={Search01Icon} strokeWidth={1.8} />
               <input
+                aria-keyshortcuts="Meta+K Control+K"
                 onChange={(event) => setQuery(event.currentTarget.value)}
                 placeholder="Search artifacts…"
+                ref={searchInputRef}
                 type="search"
                 value={query}
               />
-              {query === "" ? null : (
+              {query === "" ? (
+                <kbd aria-hidden="true" className="as-search__hint">
+                  {/mac/iu.test(navigator.platform) ? "⌘K" : "Ctrl K"}
+                </kbd>
+              ) : (
                 <button aria-label="Clear search" onClick={() => setQuery("")} type="button">
                   <HugeiconsIcon icon={Cancel01Icon} strokeWidth={1.8} />
                 </button>
@@ -1758,6 +1777,10 @@ function ArtifactReview({
                       onClick={() => selectArtifact(artifact.id, artifact.currentVersionId)}
                       type="button"
                     >
+                      <span aria-hidden="true" className="as-artifact-card__mark">
+                        <ArtifactMark />
+                      </span>
+                      <span className="as-artifact-card__body">
                       <span className="as-artifact-card__title-row">
                         <strong className="as-artifact-card__title">{artifact.name}</strong>
                         <AccessPill access={artifact.accessSetting} />
@@ -1772,17 +1795,26 @@ function ArtifactReview({
                             <time dateTime={artifact.createdAt}>{formatTimestamp(artifact.createdAt)}</time>
                           )}
                           <span aria-hidden="true">·</span>
-                          <span>{versionCount} version{versionCount === 1 ? "" : "s"}</span>
+                          <span title={`${versionCount} version${versionCount === 1 ? "" : "s"}`}>
+                            v{versionCount}
+                            <span className="as-visually-hidden">
+                              {` (${versionCount} version${versionCount === 1 ? "" : "s"})`}
+                            </span>
+                          </span>
                           {catalogTab === "mine" && artifact.listed ? (
                             <span className="as-artifact-card__listed">Listed</span>
                           ) : null}
                         </span>
                         <span className="as-artifact-card__counts">
-                          <span>
+                          <span title={`${displayedCommentCount} comment${displayedCommentCount === 1 ? "" : "s"}`}>
                             <HugeiconsIcon aria-hidden="true" icon={Comment01Icon} strokeWidth={1.8} />
-                            {displayedCommentCount} comment{displayedCommentCount === 1 ? "" : "s"}
+                            {displayedCommentCount}
+                            <span className="as-visually-hidden">
+                              {` comment${displayedCommentCount === 1 ? "" : "s"}`}
+                            </span>
                           </span>
                         </span>
+                      </span>
                       </span>
                     </button>
                     <button
