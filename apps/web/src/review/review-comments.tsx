@@ -56,10 +56,10 @@ function agentPresenceSummary(agents: readonly AgentPresence[] | null): string {
   if (agents === null) return "Checking presence…";
   const connectedCount = agents.filter((agent) => agent.connected).length;
   const offlineCount = agents.length - connectedCount;
-  if (offlineCount === 0) {
-    return connectedCount === 0 ? "No agents connected" : `${connectedCount} connected`;
-  }
-  return `${connectedCount} connected · ${offlineCount} offline`;
+  if (connectedCount === 0) return "None online";
+  return offlineCount === 0
+    ? `${connectedCount} connected`
+    : `${connectedCount} connected · ${offlineCount} offline`;
 }
 
 function threadQuery(
@@ -707,31 +707,30 @@ export const ReviewCommentsInspector = forwardRef<ReviewCommentsInspectorHandle,
       {agentError === null ? null : (
         <p className="as-comments__agent-error">{agentError.message}</p>
       )}
-      {canComment ? (
+      {canComment && openThreads.length > 0 && agents !== null ? (
         <div className="as-comments__send-all">
           <SendToAgentControl
             agents={agents}
             buttonSize="xs"
             buttonVariant="default"
             feedback={dispatchUndo.feedback}
-            label={`Send all open (${openThreads.length})…`}
+            label={`Send all (${openThreads.length})`}
             onSent={onSent}
-            oneAgentLabel={(name) => `Send all open (${openThreads.length}) to ${name}`}
             openCount={openThreads.length}
             principalId={principalId}
             projectId={session.projectId}
             resolveBundle={() => Promise.resolve(bundleOfThreads(openThreads))}
           />
-          {noAgentConnected && agentPrompt !== null && openThreads.length > 0 ? (
+          {noAgentConnected && agentPrompt !== null ? (
             <div className="as-comments__agent-prompt">
               <label htmlFor="as-comments-agent-prompt">
-                Or paste this into your agent:
+                Ask your agent to handle these comments:
               </label>
               <textarea
                 id="as-comments-agent-prompt"
                 aria-label="Prompt for your agent"
                 readOnly
-                rows={6}
+                rows={3}
                 value={agentPrompt}
               />
               <Button
@@ -864,13 +863,11 @@ export const ReviewCommentsInspector = forwardRef<ReviewCommentsInspectorHandle,
                               buttonSize="xs"
                               buttonVariant="outline"
                               feedback={dispatchUndo.feedback}
-                              label="Send…"
+                              label="Send"
                               onSent={onSent}
-                              oneAgentLabel={(name) => `Send to ${name}`}
                               openCount={1}
                               principalId={principalId}
                               projectId={session.projectId}
-                              reasonDisplay="hidden"
                               resolveBundle={() => Promise.resolve(bundleOfThreads([thread]))}
                             />
                           ) : null}

@@ -102,7 +102,7 @@ test.describe("PRS-004 one-click send and undo", () => {
 
       // One click, no dialog: the primary button names its destination and
       // sends every open comment on the exact version.
-      await page.getByRole("button", {name: "Send all open (2) to solo"}).click();
+      await page.getByRole("button", {name: "Send all (2) to solo"}).click();
       await expect(page.getByText("Sent 2 threads to solo")).toBeVisible();
       await expect(page.getByRole("dialog")).toHaveCount(0);
       await expect(cards).toHaveCount(0);
@@ -172,7 +172,7 @@ test.describe("PRS-004 one-click send and undo", () => {
         connectionKey: "prs-004-second-connection-key",
         name: "duo",
       });
-      await expect(page.getByRole("button", {name: "Send all open (1) to solo"}))
+      await expect(page.getByRole("button", {name: "Send all (1) to solo"}))
         .toBeVisible();
       await page.getByRole("button", {
         name: "Choose agent or send with a note",

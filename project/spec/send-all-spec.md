@@ -37,12 +37,9 @@ already polls (`GET /api/v1/agents`: `connected`, `activity`,
 
 | Connected agents | Control | Click |
 | --- | --- | --- |
-| None | Disabled: `No agent connected — connect one to send.` Below it, while threads are open, a read-only prompt naming the project, artifact, version and open thread IDs, with a **Copy** button, for the reviewer to paste into any MCP-connected agent. The prompt disappears once an agent connects. | Copy puts the prompt on the clipboard. |
-| One | `Send all open (N) to ‹name›` with its presence avatar | Sends at once (PRS-004 rule: no dialog; undo toast). |
-| Several, default known | Split button: main part `Send all open (N) to ‹default›`; caret opens an inline menu of the others, each with its presence avatar | Main part sends to the default; picking from the menu makes that agent the default and sends. |
-| Several, no default yet | `Send all open (N)…`; the caret menu is the one-time prompt | Choosing sets the default and sends. |
-| Default disconnected | Disabled: `‹default› disconnected — pick another`; caret still open | Never falls through silently to a different agent. |
-| Target is mailbox tier (`evidence: "mailbox"`) | Enabled; label after send: `Queued for ‹name› — it picks this up when it next checks in.` | Sends; the tool-result nudges (NDG-001) make that promise real. |
+| None | No send control in the header or on any card. While threads are open, the header shows `None online` and a read-only prompt naming the project, artifact, version and open thread IDs, with a **Copy** button, for the reviewer to paste into any MCP-connected agent. | Copy puts the prompt on the clipboard. |
+| One or more | Split button labelled `Send all (N)` (cards: `Send`) with the destination's presence avatar; its accessible name and tooltip are `… to ‹name›`. The destination is the remembered default while it is connected, otherwise the first connected agent. The caret lists the other connected agents. | Main part sends at once (PRS-004 rule: no dialog; undo toast) and the toast names the agent that received it; picking from the menu makes that agent the default and sends. |
+| Target is mailbox tier (`evidence: "mailbox"`) | Same control; label after send: `Queued for ‹name› — it picks this up when it next checks in.` | Sends; the tool-result nudges (NDG-001) make that promise real. |
 
 The **default** is remembered per project (`localStorage`, key
 `dispatch-default:<principalId>:<projectId>`): the last agent sent to.
@@ -51,7 +48,7 @@ from the listing, the control treats it as "no default yet."
 
 `N` counts open threads on the current version that are not inside an
 active dispatch (the server's default `dispatched=exclude` listing).
-`N = 0` disables the control with `Nothing open to send.`
+`N = 0` hides the control.
 
 The optional bundle note stays behind the caret ("Send with a note…"),
 exactly as PRS-004 specified.

@@ -4188,6 +4188,8 @@ body:has(.as-settings) [data-slot="dialog-trigger"]:active:not(:disabled) {
   font-family: "Atkinson Hyperlegible Mono", monospace;
   font-size: 0.7rem;
   line-height: 1.4;
+  field-sizing: content;
+  max-height: 20rem;
   padding: 0.4rem 0.5rem;
   resize: vertical;
   width: 100%;

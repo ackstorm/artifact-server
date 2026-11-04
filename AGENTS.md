@@ -2,6 +2,13 @@
 
 Build toward the contracts in `project/spec/conformance.yml`. Product prose lives in `project/spec/artifact-server-product-spec.html`; the ledger is the machine-checkable index of its promises.
 
+## Independence from Plannotator
+
+This project is fully decoupled from Plannotator (`plannotator/artifact-server`) and will never sync with it.
+
+- Never fetch, merge, rebase onto or cherry-pick from it, and never open issues or PRs against it. PRs target `ackstorm/artifact-server`: pass `--repo ackstorm/artifact-server` to `gh`.
+- Never limit or shape a change (UI redesign, renames, file moves) to keep it mergeable with Plannotator.
+
 ## Engineering rules
 
 - Keep product logic independent of SQLite, disk storage, HTTP, MCP, and deployment providers.
