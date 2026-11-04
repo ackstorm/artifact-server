@@ -222,6 +222,8 @@ test.describe("Review send-all", () => {
         key: "snd-002-live",
         name: "live",
       });
+      // Agents list by creation time, then random id, so a tied clock leaves the order to chance.
+      fixture.clock.advance(1_000);
       await connectAgent(fixture, {
         evidence: "mailbox",
         key: "snd-002-mailbox",
