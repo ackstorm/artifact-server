@@ -6,6 +6,7 @@ import type {BearerCredentialVerifier} from
 import {AuthenticationRequired} from "../../src/core/errors.js";
 import type {Principal} from "../../src/core/identity.js";
 import {
+  admitMember,
   ApiClient,
   dispatchCreationSchema,
   dispatchEnvelopeSchema,
@@ -72,10 +73,28 @@ describe("agent connection authority", () => {
     await removeTestInstallation(installation);
   });
 
-  test("DSP-002-B: an agent-connect key and the local all-capability token register, claim, and report delivered and failed", async () => {
+  test("DSP-002-B: an agent-connect key, a member-bound agent-connect key, and the local all-capability token register, claim, and report delivered and failed", async () => {
     expect.hasAssertions();
     await exerciseAgentPrincipal(agentKeyClient, "issued-key");
     await exerciseAgentPrincipal(sender, "local-token");
+    const administrator = await signInAdministrator(server, installation);
+    const memberId = await admitMember(
+      server,
+      administrator,
+      "Ada Member",
+      "ada@example.test",
+    );
+    const memberAgentClient = new ApiClient(
+      server,
+      await issueApiKey(
+        server,
+        administrator,
+        ["agent:connect", "artifact:read", "comment:write"],
+        "Ada Member (agent)",
+        memberId,
+      ),
+    );
+    await exerciseAgentPrincipal(memberAgentClient, "member-key");
   });
 
   test("DSP-002-F: a read-only key and a direct human are refused every agent operation, and a report from a non-holder is a state conflict", async () => {

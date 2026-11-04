@@ -145,7 +145,7 @@ One new capability: **`agent:connect`** — added to the closed capability sets 
 
 | Operation | Rule |
 | --- | --- |
-| Register, claim, report delivered/failed, disconnect | Service principal with `agent:connect` (or the local token). Direct humans are not agents. |
+| Register, claim, report delivered/failed, disconnect | API key with `agent:connect`, service or member-bound (or the local token). A member-bound key registers its agent as that member. Direct human sessions are not agents. |
 | Send a dispatch, cancel a dispatch | Direct human member, or a service principal with `artifact:manage:any`. No new send capability in v1. |
 | List agents, list/read dispatches | Same authority as reading artifacts (`requireArtifactRead`): members and read-capable keys. Agents are not secrets; the picker needs them. |
 | Everything | Installation must match; project must resolve; cross-project ids fail as not-found without disclosure; archived projects reject new dispatches and allow reads. |
@@ -229,7 +229,7 @@ New module `agent-dispatch` in `allowed_modules`; requirements `DSP-001…DSP-01
 | ID | Kind | Behavior (short) | Failure test |
 | --- | --- | --- | --- |
 | DSP-001 | behavior | Agent registration is one self-naming upsert by connection key; listing derives liveness from claim polling; stale rows are reaped without touching dispatch history. | Re-registration with the same key keeps the id and pending dispatches; deleting a stale agent row leaves its dispatches intact and attributed; a foreign installation's key never appears. |
-| DSP-002 | security | Register, claim, and report require `agent:connect`; humans and read-only keys are refused. | An `artifact:read` key cannot register or claim; a claim report from a non-holder is a state conflict. |
+| DSP-002 | security | Register, claim, and report require `agent:connect` on an API key, service or member-bound; direct human sessions and read-only keys are refused. | A member-bound `agent:connect` key registers, claims, and reports; an `artifact:read` key cannot register or claim; a claim report from a non-holder is a state conflict. |
 | DSP-003 | behavior | One send = one dispatch: ordered threads, same-project validation, 1..100 bounds, idempotent replay. | Cross-project, resolved, already-dispatched, or oversized bundles are rejected atomically — no partial markers. |
 | DSP-004 | behavior | Dispatched threads leave default comment listings on HTTP, MCP, and web, and return under `dispatched=only`; `comment_get` still serves them. | A dispatched thread appears in no default list on any surface; the filter round-trips it. |
 | DSP-005 | behavior | Claims are FIFO per agent with the one-active-claim rule; the long-poll returns a dispatch or an empty answer within the wait bound. | A second claim while one is `claimed` returns empty; two agents never receive the same dispatch. |

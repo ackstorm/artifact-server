@@ -479,6 +479,58 @@ describe("mailbox-tier dispatch inbox over MCP", () => {
     expect(claimed?.message).toContain("Ada's annotation.");
   });
 
+  test("a member-bound key registers its own mailbox and claims the dispatch a reviewer sends it", async () => {
+    expect.hasAssertions();
+    const cookies = await signInAdministrator(server, installation);
+    const memberResponse = await fetch(`${server.baseUrl}/api/v1/members`, {
+      body: JSON.stringify({displayName: "Ada", email: "ada@example.test"}),
+      headers: browserMutationHeaders(cookies),
+      method: "POST",
+    });
+    expect(memberResponse.status).toBe(201);
+    const adaId = z.object({member: z.object({id: z.string()})})
+      .parse(await memberResponse.json()).member.id;
+    const adaToken = await issueApiKey(
+      server,
+      cookies,
+      [
+        principalCapabilities.connectAgents,
+        principalCapabilities.createArtifact,
+        principalCapabilities.readArtifacts,
+        principalCapabilities.writeComments,
+      ],
+      "Ada (agent)",
+      adaId,
+    );
+    const threadId = await openThread(
+      "A reviewer's annotation for Ada's agent.",
+      "brp-mailbox-member-key-thread",
+      null,
+    );
+    const registered = await callInboxTool(adaToken, {
+      agentName: "Ada's session",
+      operation: "list",
+    });
+    const sent = await client.sendDispatch({
+      agentId: registered.agent.id,
+      idempotencyKey: "brp-mailbox-member-key-dispatch",
+      projectId,
+      threadIds: [threadId],
+    });
+    expect(sent.status).toBe(201);
+
+    const claimed = (await callInboxTool(adaToken, {
+      agentName: "Ada's session",
+      operation: "claim",
+    })).claimed;
+    expect(claimed?.threads).toEqual([{
+      artifactId: published.artifact.id,
+      path: "index.html",
+      threadId,
+    }]);
+    expect(claimed?.message).toContain("A reviewer's annotation for Ada's agent.");
+  });
+
   test("a dispatch naming a thread from another project is refused and creates no dispatch", async () => {
     expect.hasAssertions();
     const ownThread = await openThread(
