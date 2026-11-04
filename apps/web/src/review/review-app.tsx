@@ -15,6 +15,7 @@ import {
   BookOpen01Icon,
   Cancel01Icon,
   Comment01Icon,
+  ComputerIcon,
   Download04Icon,
   Edit02Icon,
   ExternalLinkIcon,
@@ -25,13 +26,17 @@ import {
   KeyboardIcon,
   LayoutLeftIcon,
   Link01Icon,
+  MinusSignIcon,
   Moon02Icon,
   PanelRightIcon,
   PinIcon,
+  PlusSignIcon,
   RefreshIcon,
   Search01Icon,
   Settings02Icon,
+  SmartPhone01Icon,
   Sun03Icon,
+  Tablet01Icon,
   Tick02Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -65,20 +70,22 @@ import {
   sourceFreshnessLabel,
 } from "@/lib/presentation";
 import artifactServerAnimationUrl from "./assets/artifact-server.svg";
-import {ArtifactMark} from "./artifact-mark.tsx";
 import {ArtifactMoreMenu} from "./artifact-more-menu.tsx";
 import {
   useReviewComments,
   ReviewCommentsInspector,
   type ReviewCommentsInspectorHandle,
 } from "./review-comments.tsx";
+import {ArtifactMark} from "./artifact-mark.tsx";
 import {PrincipalChip} from "./principal-chip.tsx";
+import {ReviewAccountMenu} from "./review-account-menu.tsx";
 import { ReviewPreview } from "./review-preview.tsx";
 import {ReviewProjectPicker} from "./review-project-picker.tsx";
 import {isSettingsPath} from "./review-routes.ts";
 import {ReviewSettings} from "./review-settings.tsx";
 import {ReviewPanelEdge} from "./review-panel-edge.tsx";
-import {AgentLogos, ReviewShareControl} from "./review-share.tsx";
+import {AgentLogos, exactReviewLink, ReviewShareControl} from "./review-share.tsx";
+import {useCopy} from "./use-copy.ts";
 import {useReviewPanelMotion} from "./use-review-panel-motion.ts";
 import {useReviewResizablePanel} from "./use-review-resizable-panel.ts";
 
@@ -387,7 +394,7 @@ function ReviewKeyboardShortcuts() {
         render={(
           <button
             aria-label="Keyboard shortcuts"
-            className="as-keyboard-shortcuts__trigger"
+            className="as-icon-button as-keyboard-shortcuts__trigger"
             title="Keyboard shortcuts"
             type="button"
           />
@@ -672,9 +679,25 @@ function ArtifactReview({
   const [focusMode, setFocusMode] = useState(initialLocation.view === "focus");
   const [focusCommentsOpen, setFocusCommentsOpen] = useState(false);
   const [focusControlsCollapsed, setFocusControlsCollapsed] = useState(false);
-  const [focusControlsHoverArmed, setFocusControlsHoverArmed] = useState(true);
   const [focusControlsInstant, setFocusControlsInstant] = useState(false);
   const [markdownSourceViewActive, setMarkdownSourceViewActive] = useState(false);
+  const [previewDevice, setPreviewDevice] = useState<PreviewDevice>(readInitialPreviewDevice);
+  const [previewZoom, setPreviewZoom] = useState(readInitialPreviewZoom);
+  const previewBodyRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    previewBodyRef.current?.style.setProperty(
+      "--as-preview-zoom",
+      String(focusMode ? 1 : previewZoom / 100),
+    );
+  }, [focusMode, previewZoom]);
+  const changePreviewZoom = (zoom: number) => {
+    setPreviewZoom(zoom);
+    try {
+      window.localStorage.setItem("artifact-review-zoom", String(zoom));
+    } catch {
+      // A blocked store only loses the remembered choice.
+    }
+  };
   const [htmlAnnotateModeActive, setHtmlAnnotateModeActive] = useState(
     initialLocation.mode !== "interact",
   );
@@ -738,7 +761,11 @@ function ArtifactReview({
     side: "right",
     storageKey: "artifact-review-inspector-width",
   });
-  const catalogMotion = useReviewPanelMotion(catalogOpen, catalogResize.width);
+  const catalogMotion = useReviewPanelMotion(
+    catalogOpen,
+    catalogResize.width,
+    inspectorGapPixels,
+  );
   const inspectorMotion = useReviewPanelMotion(
     inspectorOpen,
     inspectorResize.width,
@@ -842,6 +869,16 @@ function ArtifactReview({
     ({artifact}) => artifact.id === selectedArtifactId,
   );
   const selectedItem = selectedIndex < 0 ? null : catalogItems[selectedIndex] ?? null;
+  // The footer pager steps through the selected artifact's versions, oldest first.
+  const orderedVersions = versions.toSorted((left, right) => left.version.number - right.version.number);
+  const versionIndex = orderedVersions.findIndex(({version}) => version.id === selectedVersionId);
+  const previousVersion = versionIndex > 0 ? orderedVersions[versionIndex - 1] : undefined;
+  const nextVersion = versionIndex < 0 ? undefined : orderedVersions[versionIndex + 1];
+  const selectVersion = (versionId: string) => {
+    setDetailError(null);
+    setSelectedVersionId(versionId);
+    setSelectedPath(null);
+  };
   const mergePrincipalNames = useCallback((
     ...maps: readonly Readonly<Record<string, string>>[]
   ): void => {
@@ -1165,6 +1202,7 @@ function ArtifactReview({
   const canDeleteAnyComment = humanAdministrator
     || session.principal.capabilities.includes("artifact:manage:any");
   const previewKind = reviewPreviewKind(selectedVersion, selectedPath);
+  const {copiedTarget, copy: copyText} = useCopy<"review-link">();
   const download = reviewDownload(
     projectId,
     selectedArtifactId,
@@ -1392,6 +1430,18 @@ function ArtifactReview({
     setFocusControlsCollapsed(false);
     setFocusMode(false);
   }, [modeOverride, projectId, selectedArtifactId, selectedPath, selectedVersionId]);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  useEffect(() => {
+    const focusSearch = (event: KeyboardEvent): void => {
+      if (event.key.toLowerCase() !== "k" || !(event.metaKey || event.ctrlKey)) return;
+      if (event.altKey || event.shiftKey || focusMode) return;
+      event.preventDefault();
+      setCatalogOpen(true);
+      window.requestAnimationFrame(() => searchInputRef.current?.focus());
+    };
+    window.addEventListener("keydown", focusSearch);
+    return () => window.removeEventListener("keydown", focusSearch);
+  }, [focusMode]);
   useEffect(() => {
     const handleReviewShortcut = (event: KeyboardEvent): void => {
       if (homeOpen || reviewShortcutBlocked(event)) return;
@@ -1462,7 +1512,6 @@ function ArtifactReview({
   ]);
   const hideFocusControls = (event: ReactMouseEvent<HTMLButtonElement>): void => {
     previewPanelRef.current?.focus({preventScroll: true});
-    setFocusControlsHoverArmed(event.detail === 0);
     setFocusControlsCollapsed(true);
     if (event.detail === 0) {
       window.requestAnimationFrame(() => {
@@ -1471,7 +1520,6 @@ function ArtifactReview({
     }
   };
   const showFocusControls = (): void => {
-    setFocusControlsHoverArmed(true);
     setFocusControlsCollapsed(false);
     window.requestAnimationFrame(() => focusCommentsButtonRef.current?.focus({preventScroll: true}));
   };
@@ -1526,6 +1574,7 @@ function ArtifactReview({
       data-panel-resizing={catalogResize.isDragging || inspectorResize.isDragging}
     >
       <a className="as-skip-link" href="#review-preview">Skip to artifact preview</a>
+      <div className="as-app__body">
 
       <Dialog.Root onOpenChange={setHomeOpen} open={homeOpen}>
         <Dialog.Portal>
@@ -1661,12 +1710,14 @@ function ArtifactReview({
         </header>
 
         <div className="as-catalog__tools">
-          <div aria-label="Artifact catalog scope" className="as-catalog-tabs" role="tablist">
+          <div className="as-catalog-tabs">
+          <div aria-label="Artifact catalog scope" className="as-catalog-tabs__list" role="tablist">
             {([["mine", "Mine"], ["shared", "Shared with me"]] as const).map(([tab, label]) => (
               <button
                 aria-controls="review-catalog-panel"
                 aria-selected={catalogTab === tab}
-                className="as-catalog-tabs__tab"
+                className="as-tab"
+                data-active={catalogTab === tab}
                 key={tab}
                 onClick={() => {
                   setCatalogTab(tab);
@@ -1681,17 +1732,51 @@ function ArtifactReview({
               </button>
             ))}
           </div>
+            <div className="as-catalog-tabs__actions">
+              <button
+                aria-busy={catalogRefreshState === "loading"}
+                aria-label="Refresh artifacts published by agents, the CLI, or other sessions"
+                className="as-icon-button as-catalog-refresh"
+                data-state={catalogRefreshState}
+                disabled={listLoading}
+                onClick={() => void refreshArtifacts()}
+                title="Refresh artifacts published by agents, the CLI, or other sessions"
+                type="button"
+              >
+                <HugeiconsIcon
+                  aria-hidden="true"
+                  className="as-catalog-refresh__icon"
+                  icon={catalogRefreshState === "complete" ? Tick02Icon : RefreshIcon}
+                  strokeWidth={1.8}
+                />
+              </button>
+              <span aria-live="polite" className="as-visually-hidden">
+                {catalogRefreshState === "loading"
+                  ? "Refreshing artifact catalog."
+                  : catalogRefreshState === "complete"
+                    ? "Artifact catalog refreshed."
+                    : ""}
+              </span>
+              <ReviewKeyboardShortcuts />
+            </div>
+          </div>
           <div className="as-search-group">
             <label className="as-search">
               <span className="as-visually-hidden">Search artifacts</span>
               <HugeiconsIcon aria-hidden="true" icon={Search01Icon} strokeWidth={1.8} />
               <input
+                aria-keyshortcuts="Meta+K Control+K"
                 onChange={(event) => setQuery(event.currentTarget.value)}
                 placeholder="Search artifacts…"
+                ref={searchInputRef}
                 type="search"
                 value={query}
               />
-              {query === "" ? null : (
+              {query === "" ? (
+                <kbd aria-hidden="true" className="as-search__hint">
+                  {/mac/iu.test(navigator.platform) ? "⌘K" : "Ctrl K"}
+                </kbd>
+              ) : (
                 <button aria-label="Clear search" onClick={() => setQuery("")} type="button">
                   <HugeiconsIcon icon={Cancel01Icon} strokeWidth={1.8} />
                 </button>
@@ -1770,6 +1855,10 @@ function ArtifactReview({
                       onClick={() => selectArtifact(artifact.id, artifact.currentVersionId)}
                       type="button"
                     >
+                      <span aria-hidden="true" className="as-artifact-card__mark">
+                        <ArtifactMark />
+                      </span>
+                      <span className="as-artifact-card__body">
                       <span className="as-artifact-card__title-row">
                         <strong className="as-artifact-card__title">{artifact.name}</strong>
                         <AccessPill access={artifact.accessSetting} />
@@ -1784,17 +1873,26 @@ function ArtifactReview({
                             <time dateTime={artifact.createdAt}>{formatTimestamp(artifact.createdAt)}</time>
                           )}
                           <span aria-hidden="true">·</span>
-                          <span>{versionCount} version{versionCount === 1 ? "" : "s"}</span>
+                          <span title={`${versionCount} version${versionCount === 1 ? "" : "s"}`}>
+                            v{versionCount}
+                            <span className="as-visually-hidden">
+                              {` (${versionCount} version${versionCount === 1 ? "" : "s"})`}
+                            </span>
+                          </span>
                           {catalogTab === "mine" && artifact.listed ? (
                             <span className="as-artifact-card__listed">Listed</span>
                           ) : null}
                         </span>
                         <span className="as-artifact-card__counts">
-                          <span>
+                          <span title={`${displayedCommentCount} comment${displayedCommentCount === 1 ? "" : "s"}`}>
                             <HugeiconsIcon aria-hidden="true" icon={Comment01Icon} strokeWidth={1.8} />
-                            {displayedCommentCount} comment{displayedCommentCount === 1 ? "" : "s"}
+                            {displayedCommentCount}
+                            <span className="as-visually-hidden">
+                              {` comment${displayedCommentCount === 1 ? "" : "s"}`}
+                            </span>
                           </span>
                         </span>
+                      </span>
                       </span>
                     </button>
                     <button
@@ -1817,45 +1915,12 @@ function ArtifactReview({
         </div>
 
         <footer className="as-app-footer as-catalog__footer">
-          <button
-            aria-busy={catalogRefreshState === "loading"}
-            aria-label="Refresh artifacts published by agents, the CLI, or other sessions"
-            className="as-catalog-refresh"
-            data-state={catalogRefreshState}
-            disabled={listLoading}
-            onClick={() => void refreshArtifacts()}
-            title="Refresh artifacts published by agents, the CLI, or other sessions"
-            type="button"
-          >
-            <HugeiconsIcon
-              aria-hidden="true"
-              className="as-catalog-refresh__icon"
-              icon={catalogRefreshState === "complete" ? Tick02Icon : RefreshIcon}
-              strokeWidth={1.8}
-            />
-            <span>
-              {catalogRefreshState === "loading"
-                ? "Refreshing…"
-                : catalogRefreshState === "complete"
-                  ? "Refreshed"
-                  : "Refresh"}
-            </span>
-          </button>
-          <span aria-live="polite" className="as-visually-hidden">
-            {catalogRefreshState === "loading"
-              ? "Refreshing artifact catalog."
-              : catalogRefreshState === "complete"
-                ? "Artifact catalog refreshed."
-                : ""}
-          </span>
-          <div className="as-catalog__footer-actions">
-            {nextCursor === null ? null : (
-              <button disabled={listLoading} onClick={() => void loadArtifacts(nextCursor, false)} type="button">
-                {listLoading ? "Loading…" : "Load more"}
-              </button>
-            )}
-            <ReviewKeyboardShortcuts />
-          </div>
+          <ReviewAccountMenu principal={session.principal} />
+          {nextCursor === null ? null : (
+            <button disabled={listLoading} onClick={() => void loadArtifacts(nextCursor, false)} type="button">
+              {listLoading ? "Loading…" : "Load more"}
+            </button>
+          )}
         </footer>
             </motion.aside>
           </motion.div>
@@ -1883,11 +1948,8 @@ function ArtifactReview({
                 className="as-focus-controls-dock"
                 data-collapsed={focusControlsCollapsed}
                 data-comments-open={focusCommentsOpen}
-                data-hover-armed={focusControlsHoverArmed}
                 data-instant={focusControlsInstant}
-                onPointerLeave={() => setFocusControlsHoverArmed(true)}
               >
-                <span aria-hidden="true" className="as-focus-controls__hover-zone" />
                 <div
                   aria-hidden={focusControlsCollapsed}
                   aria-label="Artifact viewer controls"
@@ -1898,7 +1960,7 @@ function ArtifactReview({
                   {(previewKind === "html" || previewKind === "markdown") && !markdownSourceViewActive && canComment ? (
                     <button
                       aria-pressed={htmlAnnotateModeActive}
-                      className="as-button as-focus-controls__button"
+                      className="as-button as-button--secondary as-focus-controls__button"
                       data-active={htmlAnnotateModeActive}
                       onClick={() => changeHtmlAnnotateMode((active) => !active)}
                       title={htmlAnnotateModeActive
@@ -1914,7 +1976,7 @@ function ArtifactReview({
                     aria-controls="review-focus-comments"
                     aria-expanded={focusCommentsOpen}
                     aria-keyshortcuts="]"
-                    className="as-button as-focus-controls__button"
+                    className="as-button as-button--secondary as-focus-controls__button"
                     data-active={focusCommentsOpen}
                     onClick={() => setFocusCommentsOpen((current) => !current)}
                     ref={focusCommentsButtonRef}
@@ -1935,15 +1997,15 @@ function ArtifactReview({
                     publicLinksEnabled={session.installation.publicLinksEnabled}
                     selectedPath={selectedPath}
                     selectedVersion={selectedVersion}
-                    triggerClassName="as-button as-focus-controls__button"
+                    triggerClassName="as-button as-button--secondary as-focus-controls__button"
                   />
                   <ReviewDownloadControl
-                    className="as-button as-focus-controls__button"
+                    className="as-button as-button--secondary as-focus-controls__button"
                     download={download}
                   />
                   <button
                     aria-keyshortcuts="F"
-                    className="as-button as-focus-controls__button"
+                    className="as-button as-button--secondary as-focus-controls__button"
                     onClick={exitFocusMode}
                     title="Exit full screen (F)"
                     type="button"
@@ -1953,7 +2015,7 @@ function ArtifactReview({
                   </button>
                   <button
                     aria-label="Hide viewer controls"
-                    className="as-icon-button as-focus-controls__collapse"
+                    className="as-icon-button as-dock-toggle as-focus-controls__collapse"
                     onClick={hideFocusControls}
                     title="Hide viewer controls"
                     type="button"
@@ -1965,7 +2027,7 @@ function ArtifactReview({
                   aria-hidden={!focusControlsCollapsed}
                   aria-keyshortcuts="Meta+\\ Control+\\"
                   aria-label="Show viewer controls"
-                  className="as-focus-controls__restore"
+                  className="as-icon-button as-dock-toggle as-focus-controls__restore"
                   onClick={showFocusControls}
                   ref={focusControlsRestoreRef}
                   tabIndex={focusControlsCollapsed ? 0 : -1}
@@ -2023,7 +2085,21 @@ function ArtifactReview({
                   <HugeiconsIcon icon={LayoutLeftIcon} strokeWidth={1.8} />
                 </IconButton>
               ) : null}
-              <h1>{details?.artifact.name ?? selectedItem?.artifact.name ?? "Artifact Server"}</h1>
+              <div className="as-preview-header__title">
+                <div className="as-preview-header__name">
+                  <h1>{details?.artifact.name ?? selectedItem?.artifact.name ?? "Artifact Server"}</h1>
+                  {details === null ? null : <AccessPill access={details.artifact.accessSetting} />}
+                </div>
+                {selectedVersion === null ? null : (
+                  <p className="as-preview-header__meta">
+                    Published{" "}
+                    <time dateTime={selectedVersion.version.createdAt}>
+                      {formatTimestamp(selectedVersion.version.createdAt)}
+                    </time>
+                    {" · "}Version {selectedVersion.version.number}
+                  </p>
+                )}
+              </div>
             </div>
             <div className="as-preview-header__actions">
               {(previewKind === "html" || previewKind === "markdown") && !markdownSourceViewActive && canComment ? (
@@ -2037,6 +2113,26 @@ function ArtifactReview({
                   <HugeiconsIcon icon={Edit02Icon} strokeWidth={1.8} />
                 </IconButton>
               ) : null}
+              <button
+                aria-label={copiedTarget === "review-link" ? "Review link copied" : "Copy review link"}
+                className="as-icon-button"
+                disabled={selectedVersion === null}
+                onClick={() => {
+                  if (selectedVersion === null) return;
+                  void copyText(
+                    exactReviewLink(selectedVersion, selectedPath),
+                    "review-link",
+                    "Unable to copy the review link.",
+                  );
+                }}
+                title={copiedTarget === "review-link" ? "Copied" : "Copy review link"}
+                type="button"
+              >
+                <HugeiconsIcon
+                  icon={copiedTarget === "review-link" ? Tick02Icon : Link01Icon}
+                  strokeWidth={1.8}
+                />
+              </button>
               <button
                 aria-label={opening ? "Opening raw artifact" : "Open raw artifact"}
                 className="as-button as-button--secondary as-preview-header__raw"
@@ -2091,7 +2187,12 @@ function ArtifactReview({
             </div>
           </header>
 
-          <div className="as-preview-panel__body" data-preview-kind={previewKind}>
+          <div
+            className="as-preview-panel__body"
+            data-device={focusMode ? "desktop" : previewDevice}
+            data-preview-kind={previewKind}
+            ref={previewBodyRef}
+          >
             {detailError === null ? null : (
               <div className="as-preview-error" role="alert">{detailError.message}</div>
             )}
@@ -2157,44 +2258,98 @@ function ArtifactReview({
           </div>
 
           <footer className="as-app-footer as-preview-footer">
-            <div className="as-preview-footer__nav">
-              <IconButton
-                disabled={selectedIndex <= 0}
-                keyShortcuts="K ArrowUp"
-                label="Previous artifact"
-                onClick={() => {
-                  const previous = catalogItems[selectedIndex - 1];
-                  if (previous !== undefined) {
-                    selectArtifact(previous.artifact.id, previous.artifact.currentVersionId);
-                  }
-                }}
-                title="Previous artifact (K or ↑)"
-              >
-                <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={1.8} />
-              </IconButton>
-              <span className="as-tabular">
-                {selectedIndex < 0 ? "0" : selectedIndex + 1} / {catalogItems.length}
-              </span>
-              <IconButton
-                disabled={selectedIndex < 0 || selectedIndex >= catalogItems.length - 1}
-                keyShortcuts="J ArrowDown"
-                label="Next artifact"
-                onClick={() => {
-                  const next = catalogItems[selectedIndex + 1];
-                  if (next !== undefined) {
-                    selectArtifact(next.artifact.id, next.artifact.currentVersionId);
-                  }
-                }}
-                title="Next artifact (J or ↓)"
-              >
-                <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={1.8} />
-              </IconButton>
-            </div>
+            {previewKind === "html" || previewKind === "markdown" ? (
+              <div className="as-preview-footer__view">
+              <div aria-label="Preview width" className="as-segmented" role="radiogroup">
+                {previewDevices.map(({device, icon, label}) => (
+                  <button
+                    aria-checked={previewDevice === device}
+                    aria-label={label}
+                    className="as-segmented__option"
+                    key={device}
+                    onClick={() => {
+                      setPreviewDevice(device);
+                      try {
+                        window.localStorage.setItem("artifact-review-device", device);
+                      } catch {
+                        // A blocked store only loses the remembered choice.
+                      }
+                    }}
+                    role="radio"
+                    title={label}
+                    type="button"
+                  >
+                    <HugeiconsIcon icon={icon} strokeWidth={1.8} />
+                  </button>
+                ))}
+              </div>
+              <div aria-label="Preview zoom" className="as-zoom" role="group">
+                <IconButton
+                  disabled={previewZoom <= 50}
+                  label="Zoom out"
+                  onClick={() => changePreviewZoom(
+                    previewZoomSteps.findLast((step) => step < previewZoom) ?? previewZoom,
+                  )}
+                  title="Zoom out"
+                >
+                  <HugeiconsIcon icon={MinusSignIcon} strokeWidth={1.8} />
+                </IconButton>
+                <button
+                  aria-label={`Zoom ${previewZoom}%, reset to 100%`}
+                  className="as-zoom__value as-tabular"
+                  onClick={() => changePreviewZoom(100)}
+                  title="Reset to 100%"
+                  type="button"
+                >
+                  {previewZoom} %
+                </button>
+                <IconButton
+                  disabled={previewZoom >= 200}
+                  label="Zoom in"
+                  onClick={() => changePreviewZoom(
+                    previewZoomSteps.find((step) => step > previewZoom) ?? previewZoom,
+                  )}
+                  title="Zoom in"
+                >
+                  <HugeiconsIcon icon={PlusSignIcon} strokeWidth={1.8} />
+                </IconButton>
+              </div>
+              </div>
+            ) : null}
             <div className="as-preview-footer__status">
+              <div className="as-preview-footer__nav">
+                <span className="as-preview-footer__label">Versions:</span>
+                <IconButton
+                  disabled={previousVersion === undefined}
+                  label="Previous version"
+                  onClick={() => {
+                    if (previousVersion !== undefined) selectVersion(previousVersion.version.id);
+                  }}
+                  title="Previous version"
+                >
+                  <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={1.8} />
+                </IconButton>
+                <span className="as-tabular">
+                  {versionIndex < 0 ? "0" : versionIndex + 1} / {orderedVersions.length}
+                </span>
+                <IconButton
+                  disabled={nextVersion === undefined}
+                  label="Next version"
+                  onClick={() => {
+                    if (nextVersion !== undefined) selectVersion(nextVersion.version.id);
+                  }}
+                  title="Next version"
+                >
+                  <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={1.8} />
+                </IconButton>
+              </div>
               <span className="as-preview-footer__metadata">
-                {selectedVersion === null
-                  ? "No version selected"
-                  : `${selectedVersion.manifest.entries.length} file${selectedVersion.manifest.entries.length === 1 ? "" : "s"} · ${selectedVersion.version.routingMode.toUpperCase()}`}
+                {selectedVersion === null ? "No version selected" : (
+                  <>
+                    <span>{selectedVersion.manifest.entries.length} file{selectedVersion.manifest.entries.length === 1 ? "" : "s"}</span>
+                    <span>{selectedVersion.version.routingMode.toUpperCase()}</span>
+                  </>
+                )}
               </span>
               <button
                 className="as-button as-preview-footer__reload"
@@ -2295,11 +2450,7 @@ function ArtifactReview({
                 names={principalNames}
                 onCompare={compareVersions}
                 onMakeCurrent={makeVersionCurrent}
-                onSelect={(versionId) => {
-                  setDetailError(null);
-                  setSelectedVersionId(versionId);
-                  setSelectedPath(null);
-                }}
+                onSelect={selectVersion}
                 selectedVersionId={selectedVersionId}
                 versions={versions}
               />
@@ -2321,6 +2472,7 @@ function ArtifactReview({
           </div>
         ) : null}
       </main>
+      </div>
     </div>
   );
 }
@@ -3058,6 +3210,34 @@ function ReviewGate({
       </section>
     </main>
   );
+}
+
+type PreviewDevice = "desktop" | "mobile" | "tablet";
+
+const previewDevices = [
+  {device: "desktop", icon: ComputerIcon, label: "Desktop width"},
+  {device: "tablet", icon: Tablet01Icon, label: "Tablet width (768 px)"},
+  {device: "mobile", icon: SmartPhone01Icon, label: "Mobile width (390 px)"},
+] as const;
+
+const previewZoomSteps = [50, 67, 75, 80, 90, 100, 110, 125, 150, 175, 200] as const;
+
+function readInitialPreviewZoom(): number {
+  try {
+    const stored = Number(window.localStorage.getItem("artifact-review-zoom"));
+    return previewZoomSteps.find((step) => step === stored) ?? 100;
+  } catch {
+    return 100;
+  }
+}
+
+function readInitialPreviewDevice(): PreviewDevice {
+  try {
+    const stored = window.localStorage.getItem("artifact-review-device");
+    return stored === "tablet" || stored === "mobile" ? stored : "desktop";
+  } catch {
+    return "desktop";
+  }
 }
 
 function readInitialTheme(): ReviewTheme {

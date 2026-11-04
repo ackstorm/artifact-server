@@ -665,7 +665,8 @@ function ShareSecondaryLink({
   );
 }
 
-function exactReviewLink(
+/** The full-screen Review link for one exact version and path. */
+export function exactReviewLink(
   selectedVersion: ArtifactVersion,
   selectedPath: string | null,
 ): string {

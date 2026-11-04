@@ -69,9 +69,9 @@ test.describe("DRF-002 draft isolation", () => {
       expect(await page.evaluate(([key]) => localStorage.getItem(key ?? ""), [foreignKey]))
         .not.toBeNull();
 
-      // A real sign-out (settings header, through api.logout) purges the
+      // A real sign-out (the catalog's account menu, through api.logout) purges the
       // departing principal's drafts and nobody else's.
-      await page.getByRole("link", {name: "Open settings"}).click();
+      await page.getByRole("button", {name: /^Account: /u}).click();
       await page.getByRole("button", {name: "Sign out"}).click();
       // Sign-out purges the drafts and then navigates to /review. Reading
       // storage while that navigation is in flight destroys the evaluate's

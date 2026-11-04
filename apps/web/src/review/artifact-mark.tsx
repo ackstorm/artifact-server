@@ -1,4 +1,4 @@
-/** Artifact Server's three-shape product mark. */
+/** Artifact Server's product mark: an isometric box, one artifact as a sealed package. */
 export function ArtifactMark({className}: {readonly className?: string}) {
   return (
     <svg
@@ -11,9 +11,9 @@ export function ArtifactMark({className}: {readonly className?: string}) {
       strokeWidth="1.7"
       viewBox="0 0 24 24"
     >
-      <circle cx="12.125" cy="5.5" r="3.5" />
-      <rect height="7" rx="1.75" width="7" x="3.75" y="12" />
-      <path d="m17 11.75 4 7h-8Z" />
+      <path d="M12 2.75 20.25 7.5v9L12 21.25 3.75 16.5v-9Z" />
+      <path d="M3.75 7.5 12 12.25 20.25 7.5M12 12.25v9" />
+      <path d="M12 2.75 20.25 7.5 12 12.25 3.75 7.5Z" fill="currentColor" fillOpacity="0.28" />
     </svg>
   );
 }

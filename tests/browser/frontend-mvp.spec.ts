@@ -72,8 +72,8 @@ test.describe("Artifact Server frontend MVP", () => {
         fixture.page.getByRole("heading", {exact: true, name: "Review fixture"}),
       ).toBeVisible();
       const previewHeader = fixture.page.locator(".as-preview-header");
-      await expect(previewHeader.locator("p")).toHaveCount(0);
-      await expect(previewHeader.locator(".as-pill")).toHaveCount(0);
+      await expect(previewHeader.locator(".as-preview-header__meta")).toContainText(/Version \d+/u);
+      await expect(previewHeader.locator(".as-pill")).toHaveCount(1);
       await expect(
         fixture.page.locator(".as-artifact-card").filter({hasText: "Review fixture"}),
       ).toHaveAttribute("aria-current", "true");
@@ -89,29 +89,30 @@ test.describe("Artifact Server frontend MVP", () => {
       );
       await catalogRefresh.click();
       await expect(catalogRefresh).toHaveAttribute("data-state", "complete");
-      const catalogFooter = fixture.page.locator(".as-catalog__footer");
-      await expect(catalogFooter).toHaveCount(1);
-      await expect(catalogFooter.getByRole("button", {
+      // Refresh and keyboard shortcuts sit at the right end of the scope tabs;
+      // the footer holds the signed-in account.
+      const catalogTabs = fixture.page.locator(".as-catalog-tabs");
+      await expect(catalogTabs.getByRole("button", {
         name: "Refresh artifacts published by agents, the CLI, or other sessions",
       })).toBeVisible();
-      await expect(fixture.page.locator(".as-catalog__tools").getByRole("button", {
-        name: "Refresh artifacts published by agents, the CLI, or other sessions",
-      })).toHaveCount(0);
+      const catalogFooter = fixture.page.locator(".as-catalog__footer");
+      await expect(catalogFooter).toHaveCount(1);
+      await expect(catalogFooter.getByRole("button", {name: /^Account: /u})).toBeVisible();
       await expect(catalogFooter.getByRole("button", {name: "Load more"})).toHaveCount(0);
-      const shortcutTrigger = catalogFooter.getByRole("button", {
+      const shortcutTrigger = catalogTabs.getByRole("button", {
         name: "Keyboard shortcuts",
       });
       await expect(shortcutTrigger).toBeVisible();
       await expect(shortcutTrigger).toHaveAttribute("title", "Keyboard shortcuts");
-      const catalogFooterBox = await catalogFooter.boundingBox();
+      const catalogTabsBox = await catalogTabs.boundingBox();
       const shortcutTriggerBox = await shortcutTrigger.boundingBox();
-      expect(catalogFooterBox).not.toBeNull();
+      expect(catalogTabsBox).not.toBeNull();
       expect(shortcutTriggerBox).not.toBeNull();
-      if (catalogFooterBox === null || shortcutTriggerBox === null) {
-        throw new Error("Keyboard shortcut footer geometry was unavailable.");
+      if (catalogTabsBox === null || shortcutTriggerBox === null) {
+        throw new Error("Keyboard shortcut geometry was unavailable.");
       }
       expect(shortcutTriggerBox.x).toBeGreaterThan(
-        catalogFooterBox.x + catalogFooterBox.width / 2,
+        catalogTabsBox.x + catalogTabsBox.width / 2,
       );
       await shortcutTrigger.click();
       const shortcutMap = fixture.page.locator(".as-keyboard-shortcuts[data-open]");
@@ -426,10 +427,23 @@ test.describe("Artifact Server frontend MVP", () => {
       await fixture.page.keyboard.press("]");
       await expect(inspector).toBeVisible();
 
-      await expect(fixture.page.getByRole("button", {name: "Previous artifact"}))
-        .toHaveAttribute("aria-keyshortcuts", "K ArrowUp");
-      await expect(fixture.page.getByRole("button", {name: "Next artifact"}))
-        .toHaveAttribute("aria-keyshortcuts", "J ArrowDown");
+      // The footer pager moves through versions and opens on the latest one.
+      await expect(fixture.page.locator(".as-preview-footer__nav .as-tabular"))
+        .toHaveText(/^(\d+) \/ \1$/u);
+      await expect(fixture.page.getByRole("button", {name: "Next version"})).toBeDisabled();
+
+      // Width and zoom change the preview, not the canvas it sits on.
+      const previewFrame = fixture.page.locator(".as-artifact-frame");
+      await fixture.page.getByRole("radio", {name: /^Mobile width/u}).click();
+      await expect.poll(async () => (await previewFrame.boundingBox())?.width).toBe(390);
+      await fixture.page.getByRole("radio", {name: "Desktop width"}).click();
+      await fixture.page.getByRole("button", {name: "Zoom in"}).click();
+      await expect(fixture.page.getByRole("button", {name: /^Zoom 110%/u})).toBeVisible();
+      await expect(previewFrame).toHaveCSS("zoom", "1.1");
+      const canvasBox = await fixture.page.locator(".as-preview-panel__body").boundingBox();
+      expect((await previewFrame.boundingBox())?.width).toBe(canvasBox?.width);
+      await fixture.page.getByRole("button", {name: /^Zoom 110%/u}).click();
+      await expect(previewFrame).toHaveCSS("zoom", "1");
 
       await fixture.page.reload();
       await expect(preview.locator("#review-target")).toBeVisible();
@@ -499,8 +513,9 @@ test.describe("Artifact Server frontend MVP", () => {
       });
       await viewerControls.hover();
       await fixture.page.getByRole("button", {name: "Hide viewer controls"}).click();
-      await expect(restoreViewerControls).toHaveCSS("opacity", "0");
-      await expect(restoreViewerControls).toHaveCSS("pointer-events", "none");
+      // The collapsed dock keeps its restore arrow visible and clickable.
+      await expect(restoreViewerControls).toHaveCSS("opacity", "1");
+      await expect(restoreViewerControls).toHaveCSS("pointer-events", "auto");
       await expect(viewerControlsDock).toHaveCSS("width", "12px");
       await expect(viewerControlsElement).toHaveCSS("pointer-events", "none");
       await expect(viewerControlsElement).toHaveCSS("visibility", "hidden");
@@ -525,7 +540,7 @@ test.describe("Artifact Server frontend MVP", () => {
       await viewerControls.hover();
       await fixture.page.getByRole("button", {name: "Hide viewer controls"}).click();
       await fixture.page.mouse.move(100, 100);
-      await expect(restoreViewerControls).toHaveCSS("opacity", "0");
+      await expect(restoreViewerControls).toHaveCSS("opacity", "1");
       await fixture.page.keyboard.press("Control+Backslash");
       await expect(viewerControlsDock).toHaveAttribute("data-collapsed", "false");
       await expect(viewerControls).toBeVisible();
@@ -585,7 +600,8 @@ test.describe("Artifact Server frontend MVP", () => {
       const catalogBox = await fixture.page.getByRole("complementary", {
         name: "Artifact catalog",
       }).boundingBox();
-      expect(catalogBox?.x).toBe(0);
+      // The catalog card sits in the page gutter, flush with the left edge.
+      expect(catalogBox?.x).toBeLessThanOrEqual(12);
       await fixture.page.getByRole("button", {name: "Collapse artifact catalog"})
         .click();
       await expect(fixture.page.getByRole("complementary", {name: "Artifact catalog"}))
@@ -815,18 +831,18 @@ test.describe("Artifact Server frontend MVP", () => {
       const restoreFocusViewer = fixture.page.getByRole("button", {
         name: "Show viewer controls",
       });
-      await focusViewerControls.hover();
+      // Both handles stay visible without hovering, so a collapsed toolbar
+      // is never lost.
+      await fixture.page.mouse.move(100, 400);
+      await expect(fixture.page.getByRole("button", {name: "Hide viewer controls"}))
+        .toBeVisible();
       await fixture.page.getByRole("button", {name: "Hide viewer controls"}).click();
-      await expect(focusViewerDock).toHaveAttribute("data-hover-armed", "false");
-      await expect(restoreFocusViewer).toHaveCSS("opacity", "0");
+      await expect(focusViewerDock).toHaveAttribute("data-collapsed", "true");
       await expect.poll(() => fixture.page.locator(".as-preview-panel")
         .evaluate((node) => node.scrollLeft)).toBe(0);
-      await fixture.page.mouse.move(100, 160);
-      await expect(focusViewerDock).toHaveAttribute("data-hover-armed", "true");
-      const reviewViewport = fixture.page.viewportSize();
-      expect(reviewViewport).not.toBeNull();
-      await fixture.page.mouse.move((reviewViewport?.width ?? 0) - 160, 48);
-      await expect(restoreFocusViewer).toHaveCSS("opacity", "1");
+      await fixture.page.mouse.move(100, 400);
+      await expect(restoreFocusViewer).toBeVisible();
+      await expect(restoreFocusViewer).not.toHaveCSS("opacity", "0");
       await restoreFocusViewer.click();
       await expect(focusViewerControls).toBeVisible();
       await fixture.page.reload();
