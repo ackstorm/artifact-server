@@ -2305,7 +2305,7 @@ requirements:
     source: {file: send-all-spec.md, anchor: conformance-ids-reserved-ledger-entries-land-with-the-build}
     acceptance:
       behavior: {id: SND-002-B, description: "Send to one connected agent, choose and remember a project default from the multi-agent caret menu, and send to a mailbox-tier agent while the control and toast state the true destination and queue behavior."}
-      failure: {id: SND-002-F, description: "No connected agent, no open thread, and a present-but-disconnected remembered default disable the main action with their exact reasons; a missing remembered registration is forgotten, and a disconnected default never falls through to another connected agent."}
+      failure: {id: SND-002-F, description: "No connected agent, no open thread, and a present-but-disconnected remembered default disable the main action with their exact reasons; with no connected agent a copyable prompt names the artifact, version and open threads and disappears once an agent connects; a missing remembered registration is forgotten, and a disconnected default never falls through to another connected agent."}
     deployments: [local]
     status: behavior_verified
     proof_gap: Local browser evidence uses one principal; it proves a disconnected default by aging a still-listed registration beyond the heartbeat window and separately proves that a deleted registration is forgotten. Other principals and deployments remain unrecorded.

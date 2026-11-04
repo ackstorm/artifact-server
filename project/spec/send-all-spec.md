@@ -37,7 +37,7 @@ already polls (`GET /api/v1/agents`: `connected`, `activity`,
 
 | Connected agents | Control | Click |
 | --- | --- | --- |
-| None | Disabled: `No agent connected — connect one to send.` | — |
+| None | Disabled: `No agent connected — connect one to send.` Below it, while threads are open, a read-only prompt naming the project, artifact, version and open thread IDs, with a **Copy** button, for the reviewer to paste into any MCP-connected agent. The prompt disappears once an agent connects. | Copy puts the prompt on the clipboard. |
 | One | `Send all open (N) to ‹name›` with its presence avatar | Sends at once (PRS-004 rule: no dialog; undo toast). |
 | Several, default known | Split button: main part `Send all open (N) to ‹default›`; caret opens an inline menu of the others, each with its presence avatar | Main part sends to the default; picking from the menu makes that agent the default and sends. |
 | Several, no default yet | `Send all open (N)…`; the caret menu is the one-time prompt | Choosing sets the default and sends. |

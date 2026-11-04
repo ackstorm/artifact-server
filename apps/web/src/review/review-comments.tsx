@@ -37,8 +37,12 @@ import {
   DispatchStateChip,
 } from "@/components/dispatch/dispatch-state";
 import {useDispatchUndo} from "@/components/dispatch/dispatch-toast";
+import {Copy01Icon, Tick02Icon} from "@hugeicons/core-free-icons";
+import {HugeiconsIcon} from "@hugeicons/react";
 import {PresenceAvatar} from "@/components/dispatch/presence-avatar";
 import {SendToAgentControl} from "@/components/dispatch/send-to-agent-dialog";
+import {Button} from "@/components/ui/button";
+import {useCopy} from "./use-copy.ts";
 import {
   reviewAnchorSchema,
   type ReviewAnchor,
@@ -100,6 +104,25 @@ async function loadAllThreads(
       page.nextCursor,
       next,
     );
+}
+
+/**
+ * A prompt the reviewer pastes into any agent connected to this installation's
+ * MCP server, for when no agent is registered to receive a send.
+ */
+export function manualAgentPrompt(
+  projectId: string,
+  artifactId: string,
+  versionId: string,
+  threads: readonly CommentThread[],
+): string {
+  return [
+    `Review the open comments on Artifact Server artifact ${artifactId} ` +
+      `(project ${projectId}, version ${versionId}).`,
+    `Open threads: ${threads.map((thread) => thread.id).join(", ")}.`,
+    "Read each thread with comment_get, apply the requested change to the source files, " +
+      "publish a new version, then reply to each thread saying what changed and resolve it.",
+  ].join("\n");
 }
 
 function toAnnotation(thread: CommentThread): ReviewAnnotation {
@@ -636,6 +659,11 @@ export const ReviewCommentsInspector = forwardRef<ReviewCommentsInspectorHandle,
   );
 
   const openThreads = session.threads.filter((thread) => thread.state === "open");
+  const noAgentConnected = agents !== null && !agents.some((agent) => agent.connected);
+  const agentPrompt = session.artifactId === null || versionId === null
+    ? null
+    : manualAgentPrompt(session.projectId, session.artifactId, versionId, openThreads);
+  const {copiedTarget, copy: copyText, failure: copyFailure} = useCopy<"prompt">();
   const resolvedThreads = session.threads.filter((thread) => thread.state === "resolved");
   const visibleThreads = view === "sent"
     ? sentThreads
@@ -694,6 +722,41 @@ export const ReviewCommentsInspector = forwardRef<ReviewCommentsInspectorHandle,
             projectId={session.projectId}
             resolveBundle={() => Promise.resolve(bundleOfThreads(openThreads))}
           />
+          {noAgentConnected && agentPrompt !== null && openThreads.length > 0 ? (
+            <div className="as-comments__agent-prompt">
+              <label htmlFor="as-comments-agent-prompt">
+                Or paste this into your agent:
+              </label>
+              <textarea
+                id="as-comments-agent-prompt"
+                aria-label="Prompt for your agent"
+                readOnly
+                rows={6}
+                value={agentPrompt}
+              />
+              <Button
+                aria-label={copiedTarget === "prompt" ? "Copied" : "Copy prompt for your agent"}
+                onClick={() => void copyText(
+                  agentPrompt,
+                  "prompt",
+                  "Unable to copy. Select the text and copy it manually.",
+                )}
+                size="xs"
+                type="button"
+                variant="outline"
+              >
+                <HugeiconsIcon
+                  aria-hidden="true"
+                  icon={copiedTarget === "prompt" ? Tick02Icon : Copy01Icon}
+                  strokeWidth={1.8}
+                />
+                {copiedTarget === "prompt" ? "Copied" : "Copy"}
+              </Button>
+              {copyFailure === null ? null : (
+                <p className="as-comments__agent-error" role="alert">{copyFailure}</p>
+              )}
+            </div>
+          ) : null}
         </div>
       ) : null}
       {canComment ? null : (
