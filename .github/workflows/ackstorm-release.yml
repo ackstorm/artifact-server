@@ -2,8 +2,9 @@ name: Ackstorm Release
 
 # A vX.Y.Z tag publishes ghcr.io/ackstorm/artifact-server:vX.Y.Z, Helm chart
 # oci://ghcr.io/ackstorm/charts/artifact-server:X.Y.Z pinned to that image's
-# digest, and the GitHub release. The gate runs ci.yml's release tier, which installs without the pnpm
-# cache, so nothing a pull request can write reaches the published image.
+# digest, and the GitHub release. The image job installs without the pnpm cache, so nothing a pull
+# request can write reaches the published image. A commit that main's full gate already covers skips
+# the gate here; scripts/check-release-gate.sh decides, and any doubt runs ci.yml's release tier.
 
 on:
   push:
@@ -17,16 +18,40 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  main-gate:
+    name: Check main's full gate
+    if: github.repository == 'ackstorm/artifact-server'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      verified: ${{ steps.check.outputs.verified }}
+    steps:
+      - name: Checkout the tag and its parent
+        uses: actions/checkout@v7.0.1 # zizmor: ignore[unpinned-uses] Fork policy pins actions to version tags.
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+      - name: Check main's full gate
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/check-release-gate.sh | tee -a "$GITHUB_OUTPUT"
+
   gate:
     name: Canonical release gate
-    if: github.repository == 'ackstorm/artifact-server'
+    needs: main-gate
+    if: needs.main-gate.outputs.verified != 'true'
     uses: ./.github/workflows/ci.yml
     with:
       tier: release
 
   image:
     name: Publish server image and release
-    needs: gate
+    needs: [main-gate, gate]
+    if: ${{ !cancelled() && needs.main-gate.result == 'success' && (needs.gate.result == 'success' || needs.gate.result == 'skipped') }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
     permissions:
