@@ -2175,12 +2175,12 @@ requirements:
 
   - id: DSP-014
     kind: behavior
-    behavior: Sending threads of a Private artifact to an agent is refused with 409 ARTIFACT_PRIVATE, because agents connect with service keys that cannot read it; Signed-in and Public artifacts dispatch as before.
+    behavior: Sending threads of a Private artifact to an agent another principal registered is refused with 409 ARTIFACT_PRIVATE, because that agent cannot read it; the owner's own agent receives them, and Signed-in and Public artifacts dispatch as before.
     owner: agent-dispatch
     source: {file: artifact-sharing-levels-spec.md, anchor: conformance}
     acceptance:
-      behavior: {id: DSP-014-B, description: "Dispatching threads of a Signed-in artifact works as before."}
-      failure: {id: DSP-014-F, description: "Dispatching threads of a Private artifact returns 409 ARTIFACT_PRIVATE and creates no dispatch."}
+      behavior: {id: DSP-014-B, description: "Dispatching threads of a Signed-in artifact works as before, and a Private artifact's threads dispatch to an agent its owner registered."}
+      failure: {id: DSP-014-F, description: "Dispatching threads of a Private artifact to another principal's agent returns 409 ARTIFACT_PRIVATE and creates no dispatch."}
     deployments: *all
     status: behavior_verified
     depends_on: [AUTH-033, DSP-003]

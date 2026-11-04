@@ -566,8 +566,15 @@ function makeAgentDispatchService(
   );
 
   // A thread the repository cannot find is left to its InvalidDispatch check.
+  // A Private artifact is readable only by its owner, so its threads go only to
+  // an agent the owner registered (a member-bound key acts as that member).
   const requireSendable = Effect.fn("AgentDispatchService.requireSendable")(
-    function*(principal: Principal, projectId: string, threadIds: readonly string[]) {
+    function*(
+      principal: Principal,
+      agent: RegisteredAgentRecord,
+      projectId: string,
+      threadIds: readonly string[],
+    ) {
       const artifactIds = new Set<string>();
       for (const threadId of threadIds) {
         const thread = yield* dependencies.repository.findThreadById(
@@ -586,7 +593,10 @@ function makeAgentDispatchService(
         yield* authorization.requireArtifactVisible(principal, artifact);
         artifacts.push(artifact);
       }
-      if (artifacts.some((artifact) => artifact.accessSetting === accessSettings.private)) {
+      if (artifacts.some((artifact) =>
+        artifact.accessSetting === accessSettings.private &&
+        artifact.ownerPrincipalId !== agent.principalId
+      )) {
         yield* new ArtifactPrivate({
           message:
             "This artifact is private. Make it Signed-in before sending its threads to an agent.",
@@ -606,7 +616,7 @@ function makeAgentDispatchService(
       const note = yield* requireNote(command.note);
       const idempotencyKey = yield* parseIdempotencyKey(command.idempotencyKey);
       const agent = yield* requireAgent(command.agentId);
-      yield* requireSendable(command.principal, project.id, threadIds);
+      yield* requireSendable(command.principal, agent, project.id, threadIds);
       return yield* dependencies.repository.createDispatch({
         agentDisplayName: agent.displayName,
         agentId: agent.id,
