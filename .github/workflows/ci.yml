@@ -183,10 +183,14 @@ jobs:
         run: pnpm check
 
   full:
-    name: Full / Linux iteration gate
+    name: Full / ${{ matrix.suite }}
     if: inputs.tier == 'release' || (github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.tier == 'full'))
     runs-on: ubuntu-latest
     timeout-minutes: 47
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [core, services, compose, helm]
     env:
       NODE_OPTIONS: --max-old-space-size=4096
     steps:
@@ -256,17 +260,31 @@ jobs:
             --use
           docker buildx inspect --bootstrap
 
-      - name: Run the iteration gate
-        run: pnpm verify:iteration
+      - name: Run the suite
+        env:
+          ARTIFACTSERVER_SUITE: ${{ matrix.suite }}
+        run: pnpm "verify:$ARTIFACTSERVER_SUITE"
 
       - name: Upload full-gate reports
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: full-gate-reports-${{ github.run_id }}-${{ github.run_attempt }}
+          name: full-gate-reports-${{ matrix.suite }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             test-results/
             release/*.manifest.json
             release/*.tgz
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 14
+
+  full-gate:
+    name: Full / Linux iteration gate
+    needs: full
+    if: ${{ !cancelled() && needs.full.result != 'skipped' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Require every suite to pass
+        env:
+          ARTIFACTSERVER_FULL_RESULT: ${{ needs.full.result }}
+        run: test "$ARTIFACTSERVER_FULL_RESULT" = success

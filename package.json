@@ -57,7 +57,10 @@
     "test:local-package": "vitest run --config tests/configs/vitest.slow.config.ts tests/release/local-package.test.ts --testTimeout=120000",
     "test:watch": "vitest",
     "typecheck": "tsc -p tsconfig.json --noEmit && pnpm --filter @artifact-server/web typecheck && pnpm --filter @plannotator/artifact-server-pi typecheck && pnpm --filter @plannotator/artifact-server-opencode typecheck && pnpm --filter @plannotator/artifact-server-claude-channel typecheck",
-    "verify:iteration": "pnpm check && pnpm test:web && pnpm verify:object-storage && pnpm test:external-storage-runtime && pnpm test:local-package && pnpm test:compact-compose && pnpm test:external-storage-compose && pnpm verify:helm && pnpm test:oidc",
+    "verify:core": "pnpm check && pnpm test:web",
+    "verify:services": "pnpm verify:object-storage && pnpm test:external-storage-runtime && pnpm test:local-package && pnpm test:oidc",
+    "verify:compose": "pnpm test:compact-compose && pnpm test:external-storage-compose",
+    "verify:iteration": "pnpm verify:core && pnpm verify:services && pnpm verify:compose && pnpm verify:helm",
     "verify:helm": "pnpm test:helm-static && pnpm test:helm",
     "verify:aws-s3": "bash scripts/run-aws-s3-probe.sh",
     "verify:object-storage": "pnpm test:storage-s3 && pnpm test:storage-native-cloud"
