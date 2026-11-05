@@ -1,6 +1,6 @@
 version: 1
 product: Artifact Server
-updated: "2026-11-01"
+updated: "2026-11-05"
 
 source:
   product_spec: artifact-server-product-spec.html
@@ -625,7 +625,7 @@ requirements:
       failure: {id: CLI-001-F, description: "Credentials never appear in startup output, command output, project files, shell arguments, logs, traces, support bundles, or another origin's profile, and revoked or mismatched credentials fail closed."}
     deployments: *all
     status: implementing
-    proof_gap: The OAuth acceptance-ID test proves browser PKCE, refresh, status, and revocation, but not the local automatic-authentication and CI paths or every credential-leak surface named by CLI-001-F.
+    proof_gap: The OAuth acceptance-ID test proves browser PKCE, refresh, status, and revocation, but not the local automatic-authentication and CI paths or every credential-leak surface named by CLI-001-F. Production wiring of browser login arrives with AUTH-040.
     depends_on: [AUTH-009, AUTH-017]
 
   - id: CLI-002
@@ -1321,6 +1321,30 @@ requirements:
     status: specified
     depends_on: [AUTH-029, ART-013]
 
+  - id: AUTH-040
+    kind: security
+    behavior: An installation with OIDC login registers public OAuth clients and issues authorization codes only after a signed-in member approves the named client, with S256 PKCE required and redirects limited to loopback or an exact operator allowlist.
+    owner: authorization
+    source: {file: decisions/0036-own-authorization-server.md, anchor: decision}
+    acceptance:
+      behavior: {id: AUTH-040-B, description: "Register a client, sign in, approve it, and receive a code; a client with a grant skips consent."}
+      failure: {id: AUTH-040-F, description: "Confidential clients, unsafe redirects, missing or plain PKCE, unknown scopes, cross-site approval, and a wrong CSRF value issue no code; an invalid client or redirect is never redirected to."}
+    deployments: *all
+    status: specified
+    depends_on: [AUTH-009, AUTH-019]
+
+  - id: AUTH-041
+    kind: security
+    behavior: The token endpoint exchanges a single-use code for an expiring member key usable at /mcp and /api, and refresh replaces that key's secret in place with rotating refresh tokens.
+    owner: authorization
+    source: {file: decisions/0036-own-authorization-server.md, anchor: a-token-is-a-managed-member-key}
+    acceptance:
+      behavior: {id: AUTH-041-B, description: "Exchange a code, call /mcp and /api as the member, refresh, keep one key row, and retry a refresh inside the grace."}
+      failure: {id: AUTH-041-F, description: "A reused code, a wrong verifier, client, or redirect, an expired code, a revoked key, a deactivated member, and a stale refresh token fail closed; a stale refresh token revokes the grant, and an OAuth key cannot administer."}
+    deployments: *all
+    status: specified
+    depends_on: [AUTH-040]
+
   - id: SEC-001
     kind: security
     behavior: Published websites are treated as untrusted arbitrary browser JavaScript.
@@ -1480,7 +1504,7 @@ requirements:
 
   - id: MCP-013
     kind: behavior
-    behavior: Local mode connects through artifactserver connect and a stdio bridge without browser OAuth or a human-visible secret; self-hosted mode uses browser OAuth when compatible authorization is configured and otherwise uses administration-issued scoped API keys. A generic OIDC issuer is compatible authorization when it signs verifiable access-token JWTs, binds the exact <origin>/mcp audience, and offers a client registration path its clients can use; the installation registers that client and never runs an authorization server of its own.
+    behavior: Local mode connects through artifactserver connect and a stdio bridge without browser OAuth or a human-visible secret; self-hosted mode uses browser OAuth when compatible authorization is configured and otherwise uses administration-issued scoped API keys. An installation with OIDC login authorizes its own MCP and CLI clients and uses the configured issuer only for browser login. Access tokens from that issuer that bind the exact <origin>/mcp audience stay accepted.
     owner: mcp
     source: {file: artifact-server-product-spec.html, anchor: mcp}
     acceptance:
@@ -1500,7 +1524,8 @@ requirements:
       behavior: {id: MCP-014-B, description: "Pass the full hostile and client matrix using the embedded provider before advertising it."}
       failure: {id: MCP-014-F, description: "Self-hosted deployments remain usable through API keys and compatible external issuers when embedded OAuth is absent."}
     deployments: [single_server, kubernetes]
-    status: specified
+    status: not_applicable
+    rationale: Decision 0036 authorizes clients with handwritten routes instead of an embedded Better Auth provider.
     depends_on: [MCP-013]
 
   - id: MCP-015
