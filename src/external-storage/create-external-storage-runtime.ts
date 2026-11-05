@@ -24,6 +24,8 @@ import {
 import {createApplicationLayer} from "../local/create-local-application-layer.js";
 import {PostgresArtifactRepository} from "../storage/postgres-artifact-repository.js";
 import {PostgresDatabase} from "../storage/postgres-database.js";
+import type {OAuthAuthorizationConfiguration} from "../application/oauth-authorization.js";
+import {PostgresOAuthRepository} from "../storage/postgres-oauth-repository.js";
 import {PostgresIdentityRepository} from "../storage/postgres-identity-repository.js";
 import type {
   ObjectStorageProvider,
@@ -45,6 +47,7 @@ import {ensureBootstrapManagedApiKey} from
 export interface ExternalStorageRuntimeConfig {
   readonly apiToken: Redacted.Redacted;
   readonly apiOAuthResource?: ApiOAuthResourceConfiguration;
+  readonly oauthAuthorization?: OAuthAuthorizationConfiguration;
   readonly applicationOrigin?: string;
   readonly bootstrapAdministratorEmail: string;
   readonly externalIdentityAdmissionPolicy?: ExternalIdentityAdmissionPolicy;
@@ -107,6 +110,7 @@ export async function createExternalStorageRuntime(
       database,
       config.installationId,
     );
+    const oauthRepository = new PostgresOAuthRepository(database, config.installationId);
     await ensureBootstrapManagedApiKey({
       credential: config.apiToken,
       installationId: config.installationId,
@@ -128,6 +132,8 @@ export async function createExternalStorageRuntime(
       installationId: config.installationId,
       interactiveIdentityProvider: config.interactiveIdentityProvider ?? null,
       localBootstrapCredential: config.localBootstrapCredential ?? null,
+      oauthAuthorization: config.oauthAuthorization ?? null,
+      oauthRepository,
       protectBootstrapAdministrator: false,
       publicLinksEnabled: config.publicLinksEnabled ?? null,
       repository,

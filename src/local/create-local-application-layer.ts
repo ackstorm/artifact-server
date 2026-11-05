@@ -12,6 +12,11 @@ import {
   InstallationAccessService,
   type InstallationAccessDependencies,
 } from "../application/installation-access.js";
+import {
+  type OAuthAuthorizationConfiguration,
+  OAuthAuthorizationService,
+} from "../application/oauth-authorization.js";
+import type {OAuthRepository} from "../core/oauth.js";
 import {defaultSessionLifetimeHours} from "../core/session-lifetime.js";
 import {
   type InteractiveIdentityProvider,
@@ -158,6 +163,8 @@ export interface ApplicationAdapters {
    */
   readonly linked?: LinkedApplicationAdapters;
   readonly localBootstrapCredential: Redacted.Redacted | null;
+  readonly oauthAuthorization: OAuthAuthorizationConfiguration | null;
+  readonly oauthRepository: OAuthRepository;
   readonly protectBootstrapAdministrator: boolean;
   /** The configured public-link policy; null lets administrators choose in Settings. */
   readonly publicLinksEnabled: boolean | null;
@@ -207,6 +214,7 @@ export function createApplicationLayer(
   | InstallationAccessService
   | InteractiveLoginService
   | LinkedArtifactService
+  | OAuthAuthorizationService
   | PublishArtifactService
   | ProjectManagementService
   | PublicLinkAdministrationService
@@ -1022,6 +1030,12 @@ export function createApplicationLayer(
       ),
     },
   }).pipe(Layer.provideMerge(identityLayer));
+  const oauthLayer = OAuthAuthorizationService.layer({
+    clock: adapters.clock,
+    configuration: adapters.oauthAuthorization,
+    repository: adapters.oauthRepository,
+    secrets: identityDependencies.secrets,
+  }).pipe(Layer.provideMerge(identityLayer));
   const authorizationLayer = AuthorizationService.layer({
     installationId: adapters.installationId,
   });
@@ -1160,6 +1174,7 @@ export function createApplicationLayer(
     dispatchLayer,
     identityLayer,
     interactiveLoginLayer,
+    oauthLayer,
     stagedLayer,
     contentLayer,
     cleanupLayer,

@@ -1,4 +1,5 @@
 import { mkdtemp, rm } from "node:fs/promises";
+import type {OAuthAuthorizationConfiguration} from "../../src/application/oauth-authorization.js";
 import { request } from "node:http";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
@@ -82,6 +83,7 @@ export async function startTestServer(
     readonly browserAccess?: BrowserAccess;
     readonly contentDomain?: string;
     readonly apiOAuthResource?: ApiOAuthResourceConfiguration;
+    readonly oauthAuthorization?: OAuthAuthorizationConfiguration;
     readonly clock?: Clock;
     readonly completedRequestLogSampleRate?: number;
     readonly developmentProxyCredential?: string;
@@ -127,6 +129,9 @@ export async function startTestServer(
   }
   if (options.apiOAuthResource !== undefined) {
     config = {...config, apiOAuthResource: options.apiOAuthResource};
+  }
+  if (options.oauthAuthorization !== undefined) {
+    config = {...config, oauthAuthorization: options.oauthAuthorization};
   }
   if (options.externalApiBearerVerifier !== undefined) {
     config = {

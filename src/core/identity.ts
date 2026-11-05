@@ -48,6 +48,18 @@ export const principalCapabilities = {
 export type PrincipalCapability =
   (typeof principalCapabilities)[keyof typeof principalCapabilities];
 
+/** What a member can do in the browser, granted to their OAuth clients. */
+export const oauthMemberCapabilities: readonly PrincipalCapability[] = [
+  principalCapabilities.connectAgents,
+  principalCapabilities.createArtifact,
+  principalCapabilities.issueContentSession,
+  principalCapabilities.manageAnyArtifact,
+  principalCapabilities.publishAnyArtifact,
+  principalCapabilities.readArtifacts,
+  principalCapabilities.manageProjects,
+  principalCapabilities.writeComments,
+];
+
 /** A credential-independent identity used by every application operation. */
 export interface Principal {
   readonly authorizedByPrincipalId: string | null;

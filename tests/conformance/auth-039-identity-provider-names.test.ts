@@ -14,6 +14,7 @@ import {LocalBlobStore} from "../../src/storage/local-blob-store.js";
 import {LocalStagingStore} from "../../src/storage/local-staging-store.js";
 import {SqliteArtifactRepository} from "../../src/storage/sqlite-artifact-repository.js";
 import {SqliteIdentityRepository} from "../../src/storage/sqlite-identity-repository.js";
+import {SqliteOAuthRepository} from "../../src/storage/sqlite-oauth-repository.js";
 
 const installationId = "auth-039-identity-provider-names";
 const provider = "oidc:https://issuer.example.test";
@@ -36,6 +37,7 @@ describe("identity provider names", () => {
   let dataDirectory: string;
   let repository: SqliteArtifactRepository;
   let identityRepository: SqliteIdentityRepository;
+  let oauthRepository: SqliteOAuthRepository;
   let runtime: ApplicationRuntime;
 
   beforeEach(async () => {
@@ -43,6 +45,7 @@ describe("identity provider names", () => {
     const databasePath = path.join(dataDirectory, "artifact-server.db");
     repository = new SqliteArtifactRepository(databasePath);
     identityRepository = new SqliteIdentityRepository(databasePath);
+    oauthRepository = new SqliteOAuthRepository(databasePath, installationId);
     runtime = ManagedRuntime.make(createApplicationLayer({
       apiToken: Redacted.make("test-api-token"),
       blobs: new LocalBlobStore(path.join(dataDirectory, "blobs")),
@@ -58,6 +61,8 @@ describe("identity provider names", () => {
       installationId,
       interactiveIdentityProvider: null,
       localBootstrapCredential: null,
+      oauthAuthorization: null,
+      oauthRepository,
       protectBootstrapAdministrator: false,
       publicLinksEnabled: null,
       repository,
@@ -69,6 +74,7 @@ describe("identity provider names", () => {
   afterEach(async () => {
     await runtime.dispose();
     identityRepository.close();
+    oauthRepository.close();
     repository.close();
     await rm(dataDirectory, {force: true, recursive: true});
   });
