@@ -794,7 +794,7 @@ const addOAuthAuthorization = Effect.gen(function*() {
       previous_refresh_digest TEXT,
       created_at TEXT NOT NULL,
       refreshed_at TEXT NOT NULL,
-      idle_expires_at TEXT NOT NULL,
+      expires_at TEXT NOT NULL,
       PRIMARY KEY (installation_id, id),
       UNIQUE (installation_id, client_id, member_id)
     )`,

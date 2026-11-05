@@ -16,7 +16,7 @@ import {
 
 const accessLifetimeMilliseconds = 60 * 60 * 1_000;
 const codeLifetimeMilliseconds = 60 * 1_000;
-const refreshIdleMilliseconds = 30 * 24 * 60 * 60 * 1_000;
+const grantLifetimeMilliseconds = 30 * 24 * 60 * 60 * 1_000;
 const refreshReuseGraceMilliseconds = 30 * 1_000;
 const unboundClientMilliseconds = 24 * 60 * 60 * 1_000;
 const maximumClients = 10_000;
@@ -392,7 +392,7 @@ function makeOAuthAuthorizationService(
           apiKeyId: key.id,
           clientId,
           id: `grt_${randomUUID()}`,
-          idleExpiresAt: later(refreshIdleMilliseconds),
+          expiresAt: later(grantLifetimeMilliseconds),
           memberId: stored.memberId,
           previousRefreshDigest: null,
           refreshDigest: secrets.digest(refreshToken),
@@ -426,7 +426,7 @@ function makeOAuthAuthorizationService(
       const now = clock.now();
       if (
         grant === null || grant.clientId !== clientId ||
-        grant.idleExpiresAt <= now.toISOString()
+        grant.expiresAt <= now.toISOString()
       ) {
         return refused<OAuthTokens>("invalid_grant", "The refresh token is not valid.");
       }
@@ -450,7 +450,6 @@ function makeOAuthAuthorizationService(
           apiKeyId: grant.apiKeyId,
           expectedRefreshDigest: grant.refreshDigest,
           grantId: grant.id,
-          idleExpiresAt: later(refreshIdleMilliseconds),
           keyExpiresAt: later(accessLifetimeMilliseconds),
           keyPrefix: prefix,
           keySecretDigest: secretDigest,

@@ -23,6 +23,7 @@ import {
   type TestInstallation,
 } from "../support/runtime-harness.js";
 
+const dayMilliseconds = 24 * 60 * 60 * 1_000;
 const keysSchema = z.object({
   apiKeys: z.array(z.object({id: z.string(), name: z.string(), revokedAt: z.string().nullable()})),
 });
@@ -169,7 +170,14 @@ describe("OAuth tokens", () => {
 });
 
 describe("OAuth refresh expiry", () => {
-  test("a stale refresh token after the grace revokes the grant", async () => {
+  const connectOnClock = async (
+    run: (input: {
+      readonly clientId: string;
+      readonly clock: MutableClock;
+      readonly server: RunningTestServer;
+      readonly tokens: Awaited<ReturnType<typeof exchangeOAuthCode>>;
+    }) => Promise<void>,
+  ): Promise<void> => {
     const installation = await createTestInstallation();
     const clock = new MutableClock();
     const port = await reserveLoopbackPort();
@@ -185,13 +193,22 @@ describe("OAuth refresh expiry", () => {
       const clientId = await registerOAuthClient(server);
       const {challenge, verifier} = oauthPkce();
       const code = await approveOAuthClient(server, cookies, clientId, challenge);
-      const first = await exchangeOAuthCode(server, {clientId, code, verifier});
-      const second = await refreshOAuthToken(server, clientId, first.refresh_token);
+      const tokens = await exchangeOAuthCode(server, {clientId, code, verifier});
+      await run({clientId, clock, server, tokens});
+    } finally {
+      await server.stop();
+      await removeTestInstallation(installation);
+    }
+  };
+
+  test("a stale refresh token after the grace revokes the grant", async () => {
+    await connectOnClock(async ({clientId, clock, server, tokens}) => {
+      const second = await refreshOAuthToken(server, clientId, tokens.refresh_token);
       clock.advance(31_000);
       const reused = await postToken(server, {
         client_id: clientId,
         grant_type: "refresh_token",
-        refresh_token: first.refresh_token,
+        refresh_token: tokens.refresh_token,
       });
       expect(reused.status).toBe(400);
       const victim = await postToken(server, {
@@ -200,9 +217,21 @@ describe("OAuth refresh expiry", () => {
         refresh_token: second.refresh_token,
       });
       expect(victim.status).toBe(400);
-    } finally {
-      await server.stop();
-      await removeTestInstallation(installation);
-    }
+    });
+  });
+
+  test("a grant ends 30 days after creation however recently it refreshed", async () => {
+    await connectOnClock(async ({clientId, clock, server, tokens}) => {
+      clock.advance(29 * dayMilliseconds);
+      const recent = await refreshOAuthToken(server, clientId, tokens.refresh_token);
+      clock.advance(dayMilliseconds);
+      const expired = await postToken(server, {
+        client_id: clientId,
+        grant_type: "refresh_token",
+        refresh_token: recent.refresh_token,
+      });
+      expect(expired.status).toBe(400);
+      expect(await expired.json()).toMatchObject({error: "invalid_grant"});
+    });
   });
 });

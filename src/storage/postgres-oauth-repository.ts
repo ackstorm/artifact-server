@@ -34,7 +34,7 @@ const grantRowSchema = z.object({
   api_key_id: z.string(),
   client_id: z.string(),
   id: z.string(),
-  idle_expires_at: z.string(),
+  expires_at: z.string(),
   member_id: z.string(),
   previous_refresh_digest: z.string().nullable(),
   refresh_digest: z.string(),
@@ -84,11 +84,11 @@ export class PostgresOAuthRepository implements OAuthRepository {
         yield* sql`INSERT INTO oauth_grants (
             installation_id, id, client_id, member_id, api_key_id,
             refresh_digest, previous_refresh_digest, created_at,
-            refreshed_at, idle_expires_at
+            refreshed_at, expires_at
           ) VALUES (
             ${installationId}, ${grant.id}, ${grant.clientId}, ${grant.memberId},
             ${grant.apiKeyId}, ${grant.refreshDigest}, NULL,
-            ${connectedAt}, ${grant.refreshedAt}, ${grant.idleExpiresAt}
+            ${connectedAt}, ${grant.refreshedAt}, ${grant.expiresAt}
           )`;
       }));
     }));
@@ -162,7 +162,7 @@ export class PostgresOAuthRepository implements OAuthRepository {
     return this.#database.run(Effect.gen(function*() {
       const sql = yield* SqlClient;
       const rows = yield* sql`SELECT id, client_id, member_id, api_key_id,
-          refresh_digest, previous_refresh_digest, refreshed_at, idle_expires_at
+          refresh_digest, previous_refresh_digest, refreshed_at, expires_at
         FROM oauth_grants
         WHERE installation_id = ${installationId}
           AND (refresh_digest = ${digest} OR previous_refresh_digest = ${digest})`;
@@ -173,7 +173,7 @@ export class PostgresOAuthRepository implements OAuthRepository {
         apiKeyId: grant.api_key_id,
         clientId: grant.client_id,
         id: grant.id,
-        idleExpiresAt: grant.idle_expires_at,
+        expiresAt: grant.expires_at,
         memberId: grant.member_id,
         previousRefreshDigest: grant.previous_refresh_digest,
         refreshDigest: grant.refresh_digest,
@@ -198,7 +198,7 @@ export class PostgresOAuthRepository implements OAuthRepository {
         WHERE grants.installation_id = ${installationId}
           AND grants.client_id = ${clientId}
           AND grants.member_id = ${memberId}
-          AND grants.idle_expires_at > ${now}
+          AND grants.expires_at > ${now}
           AND keys.revoked_at IS NULL`;
       return countRowSchema.parse(rows[0]).count > 0;
     }));
@@ -280,8 +280,7 @@ export class PostgresOAuthRepository implements OAuthRepository {
         yield* sql`UPDATE oauth_grants
           SET previous_refresh_digest = refresh_digest,
             refresh_digest = ${rotation.refreshDigest},
-            refreshed_at = ${rotation.refreshedAt},
-            idle_expires_at = ${rotation.idleExpiresAt}
+            refreshed_at = ${rotation.refreshedAt}
           WHERE installation_id = ${installationId}
             AND id = ${rotation.grantId}`;
         return true;

@@ -19,12 +19,12 @@ export interface OAuthAuthorizationCode {
   readonly redirectUri: string;
 }
 
-/** One client's standing authorization to act as one member. */
+/** One client's standing authorization to act as one member, fixed-lived from creation. */
 export interface OAuthGrant {
   readonly apiKeyId: string;
   readonly clientId: string;
   readonly id: string;
-  readonly idleExpiresAt: string;
+  readonly expiresAt: string;
   readonly memberId: string;
   readonly previousRefreshDigest: string | null;
   readonly refreshDigest: string;
@@ -36,7 +36,6 @@ export interface OAuthGrantRotation {
   readonly apiKeyId: string;
   readonly expectedRefreshDigest: string;
   readonly grantId: string;
-  readonly idleExpiresAt: string;
   readonly keyExpiresAt: string;
   readonly keyPrefix: string;
   readonly keySecretDigest: string;

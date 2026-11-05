@@ -30,7 +30,7 @@ const grantRowSchema = z.object({
   api_key_id: z.string(),
   client_id: z.string(),
   id: z.string(),
-  idle_expires_at: z.string(),
+  expires_at: z.string(),
   member_id: z.string(),
   previous_refresh_digest: z.string().nullable(),
   refresh_digest: z.string(),
@@ -102,7 +102,7 @@ export class SqliteOAuthRepository implements OAuthRepository {
       this.#database.prepare(`
         INSERT INTO oauth_grants (
           installation_id, id, client_id, member_id, api_key_id, refresh_digest,
-          previous_refresh_digest, created_at, refreshed_at, idle_expires_at
+          previous_refresh_digest, created_at, refreshed_at, expires_at
         ) VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?, ?)
       `).run(
         this.#installationId,
@@ -113,7 +113,7 @@ export class SqliteOAuthRepository implements OAuthRepository {
         grant.refreshDigest,
         connectedAt,
         grant.refreshedAt,
-        grant.idleExpiresAt,
+        grant.expiresAt,
       );
     });
   };
@@ -179,7 +179,7 @@ export class SqliteOAuthRepository implements OAuthRepository {
   ): Promise<OAuthGrant | null> => {
     const row = this.#database.prepare(`
       SELECT id, client_id, member_id, api_key_id, refresh_digest,
-        previous_refresh_digest, refreshed_at, idle_expires_at
+        previous_refresh_digest, refreshed_at, expires_at
       FROM oauth_grants
       WHERE installation_id = ?
         AND (refresh_digest = ? OR previous_refresh_digest = ?)
@@ -190,7 +190,7 @@ export class SqliteOAuthRepository implements OAuthRepository {
       apiKeyId: grant.api_key_id,
       clientId: grant.client_id,
       id: grant.id,
-      idleExpiresAt: grant.idle_expires_at,
+      expiresAt: grant.expires_at,
       memberId: grant.member_id,
       previousRefreshDigest: grant.previous_refresh_digest,
       refreshDigest: grant.refresh_digest,
@@ -210,7 +210,7 @@ export class SqliteOAuthRepository implements OAuthRepository {
         ON keys.installation_id = grants.installation_id
         AND keys.id = grants.api_key_id
       WHERE grants.installation_id = ? AND grants.client_id = ?
-        AND grants.member_id = ? AND grants.idle_expires_at > ?
+        AND grants.member_id = ? AND grants.expires_at > ?
         AND keys.revoked_at IS NULL
     `).get(this.#installationId, clientId, memberId, now);
     return countRowSchema.parse(row).count > 0;
@@ -290,12 +290,11 @@ export class SqliteOAuthRepository implements OAuthRepository {
       this.#database.prepare(`
         UPDATE oauth_grants
         SET previous_refresh_digest = refresh_digest, refresh_digest = ?,
-          refreshed_at = ?, idle_expires_at = ?
+          refreshed_at = ?
         WHERE installation_id = ? AND id = ?
       `).run(
         rotation.refreshDigest,
         rotation.refreshedAt,
-        rotation.idleExpiresAt,
         this.#installationId,
         rotation.grantId,
       );
