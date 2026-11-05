@@ -15,7 +15,6 @@ const accessLifetimeMilliseconds = 60 * 60 * 1_000;
 const codeLifetimeMilliseconds = 60 * 1_000;
 const grantLifetimeMilliseconds = 30 * 24 * 60 * 60 * 1_000;
 const refreshReuseGraceMilliseconds = 30 * 1_000;
-const unboundClientMilliseconds = 24 * 60 * 60 * 1_000;
 const maximumClients = 10_000;
 const maximumRedirectUris = 5;
 const maximumClientNameLength = 100;
@@ -242,17 +241,13 @@ function makeOAuthAuthorizationService(
         redirectUris: uris,
       };
       const stored = yield* repositoryEffect(() =>
-        repository.registerClient(
-          client,
-          new Date(clock.now().getTime() - unboundClientMilliseconds).toISOString(),
-          maximumClients,
-        )
+        repository.registerClient(client, maximumClients)
       );
       return stored
         ? {ok: true, value: client}
         : refused<OAuthClient>(
           "temporarily_unavailable",
-          "This installation has too many pending client registrations.",
+          "This installation has too many connected clients.",
         );
     });
 

@@ -40,6 +40,7 @@ const grantRowSchema = z.object({
   refreshed_at: z.string(),
 });
 const countRowSchema = z.object({count: z.number()});
+const idRowSchema = z.object({id: z.string()});
 
 /** OAuth state stored in the installation's SQLite identity database. */
 export class SqliteOAuthRepository implements OAuthRepository {
@@ -222,20 +223,25 @@ export class SqliteOAuthRepository implements OAuthRepository {
 
   registerClient = async (
     client: OAuthClient,
-    staleBefore: string,
     maximumClients: number,
   ): Promise<boolean> =>
     this.#transaction(() => {
-      this.#database.prepare(`
-        DELETE FROM oauth_clients
-        WHERE installation_id = ? AND created_at < ? AND id NOT IN (
-          SELECT client_id FROM oauth_grants WHERE installation_id = ?
-        )
-      `).run(this.#installationId, staleBefore, this.#installationId);
       const state = countRowSchema.parse(this.#database.prepare(`
         SELECT COUNT(*) AS count FROM oauth_clients WHERE installation_id = ?
       `).get(this.#installationId));
-      if (state.count >= maximumClients) return false;
+      if (state.count >= maximumClients) {
+        const oldest = this.#database.prepare(`
+          SELECT id FROM oauth_clients AS clients
+          WHERE installation_id = ? AND NOT EXISTS (
+            SELECT 1 FROM oauth_grants AS grants
+            WHERE grants.installation_id = clients.installation_id
+              AND grants.client_id = clients.id AND grants.expires_at > ?
+          )
+          ORDER BY created_at, id LIMIT 1
+        `).get(this.#installationId, client.createdAt);
+        if (oldest === undefined) return false;
+        this.#evictClient(idRowSchema.parse(oldest).id, client.createdAt);
+      }
       this.#database.prepare(`
         INSERT INTO oauth_clients (
           installation_id, id, name, redirect_uris_json, created_at
@@ -305,6 +311,25 @@ export class SqliteOAuthRepository implements OAuthRepository {
       );
       return true;
     });
+
+  #evictClient(clientId: string, evictedAt: string): void {
+    this.#database.prepare(`
+      UPDATE managed_api_keys
+      SET revoked_at = COALESCE(revoked_at, ?)
+      WHERE installation_id = ? AND id IN (
+        SELECT api_key_id FROM oauth_grants
+        WHERE installation_id = ? AND client_id = ?
+      )
+    `).run(evictedAt, this.#installationId, this.#installationId, clientId);
+    for (const table of ["oauth_grants", "oauth_authorization_codes"]) {
+      this.#database.prepare(
+        `DELETE FROM ${table} WHERE installation_id = ? AND client_id = ?`,
+      ).run(this.#installationId, clientId);
+    }
+    this.#database.prepare(
+      "DELETE FROM oauth_clients WHERE installation_id = ? AND id = ?",
+    ).run(this.#installationId, clientId);
+  }
 
   #memberIsActive(memberId: string): boolean {
     return this.#database.prepare(`

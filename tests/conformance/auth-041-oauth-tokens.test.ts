@@ -1,3 +1,6 @@
+import path from "node:path";
+import {DatabaseSync} from "node:sqlite";
+
 import {Redacted} from "effect";
 import {afterEach, beforeEach, describe, expect, test} from "vitest";
 import {z} from "zod";
@@ -12,9 +15,12 @@ import {ownOAuthResources} from "../../src/identity/own-oauth-resources.js";
 import {browserMutationHeaders, type ApplicationCookies} from "../support/browser-session.js";
 import {
   approveOAuthClient,
+  authorizationUrl,
   exchangeOAuthCode,
+  getAuthorization,
   oauthPkce,
   oauthRedirectUri,
+  postRegistration,
   postToken,
   refreshOAuthToken,
   registerOAuthClient,
@@ -291,6 +297,7 @@ describe("OAuth refresh expiry", () => {
     run: (input: {
       readonly clientId: string;
       readonly clock: MutableClock;
+      readonly installation: TestInstallation;
       readonly server: RunningTestServer;
       readonly tokens: Awaited<ReturnType<typeof exchangeOAuthCode>>;
     }) => Promise<void>,
@@ -311,7 +318,7 @@ describe("OAuth refresh expiry", () => {
       const {challenge, verifier} = oauthPkce();
       const code = await approveOAuthClient(server, cookies, clientId, challenge);
       const tokens = await exchangeOAuthCode(server, {clientId, code, verifier});
-      await run({clientId, clock, server, tokens});
+      await run({clientId, clock, installation, server, tokens});
     } finally {
       await server.stop();
       await removeTestInstallation(installation);
@@ -349,6 +356,58 @@ describe("OAuth refresh expiry", () => {
       });
       expect(expired.status).toBe(400);
       expect(await expired.json()).toMatchObject({error: "invalid_grant"});
+    });
+  });
+
+  test("at the cap, registration evicts the oldest client with no live grant", async () => {
+    await connectOnClock(async ({clientId: renewed, clock, installation, server}) => {
+      const dead = await registerOAuthClient(server, {client_name: "Dead Client"});
+      const firstCookies = await signInAdministrator(server, installation);
+      const {challenge, verifier} = oauthPkce();
+      const code = await approveOAuthClient(server, firstCookies, dead, challenge);
+      await exchangeOAuthCode(server, {clientId: dead, code, verifier});
+      clock.advance(31 * dayMilliseconds);
+      const cookies = await signInAdministrator(server, installation);
+      const pkce = oauthPkce();
+      const renewedCode = await approveOAuthClient(server, cookies, renewed, pkce.challenge);
+      await exchangeOAuthCode(server, {
+        clientId: renewed,
+        code: renewedCode,
+        verifier: pkce.verifier,
+      });
+
+      const database = new DatabaseSync(
+        path.join(installation.dataDirectory, "artifact-server.db"),
+      );
+      database.exec(`
+        WITH RECURSIVE seed(n) AS (SELECT 1 UNION ALL SELECT n + 1 FROM seed WHERE n < 9998)
+        INSERT INTO oauth_clients (installation_id, id, name, redirect_uris_json, created_at)
+        SELECT (SELECT installation_id FROM oauth_clients LIMIT 1), 'cli_seed_' || n, 'Seed',
+          '[]', '2099-01-01T00:00:00.000Z' FROM seed
+      `);
+      const authorize = (clientId: string) =>
+        getAuthorization(authorizationUrl(server, clientId, pkce.challenge), cookies);
+      expect((await postRegistration(server)).status).toBe(201);
+      expect((await authorize(dead)).status).toBe(400);
+      expect((await authorize(renewed)).status).toBe(302);
+      const keys = keysSchema.parse(await (await fetch(`${server.baseUrl}/api/v1/api-keys`, {
+        headers: {Cookie: cookies.header},
+      })).json()).apiKeys;
+      expect(keys.find((key) => key.name.endsWith(" via Dead Client"))?.revokedAt)
+        .toEqual(expect.any(String));
+
+      database.exec(`
+        INSERT INTO oauth_grants (
+          installation_id, id, client_id, member_id, api_key_id, refresh_digest,
+          created_at, refreshed_at, expires_at
+        )
+        SELECT installation_id, 'grt_' || id, id, 'seed', 'seed', 'seed_' || id,
+          created_at, created_at, '2099-01-01T00:00:00.000Z'
+        FROM oauth_clients AS clients
+        WHERE NOT EXISTS (SELECT 1 FROM oauth_grants WHERE client_id = clients.id)
+      `);
+      database.close();
+      expect((await postRegistration(server)).status).toBe(503);
     });
   });
 });

@@ -71,10 +71,12 @@ export interface OAuthRepository {
     memberId: string,
     now: string,
   ) => Promise<boolean>;
-  /** Drop unbound registrations before staleBefore, then insert within the cap. */
+  /**
+   * Insert a client. At the cap, first evict the oldest client with no grant live
+   * at client.createdAt, its grants, keys and codes; false when none qualifies.
+   */
   readonly registerClient: (
     client: OAuthClient,
-    staleBefore: string,
     maximumClients: number,
   ) => Promise<boolean>;
   /** Revoke the grant's key and delete the grant; false when not this member's. */

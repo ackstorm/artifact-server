@@ -15,6 +15,7 @@ import type {
 } from "../core/oauth.js";
 import type {PostgresDatabase} from "./postgres-database.js";
 
+const idRowSchema = z.object({id: z.string()});
 const keyIdRowSchema = z.object({api_key_id: z.string()});
 const countRowSchema = z.object({count: z.coerce.number()});
 const clientRowSchema = z.object({
@@ -237,23 +238,42 @@ export class PostgresOAuthRepository implements OAuthRepository {
 
   registerClient = async (
     client: OAuthClient,
-    staleBefore: string,
     maximumClients: number,
   ): Promise<boolean> => {
     const installationId = this.#installationId;
     return this.#database.run(Effect.gen(function*() {
       const sql = yield* SqlClient;
       return yield* sql.withTransaction(Effect.gen(function*() {
-        yield* sql`DELETE FROM oauth_clients
-          WHERE installation_id = ${installationId}
-            AND created_at < ${staleBefore}
-            AND id NOT IN (
-              SELECT client_id FROM oauth_grants
-              WHERE installation_id = ${installationId}
-            )`;
+        yield* sql`SELECT pg_advisory_xact_lock(hashtextextended(
+          ${`oauth-register:${installationId}`}, 0
+        ))`;
         const rows = yield* sql`SELECT COUNT(*) AS count FROM oauth_clients
           WHERE installation_id = ${installationId}`;
-        if (countRowSchema.parse(rows[0]).count >= maximumClients) return false;
+        if (countRowSchema.parse(rows[0]).count >= maximumClients) {
+          const oldest = yield* sql`SELECT id FROM oauth_clients AS clients
+            WHERE installation_id = ${installationId} AND NOT EXISTS (
+              SELECT 1 FROM oauth_grants AS grants
+              WHERE grants.installation_id = clients.installation_id
+                AND grants.client_id = clients.id
+                AND grants.expires_at > ${client.createdAt}
+            )
+            ORDER BY created_at, id LIMIT 1`;
+          if (oldest[0] === undefined) return false;
+          const {id} = idRowSchema.parse(oldest[0]);
+          yield* sql`WITH evicted AS (
+              DELETE FROM oauth_grants
+              WHERE installation_id = ${installationId} AND client_id = ${id}
+              RETURNING api_key_id
+            )
+            UPDATE managed_api_keys
+            SET revoked_at = COALESCE(revoked_at, ${client.createdAt})
+            WHERE installation_id = ${installationId}
+              AND id IN (SELECT api_key_id FROM evicted)`;
+          yield* sql`DELETE FROM oauth_authorization_codes
+            WHERE installation_id = ${installationId} AND client_id = ${id}`;
+          yield* sql`DELETE FROM oauth_clients
+            WHERE installation_id = ${installationId} AND id = ${id}`;
+        }
         yield* sql`INSERT INTO oauth_clients (
             installation_id, id, name, redirect_uris_json, created_at
           ) VALUES (

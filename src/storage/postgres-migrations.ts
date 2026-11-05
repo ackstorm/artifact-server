@@ -798,6 +798,8 @@ const addOAuthAuthorization = Effect.gen(function*() {
       PRIMARY KEY (installation_id, id),
       UNIQUE (installation_id, client_id, member_id)
     )`,
+    `CREATE INDEX oauth_clients_created_idx
+      ON oauth_clients (installation_id, created_at)`,
     `CREATE INDEX oauth_grants_refresh_idx
       ON oauth_grants (installation_id, refresh_digest)`,
     `CREATE INDEX oauth_grants_previous_refresh_idx
