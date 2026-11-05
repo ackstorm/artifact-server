@@ -69,6 +69,9 @@ import {
   maximumDispatchBundleSize,
   maximumDispatchFailureReasonCharacters,
   maximumDispatchNoteCharacters,
+  maximumVoiceTextCharacters,
+  voiceListenerKind,
+  voiceMessageLifetimeMilliseconds,
 } from "../core/publishing-limits.js";
 
 /** Outbound failures surfaced by agent-dispatch persistence. */
@@ -254,6 +257,20 @@ export interface ListDispatchesCommand {
   readonly state: AgentDispatchState | null;
 }
 
+/** Input for saying one sentence to the caller's own voice listener. */
+export interface SayVoiceCommand {
+  readonly principal: Principal;
+  readonly text: string;
+}
+
+/** Input for one listener poll taking its principal's voice messages. */
+export interface TakeVoiceCommand {
+  readonly agentId: string;
+  /** True on the first attempt of one held poll request, as for claims. */
+  readonly bumpHeartbeat: boolean;
+  readonly principal: Principal;
+}
+
 /** Expected failures produced by agent-dispatch operations. */
 export type AgentDispatchFailure =
   | AgentDispatchNotFound
@@ -303,6 +320,13 @@ interface AgentDispatchOperations {
   readonly reportFailed: (
     command: ReportFailedCommand,
   ) => Effect.Effect<AgentDispatchRecord, AgentDispatchFailure>;
+  /** Queue text only while the caller has a connected habla listener. */
+  readonly sayVoice: (
+    command: SayVoiceCommand,
+  ) => Effect.Effect<boolean, AgentDispatchFailure>;
+  readonly takeVoice: (
+    command: TakeVoiceCommand,
+  ) => Effect.Effect<readonly VoiceMessageRecord[], AgentDispatchFailure>;
 }
 
 /** Owns the agent registry and dispatch mailbox for one installation. */
@@ -653,6 +677,53 @@ function makeAgentDispatchService(
     },
   );
 
+  const sayVoice = Effect.fn("AgentDispatchService.sayVoice")(
+    function*(command: SayVoiceCommand) {
+      yield* authorization.requireArtifactRead(command.principal);
+      const text = command.text.trim();
+      if (text.length === 0 || text.length > maximumVoiceTextCharacters) {
+        return yield* new InvalidDispatch({
+          message:
+            `Voice text must hold 1 to ${maximumVoiceTextCharacters} characters.`,
+        });
+      }
+      const at = yield* dependencies.clock.now;
+      return yield* dependencies.repository.enqueueVoiceMessage({
+        createdAt: DateTime.formatIso(at),
+        id: dependencies.ids.voiceMessageId(),
+        installationId: dependencies.installationId,
+        listenerSeenSince: DateTime.formatIso(
+          DateTime.subtractDuration(at, agentConnectedWindowMilliseconds),
+        ),
+        principalId: command.principal.id,
+        text,
+      });
+    },
+  );
+
+  const takeVoice = Effect.fn("AgentDispatchService.takeVoice")(
+    function*(command: TakeVoiceCommand) {
+      yield* authorization.requireAgentConnection(command.principal);
+      const agent = yield* requireOwnedAgent(command.agentId, command.principal);
+      if (agent.kind !== voiceListenerKind) {
+        return yield* new InvalidDispatch({
+          message: "Only a habla agent takes voice messages.",
+        });
+      }
+      const at = yield* dependencies.clock.now;
+      return yield* dependencies.repository.takeVoiceMessages({
+        agentId: agent.id,
+        bumpHeartbeat: command.bumpHeartbeat,
+        expiredBefore: DateTime.formatIso(
+          DateTime.subtractDuration(at, voiceMessageLifetimeMilliseconds),
+        ),
+        installationId: dependencies.installationId,
+        now: DateTime.formatIso(at),
+        principalId: command.principal.id,
+      });
+    },
+  );
+
   const reportDelivered = Effect.fn("AgentDispatchService.reportDelivered")(
     function*(command: ReportDeliveredCommand) {
       yield* authorization.requireAgentConnection(command.principal);
@@ -754,6 +825,8 @@ function makeAgentDispatchService(
     registerAgent,
     reportDelivered,
     reportFailed,
+    sayVoice,
+    takeVoice,
   });
 }
 

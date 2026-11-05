@@ -1360,6 +1360,30 @@ export function createHttpApp(
       : context.json({dispatch: agentDispatchResponse(dispatch)});
   });
 
+  // A habla listener's long poll and heartbeat: taking messages deletes them.
+  app.post("/api/v1/agents/:agentId/voice", async (context) => {
+    const query = claimDispatchQuerySchema.parse(context.req.query());
+    const agentId = context.req.param("agentId");
+    const principal = context.get("principal");
+    const messages = await claimWithinPollDeadline(
+      async (bumpHeartbeat) => {
+        const taken = await runHttpApplicationEffect(
+          context,
+          dependencies,
+          AgentDispatchService.use((agents) =>
+            agents.takeVoice({agentId, bumpHeartbeat, principal})
+          ),
+        );
+        return taken.length === 0 ? null : taken;
+      },
+      Date.now() + Math.min(query.wait, maximumClaimWaitSeconds) * 1_000,
+      context.req.raw.signal,
+    );
+    return messages === null
+      ? context.body(null, 204)
+      : context.json({messages});
+  });
+
   app.post("/api/v1/agent-dispatches", boundedJsonBody, async (context) => {
     const body = createAgentDispatchSchema.parse(await context.req.json());
     const created = await runHttpApplicationEffect(
@@ -3254,12 +3278,12 @@ async function parseOptionalJsonBody<Body>(
  * heartbeat: one held request is one liveness bump, and the re-checks after
  * it write nothing while the mailbox stays empty.
  */
-async function claimWithinPollDeadline(
-  attemptClaim: (bumpHeartbeat: boolean) => Promise<AgentDispatchRecord | null>,
+async function claimWithinPollDeadline<T>(
+  attemptClaim: (bumpHeartbeat: boolean) => Promise<T | null>,
   deadlineMilliseconds: number,
   signal: AbortSignal,
   bumpHeartbeat = true,
-): Promise<AgentDispatchRecord | null> {
+): Promise<T | null> {
   const dispatch = await attemptClaim(bumpHeartbeat);
   if (dispatch !== null) return dispatch;
   const remainingMilliseconds = deadlineMilliseconds - Date.now();
