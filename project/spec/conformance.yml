@@ -2331,7 +2331,7 @@ requirements:
     source: {file: voice-inbox-spec.md, anchor: behavior}
     acceptance:
       behavior: {id: VOX-002-B, description: "Two queued sentences come back oldest first in one poll and never again; an empty poll answers 204 within its wait and keeps the listener connected."}
-      failure: {id: VOX-002-F, description: "A message older than sixty seconds is never returned, another principal's agent and a non-habla agent are refused, and voice messages never appear in artifact listings."}
+      failure: {id: VOX-002-F, description: "A message older than sixty seconds is never returned, another principal's agent, a non-habla agent, and a caller without agent:connect are refused, a dispatch to a habla agent is refused, and voice messages never appear in artifact listings."}
     deployments: *all
     status: verified
     depends_on: [VOX-001, PRS-007]

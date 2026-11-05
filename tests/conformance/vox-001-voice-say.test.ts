@@ -61,6 +61,7 @@ describe("voice_say", () => {
   test("VOX-001-F: queues nothing without a connected listener of the caller", async () => {
     expect.hasAssertions();
     expect(await say("Nobody is listening.")).toBe(false);
+    await expectNothingStored();
 
     // Another principal's connected listener does not make the caller heard.
     const administrator = await signInAdministrator(server, installation);
@@ -72,10 +73,12 @@ describe("voice_say", () => {
     expect((await other.voice(othersListener.id, 0)).status).toBe(204);
     expect(await say("Not for the other principal.")).toBe(false);
     expect((await other.voice(othersListener.id, 0)).status).toBe(204);
+    await expectNothingStored();
 
     // An agent of another kind is not a listener.
     await registerListener(client, "pi");
     expect(await say("A pi agent does not speak.")).toBe(false);
+    await expectNothingStored();
 
     // A habla listener that stopped polling is no longer connected.
     const stale = await registerListener(client, "habla");
@@ -93,6 +96,20 @@ describe("voice_say", () => {
     expect(refused.map(mcpFailed)).toEqual([true, true, true]);
     expect((await client.voice(stale.id, 0)).status).toBe(204);
   });
+
+  /**
+   * At the same clock time, a listener connecting now finds nothing queued,
+   * so a refused say stored no row; the probe disconnects again afterwards.
+   */
+  async function expectNothingStored(): Promise<void> {
+    const probe = await registerListener(client, "habla");
+    expect((await client.voice(probe.id, 0)).status).toBe(204);
+    const disconnected = await client.fetch(
+      `/api/v1/agents/${probe.id}/disconnect`,
+      {method: "POST"},
+    );
+    expect(disconnected.ok).toBe(true);
+  }
 
   async function say(text: string): Promise<boolean> {
     const reply = await callMcp(
