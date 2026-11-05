@@ -2206,6 +2206,29 @@ export function createArtifactMcpServer(
     }, mailboxSummary),
   );
 
+  registerNudgedTool(
+    "voice_say",
+    {
+      title: "Say it out loud",
+      description:
+        "Say one short sentence out loud to the user through their habla listener. Queues it only while that listener is connected and answers queued false otherwise; then carry on without retrying.",
+      inputSchema: z.object({
+        // The service checks the trimmed length; this only bounds the payload.
+        text: z.string().max(4_096),
+      }).strict(),
+      outputSchema: z.object({queued: z.boolean()}).strict(),
+      annotations: additiveWriteAnnotations,
+    },
+    ({text}) => toolResult(async () => ({
+      queued: await runMcpApplicationEffect(
+        dependencies,
+        AgentDispatchService.use((agents) =>
+          agents.sayVoice({principal: identity.principal, text})
+        ),
+      ),
+    })),
+  );
+
   server.registerResource(
     "artifact-version-manifest",
     manifestResource,
@@ -2294,6 +2317,7 @@ function agentInstructions(mode: "local" | "remote"): string {
     "Reviewers leave comment threads on an artifact version. Use comment_list and comment_get to read them, comment_create, comment_reply, and comment_update to write, comment_resolve to close or reopen a thread, and comment_delete to remove one you own; deleting a thread also deletes its replies. Sent comments cannot be deleted while their dispatch is queued, claimed, or delivered. comment_clear removes every resolved thread — or all threads — on one artifact at once and reports how many sent comments it skipped.",
     "comment_list hides threads an agent dispatch currently holds unless you pass dispatched: \"include\" or \"only\"; comment_get still reads a dispatched thread directly by id.",
     "dispatch_inbox is this caller's mailbox for annotation bundles a reviewer dispatched to it: list registers the caller as a mailbox-tier agent and shows its queued dispatches, claim takes the oldest one as a rendered message, and delivered or failed reports the outcome. Address a delivered bundle's threads with comment_reply, then comment_resolve.",
+    "voice_say speaks one short sentence to the user through their connected habla listener; a false answer means nobody listens, so carry on silently.",
     "artifact_get returns the current complete manifest, current.links.review for exact full-screen Review, and links.artifact for the moving latest version. artifact_open returns reviewUrl for exact full-screen Review and browserUrl for raw immutable content. Prefer the Review URL for human handoff, and never describe browserUrl as a Review link. A remote server never opens a browser on the server machine.",
     mode === "local"
       ? "This is a local MCP connection, but the MCP protocol still carries metadata rather than file bytes. Use the bundled Artifact Server skill or CLI to upload a local path."

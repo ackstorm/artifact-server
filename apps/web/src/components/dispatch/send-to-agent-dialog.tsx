@@ -9,6 +9,7 @@ import type {DispatchBundle} from "@/components/dispatch/dispatch-bundle";
 import {
   maximumDispatchBundleSize,
   maximumDispatchNoteCharacters,
+  voiceListenerKind,
 } from "@/components/dispatch/dispatch-limits";
 import type {DispatchFeedback} from "@/components/dispatch/dispatch-toast";
 import {PresenceGlyph, presenceRing} from "@/components/dispatch/presence-avatar";
@@ -179,9 +180,10 @@ export function SendToAgentControl({
   const rememberedDefault = rememberedPreference.storageKey === storageKey
     ? rememberedPreference.agent
     : null;
-  const knownConnected = agents?.filter((agent) => agent.connected) ?? null;
-  const rememberedAgent = agents?.find((agent) => agent.id === rememberedDefault?.id) ?? null;
-  const rememberedDefaultMissing = agents !== null
+  const targets = agents?.filter((agent) => agent.kind !== voiceListenerKind) ?? null;
+  const knownConnected = targets?.filter((agent) => agent.connected) ?? null;
+  const rememberedAgent = targets?.find((agent) => agent.id === rememberedDefault?.id) ?? null;
+  const rememberedDefaultMissing = targets !== null
     && rememberedDefault !== null
     && rememberedAgent === null;
 
@@ -279,11 +281,14 @@ export function SendToAgentControl({
         api.agentPresence(),
         resolveBundle(),
       ]);
-      setDialogAgents(listedAgents);
+      const listedTargets = listedAgents.filter((agent) =>
+        agent.kind !== voiceListenerKind
+      );
+      setDialogAgents(listedTargets);
       setBundle(resolved);
-      const preferred = listedAgents.find((agent) =>
+      const preferred = listedTargets.find((agent) =>
         agent.id === rememberedDefault?.id && agent.connected
-      ) ?? listedAgents.find((agent) => agent.connected) ?? null;
+      ) ?? listedTargets.find((agent) => agent.connected) ?? null;
       setAgentId(preferred?.id ?? null);
       setNow(Date.now());
     } catch (caught) {

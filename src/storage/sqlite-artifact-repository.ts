@@ -98,6 +98,7 @@ import type {
   DeleteArtifact,
   DeleteCommentReply,
   DeleteCommentThread,
+  EnqueueVoiceMessage,
   ExchangeContentBootstrap,
   ExpiredStagedUpload,
   ListAgentDispatches,
@@ -124,11 +125,15 @@ import type {
   SourceBindingWrite,
   StagedUploadGrantRecord,
   StagedUploadRepository,
+  TakeVoiceMessages,
+  VoiceMessageRecord,
 } from "../core/ports.js";
 import {
   agentDispatchLeaseMilliseconds,
   agentUnavailableStalenessMilliseconds,
+  maximumVoiceMessagesPerTake,
   registeredAgentRetentionMilliseconds,
+  voiceListenerKind,
 } from "../core/publishing-limits.js";
 import { createManifest } from "../manifest/create-manifest.js";
 import {requiredSqliteSchemaVersion} from "./sqlite-schema.js";
@@ -3403,6 +3408,103 @@ export class SqliteArtifactRepository implements
     );
   }
 
+  enqueueVoiceMessage(command: EnqueueVoiceMessage): Promise<boolean> {
+    return Promise.resolve().then(() =>
+      this.#transaction(() => {
+        const listener = this.#database
+          .prepare(
+            `SELECT 1 FROM registered_agents
+             WHERE installation_id = ? AND principal_id = ? AND kind = ?
+               AND last_seen_at >= ?
+             LIMIT 1`,
+          )
+          .get(
+            command.installationId,
+            command.principalId,
+            voiceListenerKind,
+            command.listenerSeenSince,
+          );
+        if (listener === undefined) return false;
+        this.#database
+          .prepare(
+            `DELETE FROM voice_messages
+             WHERE installation_id = ? AND principal_id = ? AND created_at < ?`,
+          )
+          .run(command.installationId, command.principalId, command.expiredBefore);
+        this.#database
+          .prepare(
+            `INSERT INTO voice_messages
+               (id, installation_id, principal_id, text, created_at)
+             VALUES (?, ?, ?, ?, ?)`,
+          )
+          .run(
+            command.id,
+            command.installationId,
+            command.principalId,
+            command.text,
+            command.createdAt,
+          );
+        return true;
+      }),
+    );
+  }
+
+  takeVoiceMessages(
+    command: TakeVoiceMessages,
+  ): Promise<readonly VoiceMessageRecord[]> {
+    return Promise.resolve().then(() => {
+      // A re-check inside one held poll is a pure read while nothing is
+      // pending; an expired row found here costs one write that returns none.
+      if (
+        !command.bumpHeartbeat &&
+        this.#database
+          .prepare(
+            `SELECT 1 FROM voice_messages
+             WHERE installation_id = ? AND principal_id = ? LIMIT 1`,
+          )
+          .get(command.installationId, command.principalId) === undefined
+      ) {
+        return [];
+      }
+      return this.#transaction(() => {
+        if (command.bumpHeartbeat) {
+          this.#database
+            .prepare(
+              `UPDATE registered_agents SET last_seen_at = ?
+               WHERE installation_id = ? AND id = ?`,
+            )
+            .run(command.now, command.installationId, command.agentId);
+        }
+        this.#database
+          .prepare(
+            `DELETE FROM voice_messages
+             WHERE installation_id = ? AND principal_id = ? AND created_at < ?`,
+          )
+          .run(command.installationId, command.principalId, command.expiredBefore);
+        const rows = this.#database
+          .prepare(
+            `DELETE FROM voice_messages WHERE id IN (
+               SELECT id FROM voice_messages
+               WHERE installation_id = ? AND principal_id = ?
+                 AND created_at >= ?
+               ORDER BY created_at, id LIMIT ?
+             )
+             RETURNING id, text, created_at AS createdAt`,
+          )
+          .all(
+            command.installationId,
+            command.principalId,
+            command.expiredBefore,
+            maximumVoiceMessagesPerTake,
+          );
+        // RETURNING carries no order, so the taken messages are sorted here.
+        return z.array(voiceMessageRowSchema).parse(rows).toSorted((a, b) =>
+          a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id)
+        );
+      });
+    });
+  }
+
   claimNextDispatch(
     agentId: string,
     now: string,
@@ -4047,6 +4149,20 @@ export class SqliteArtifactRepository implements
     `);
   }
 
+  #addVoiceMessagesIfMissing(): void {
+    this.#database.exec(`
+      CREATE TABLE IF NOT EXISTS voice_messages (
+        id TEXT PRIMARY KEY,
+        installation_id TEXT NOT NULL,
+        principal_id TEXT NOT NULL,
+        text TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      ) STRICT;
+      CREATE INDEX IF NOT EXISTS voice_messages_principal
+        ON voice_messages (installation_id, principal_id, created_at, id);
+    `);
+  }
+
   #addAgentDispatchTablesIfMissing(): void {
     this.#database.exec(`
       CREATE TABLE IF NOT EXISTS registered_agents (
@@ -4339,6 +4455,7 @@ export class SqliteArtifactRepository implements
     this.#addCommentTablesIfMissing();
     this.#addAgentDispatchTablesIfMissing();
     this.#widenRegisteredAgentsIfNeeded();
+    this.#addVoiceMessagesIfMissing();
     this.#addSourceBindingColumnsIfMissing();
     this.#dropGitHistoryTables();
     this.#addStagedUploadGrantIfMissing();
@@ -5326,6 +5443,12 @@ function dispatchedCommentDeletionConflict(): DispatchStateConflict {
 function isoAfter(instant: string, milliseconds: number): string {
   return new Date(Date.parse(instant) + milliseconds).toISOString();
 }
+
+const voiceMessageRowSchema = z.object({
+  createdAt: z.string(),
+  id: z.string(),
+  text: z.string(),
+});
 
 function isoBefore(instant: string, milliseconds: number): string {
   return new Date(Date.parse(instant) - milliseconds).toISOString();

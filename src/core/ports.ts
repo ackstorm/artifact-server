@@ -564,6 +564,37 @@ export interface ListAgentDispatches {
   readonly state: AgentDispatchState | null;
 }
 
+/** One pending sentence for a principal's voice listener. */
+export interface VoiceMessageRecord {
+  readonly createdAt: string;
+  readonly id: string;
+  readonly text: string;
+}
+
+/** Values used to queue one voice message for a listening principal. */
+export interface EnqueueVoiceMessage {
+  readonly createdAt: string;
+  /** The principal's messages created before this are deleted unread. */
+  readonly expiredBefore: string;
+  readonly id: string;
+  readonly installationId: string;
+  /** Oldest last_seen_at that still counts as a connected listener. */
+  readonly listenerSeenSince: string;
+  readonly principalId: string;
+  readonly text: string;
+}
+
+/** Values used by one listener poll to take its principal's voice messages. */
+export interface TakeVoiceMessages {
+  readonly agentId: string;
+  readonly bumpHeartbeat: boolean;
+  /** The principal's messages created before this are deleted unread. */
+  readonly expiredBefore: string;
+  readonly installationId: string;
+  readonly now: string;
+  readonly principalId: string;
+}
+
 /**
  * Persistent agent-registry and dispatch-mailbox operations. Dispatch
  * creation validates and marks its threads in one transaction; claim,
@@ -588,6 +619,12 @@ export interface AgentDispatchRepository {
   ): Promise<AgentDispatchRecord | null>;
   createDispatch(command: CreateAgentDispatch): Promise<AgentDispatchCreation>;
   disconnectAgent(installationId: string, agentId: string): Promise<void>;
+  /**
+   * Insert one voice message, after deleting the principal's expired ones,
+   * when the principal has an agent of kind habla seen since
+   * listenerSeenSince; false (and nothing stored) otherwise.
+   */
+  enqueueVoiceMessage(command: EnqueueVoiceMessage): Promise<boolean>;
   findAgent(
     installationId: string,
     agentId: string,
@@ -616,6 +653,14 @@ export interface AgentDispatchRepository {
   /** Store one activity beacon; overwrites the previous one regardless. */
   recordActivity(command: RecordAgentActivity): Promise<void>;
   registerAgent(command: RegisterAgent): Promise<RegisteredAgentRecord>;
+  /**
+   * In one transaction: bump the agent's heartbeat when asked, delete the
+   * principal's expired messages, then return and delete up to
+   * maximumVoiceMessagesPerTake of its pending ones, oldest first.
+   */
+  takeVoiceMessages(
+    command: TakeVoiceMessages,
+  ): Promise<readonly VoiceMessageRecord[]>;
 }
 
 /** Values persisted when issuing a one-time private-content bootstrap. */
@@ -797,4 +842,5 @@ export interface IdGenerator {
   stagedFileToken(): string;
   uploadId(): string;
   versionId(): string;
+  voiceMessageId(): string;
 }

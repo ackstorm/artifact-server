@@ -358,6 +358,7 @@ describe.sequential("external-storage Postgres and S3 runtime", () => {
           yield* sql.unsafe("DROP TABLE oauth_grants");
           yield* sql.unsafe("DROP TABLE oauth_authorization_codes");
           yield* sql.unsafe("DROP TABLE oauth_clients");
+          yield* sql.unsafe("DROP TABLE voice_messages");
           yield* sql.unsafe("DELETE FROM artifact_server_postgres_migrations WHERE migration_id >= 12");
         }));
       }));
@@ -533,6 +534,7 @@ describe.sequential("external-storage Postgres and S3 runtime", () => {
             "DROP TABLE oauth_grants",
             "DROP TABLE oauth_authorization_codes",
             "DROP TABLE oauth_clients",
+            "DROP TABLE voice_messages",
             "DELETE FROM artifact_server_postgres_migrations WHERE migration_id >= 14",
           ];
           for (const statement of statements) {
@@ -1083,6 +1085,7 @@ describe.sequential("external-storage Postgres and S3 runtime", () => {
           "DROP TABLE oauth_grants",
           "DROP TABLE oauth_authorization_codes",
           "DROP TABLE oauth_clients",
+          "DROP TABLE voice_messages",
           "DELETE FROM artifact_server_postgres_migrations WHERE migration_id >= 2",
         ] as const;
         for (const statement of statements) {
@@ -3108,6 +3111,83 @@ describe.sequential("external-storage Postgres and S3 runtime", () => {
         state: "addressed",
       }]);
       expect(secondPage.nextCursor).toBeNull();
+    } finally {
+      await database.close();
+    }
+    await server.stop();
+  });
+
+  test("external-storage foundation: Postgres queues voice messages only for a connected habla listener and hands each over once", async () => {
+    expect.hasAssertions();
+    const identity = {
+      apiToken: managedTestKey("postgres-voice"),
+      installationId: `postgres-voice-${randomUUID()}`,
+    };
+    const server = await startInProcessExternalStorageServer(environment, identity);
+    const principalId = managedTestPrincipal(identity.apiToken).principalId;
+    const baseInstant = Date.now();
+    const at = (offsetMilliseconds: number): string =>
+      new Date(baseInstant + offsetMilliseconds).toISOString();
+    const database = await PostgresDatabase.open({
+      maxConnections: 2,
+      url: Redacted.make(environment.databaseUrl),
+    }, "validate");
+    try {
+      const repository = await PostgresArtifactRepository.open(
+        database,
+        identity.installationId,
+      );
+      const listener = await repository.registerAgent({
+        agentSessionId: null,
+        capabilities: {beacon: false, evidence: "native"},
+        connectionKey: `voice-${randomUUID()}`,
+        displayName: "habla",
+        id: `agt_${randomUUID()}`,
+        installationId: identity.installationId,
+        kind: "habla",
+        principalId,
+        registeredAt: at(0),
+        workingDirectory: "/home/user",
+      });
+      const say = (id: string, text: string, listenerSeenSince: string) =>
+        repository.enqueueVoiceMessage({
+          createdAt: at(1_000),
+          expiredBefore: at(-59_000),
+          id,
+          installationId: identity.installationId,
+          listenerSeenSince,
+          principalId,
+          text,
+        });
+      const take = (bumpHeartbeat: boolean) =>
+        repository.takeVoiceMessages({
+          agentId: listener.id,
+          bumpHeartbeat,
+          expiredBefore: at(-60_000),
+          installationId: identity.installationId,
+          now: at(2_000),
+          principalId,
+        });
+
+      expect(await say("vox_first", "Done", at(-90_000))).toBe(true);
+      expect(await take(true)).toEqual([
+        {createdAt: at(1_000), id: "vox_first", text: "Done"},
+      ]);
+      expect(await take(false)).toEqual([]);
+
+      // One take hands over at most twenty, oldest first; the rest wait.
+      const queued = Array.from(
+        {length: 21},
+        (_, index) => `vox_${String(index).padStart(2, "0")}`,
+      );
+      expect(await Promise.all(queued.map((id) => say(id, id, at(-90_000)))))
+        .toEqual(queued.map(() => true));
+      expect((await take(true)).map(({id}) => id)).toEqual(queued.slice(0, 20));
+      expect((await take(false)).map(({id}) => id)).toEqual(queued.slice(20));
+
+      // A listener last seen before the window queues nothing.
+      expect(await say("vox_unheard", "Unheard", at(10_000))).toBe(false);
+      expect(await take(true)).toEqual([]);
     } finally {
       await database.close();
     }

@@ -152,6 +152,20 @@ Send it best-effort at natural boundaries: `thinking` when the host accepts a bu
 
 The beacon is display metadata only. It is never authorization or ordering input. A beacon older than 60 seconds decays to the state the server derives from dispatch records, and a beacon from an agent whose heartbeat has gone stale is accepted but ignored on read. A bridge that never sends one still gets derived presence: `disconnected`, `idle`, or `working`.
 
+## Voice listener
+
+A habla client that speaks agent messages out loud registers like any bridge, with `kind: "habla"`, and polls its own route instead of `claims`:
+
+```text
+POST /api/v1/agents/:agentId/voice?wait=25
+```
+
+Answers `200 {"messages": [{"createdAt", "id", "text"}, …]}` with up to 20 pending messages for the registering principal, oldest first, or `204` when none arrive within the wait (seconds, capped at 25). The poll is the listener's heartbeat, as for claims. Taking a message deletes it, so each one is delivered at most once; a message not taken within 60 seconds of being queued is dropped. Another principal's agent answers `403`, an unknown agent `404`, and an agent of another kind `422`. A habla agent is never a dispatch target: sending a bundle to it answers `422`.
+
+Issue habla's API key for the member, bound to their member id. A service key registers a `svc_…` principal of its own, and `voice_say` from that member's agents never reaches it.
+
+Messages come from the MCP tool `voice_say`, which queues only while the principal has a connected habla listener. They are not artifacts and never appear in artifact listings.
+
 ## Bundle rendering contract
 
 A claimed dispatch carries thread IDs, not text. The bridge reads the threads and renders one message. The rendering rules are part of the protocol because they are what makes the message safe and legible in any host.

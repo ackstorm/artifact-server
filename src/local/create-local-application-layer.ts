@@ -608,6 +608,10 @@ export function createApplicationLayer(
         "disconnectRegisteredAgent",
         () => dispatchStore.disconnectAgent(installationId, agentId),
       ),
+      enqueueVoiceMessage: (command) => dispatchEffect(
+        "enqueueVoiceMessage",
+        () => dispatchStore.enqueueVoiceMessage(command),
+      ),
       findAgent: (installationId, agentId) => dispatchEffect(
         "findRegisteredAgent",
         () => dispatchStore.findAgent(installationId, agentId),
@@ -651,6 +655,10 @@ export function createApplicationLayer(
       registerAgent: (command) => dispatchEffect(
         "registerAgent",
         () => dispatchStore.registerAgent(command),
+      ),
+      takeVoiceMessages: (command) => dispatchEffect(
+        "takeVoiceMessages",
+        () => dispatchStore.takeVoiceMessages(command),
       ),
     },
   };
