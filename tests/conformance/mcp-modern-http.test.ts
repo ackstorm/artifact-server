@@ -220,6 +220,7 @@ describe("modern MCP HTTP", () => {
       "comment_delete",
       "comment_clear",
       "dispatch_inbox",
+      "voice_say",
     ]);
     expect(tools.some((tool) => tool.name.includes("inline"))).toBe(false);
     expect(tools.find((tool) => tool.name === "artifact_delete")?.annotations)
