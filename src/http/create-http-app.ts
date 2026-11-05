@@ -1,3 +1,5 @@
+import {registerOAuthRoutes} from "./oauth-routes.js";
+import type {OAuthAuthorizationConfiguration} from "../application/oauth-authorization.js";
 import {
   buildOAuthProtectedResourceMetadata,
   getOAuthProtectedResourceMetadataUrl,
@@ -455,7 +457,7 @@ const maximumClaimWaitSeconds = 25;
 /** Spacing of the bounded re-checks inside one held claim poll. */
 const claimRecheckIntervalMilliseconds = 1_000;
 
-interface HttpEnvironment {
+export interface HttpEnvironment {
   readonly Variables: {
     readonly authenticationMethod: "bearer" | "session";
     readonly principal: Principal;
@@ -484,6 +486,8 @@ export interface HttpAppDependencies {
    */
   readonly linkedArtifacts?: boolean;
   readonly mcpOAuthResource?: McpOAuthResourceConfiguration;
+  /** Present when this installation authorizes its own OAuth clients. */
+  readonly oauthAuthorization?: OAuthAuthorizationConfiguration;
   readonly readiness?: ReadinessProbe;
   readonly runtimeLifecycle?: RuntimeLifecycle;
   readonly trustedApplicationOrigin: string | null;
@@ -995,6 +999,35 @@ export function createHttpApp(
     context.header("Referrer-Policy", "no-referrer");
     return context.redirect("/", 303);
   });
+
+  if (dependencies.oauthAuthorization !== undefined) {
+    registerOAuthRoutes(app, {
+      csrfCookie: (context) =>
+        getCookie(context, applicationCookieNames(dependencies).csrf),
+      requireConsentSecurity: (context, csrfDigest, csrfToken) => {
+        context.set("sessionCsrfDigest", csrfDigest);
+        requireBrowserMutationSecurity(context, dependencies, csrfToken);
+      },
+      run: (context, effect) =>
+        runHttpApplicationEffect(context, dependencies, effect),
+      session: async (context) => {
+        const parsed = sessionTokenSchema.safeParse(
+          getCookie(context, applicationCookieNames(dependencies).session),
+        );
+        if (!parsed.success) return null;
+        return runHttpApplicationEffect(
+          context,
+          dependencies,
+          AuthenticationService.use((authentication) =>
+            authentication.authenticateApplicationSession(
+              Redacted.make(parsed.data, {label: "application-session"}),
+            )
+          ).pipe(Effect.catchTag("AuthenticationRequired", () => Effect.succeed(null))),
+        );
+      },
+      textBody: boundedJsonBody,
+    });
+  }
 
   app.get("/auth/login", async (context) => {
     const query = interactiveLoginQuerySchema.parse(context.req.query());
@@ -2754,6 +2787,7 @@ function responseApplicationUrl(
 function requireBrowserMutationSecurity(
   context: Context<HttpEnvironment>,
   dependencies: HttpAppDependencies,
+  presentedCsrfToken: string | undefined = context.req.header("x-csrf-token"),
 ): void {
   const requestUrl = new URL(context.req.url);
   const trustedOrigin = dependencies.trustedApplicationOrigin ?? requestUrl.origin;
@@ -2770,7 +2804,7 @@ function requireBrowserMutationSecurity(
   }
 
   const names = applicationCookieNames(dependencies);
-  const headerToken = csrfTokenSchema.safeParse(context.req.header("x-csrf-token"));
+  const headerToken = csrfTokenSchema.safeParse(presentedCsrfToken);
   const cookieToken = csrfTokenSchema.safeParse(getCookie(context, names.csrf));
   const expectedDigest = context.get("sessionCsrfDigest");
   if (

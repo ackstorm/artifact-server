@@ -11,6 +11,13 @@ import {privateTeamBrowserAccess, browserLoginKinds} from
   "../../src/core/browser-access.js";
 import {createOidcHostedAuthentication} from
   "../../src/identity/oidc-hosted-authentication.js";
+import {applicationCookies as sessionCookies} from "../support/browser-session.js";
+import {
+  approveOAuthClient,
+  exchangeOAuthCode,
+  oauthPkce,
+  registerOAuthClient,
+} from "../support/oauth-client.js";
 import {
   loginHandshakeCookie,
   reserveLoopbackPort,
@@ -287,7 +294,7 @@ describe.sequential("Keycloak generic OIDC browser login", () => {
     );
     expect(metadata.status).toBe(200);
     expect(await metadata.json()).toMatchObject({
-      authorization_servers: [realm.issuer],
+      authorization_servers: [application.baseUrl],
       resource: `${application.baseUrl}/mcp`,
     });
   });
@@ -300,6 +307,31 @@ describe.sequential("Keycloak generic OIDC browser login", () => {
     const refused = await callMcp(application.baseUrl, stranger);
     expect(refused.status).toBe(401);
     expect(rowCount(application.dataDirectory, "installation_members")).toBe(1);
+  });
+
+  test("a client signs in through a real issuer", async () => {
+    const login = await fetch(`${application.baseUrl}/auth/login`, {
+      redirect: "manual",
+    });
+    const callbackUrl = await signInAtKeycloak(
+      redirectTarget(login, "/auth/login"),
+      {password: admittedPassword, username: admittedEmail},
+    );
+    const completed = await fetch(callbackUrl, {
+      headers: {Cookie: loginHandshakeCookie(login)},
+      redirect: "manual",
+    });
+    expect(completed.status).toBe(303);
+    const cookies = sessionCookies(completed.headers.getSetCookie());
+
+    const clientId = await registerOAuthClient(application);
+    const {challenge, verifier} = oauthPkce();
+    const code = await approveOAuthClient(application, cookies, clientId, challenge);
+    const tokens = await exchangeOAuthCode(application, {clientId, code, verifier});
+    const response = await fetch(`${application.baseUrl}/api/v1/projects`, {
+      headers: {Authorization: `Bearer ${tokens.access_token}`},
+    });
+    expect(response.status).toBe(200);
   });
 });
 
@@ -656,6 +688,7 @@ async function startApplicationProcess(
     path.join(tmpdir(), "artifact-server-oidc-"),
   );
   const hosted = await createOidcHostedAuthentication({
+    allowedRedirectUris: [],
     applicationOrigin,
     clientId: oidcClientId,
     clientSecret: Redacted.make(oidcClientSecret, {label: "oidc-client-secret"}),
@@ -671,9 +704,11 @@ async function startApplicationProcess(
     applicationOrigin,
     bootstrapAdministratorEmail: admittedEmail,
     browserAccess: privateTeamBrowserAccess(browserLoginKinds.oidc),
+    apiOAuthResource: hosted.apiOAuthResource,
     externalMcpOAuthVerifier: hosted.externalMcpOAuthVerifier,
     interactiveIdentityProvider: hosted.interactiveIdentityProvider,
     mcpOAuthResource: hosted.mcpOAuthResource,
+    oauthAuthorization: hosted.oauthAuthorization,
     port,
   });
   return {

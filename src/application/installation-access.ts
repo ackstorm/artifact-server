@@ -35,6 +35,7 @@ import {
 import {
   isHumanAdministrator,
   membershipRoles,
+  oauthKeyCapabilities,
   principalCapabilities,
   principalKinds,
   type MembershipRole,
@@ -262,6 +263,23 @@ export interface InstallationAccessOperations {
     InstallationMember,
     AuthorizationDenied | IdentityConflict | IdentityNotFound | IdentityRepositoryFailure
   >;
+  /** Forget cached managed-key authentications after a key changes elsewhere. */
+  readonly evictManagedKeys: () => void;
+  /** Build, without storing, an OAuth key for a member; null unless the member is active. */
+  readonly prepareOAuthMemberKey: (command: {
+    readonly clientName: string;
+    readonly expiresAt: string;
+    readonly memberId: string;
+  }) => Effect.Effect<
+    {readonly key: StoredManagedApiKey; readonly token: string} | null,
+    IdentityRepositoryFailure
+  >;
+  /** Build a replacement token for an existing key id. */
+  readonly prepareOAuthKeySecret: (keyId: string) => {
+    readonly prefix: string;
+    readonly secretDigest: string;
+    readonly token: string;
+  };
   readonly issueApiKey: (
     command: IssueApiKeyCommand,
   ) => Effect.Effect<
@@ -756,6 +774,49 @@ function makeInstallationAccessService(
     return {apiKey, token};
   });
 
+  const prepareOAuthMemberKey = Effect.fn(
+    "InstallationAccessService.prepareOAuthMemberKey",
+  )(function*(command: {
+    readonly clientName: string;
+    readonly expiresAt: string;
+    readonly memberId: string;
+  }) {
+    const member = yield* dependencies.repository.findMember(
+      dependencies.installationId,
+      command.memberId,
+    );
+    if (member?.status !== memberStatuses.active) return null;
+    const id = dependencies.ids.apiKeyId();
+    const {prefix, secretDigest, token} = prepareOAuthKeySecret(id);
+    const key: StoredManagedApiKey = {
+      // Always set, so the key is never a direct human principal and cannot administer.
+      authorizedByPrincipalId: member.id,
+      capabilities: oauthKeyCapabilities(member.role),
+      createdAt: dependencies.clock.now().toISOString(),
+      expiresAt: command.expiresAt,
+      id,
+      installationId: dependencies.installationId,
+      // authenticateManagedApiKey uses this as the display name on every write.
+      name: `${member.displayName} via ${command.clientName}`,
+      prefix,
+      principalId: member.id,
+      principalKind: principalKinds.human,
+      revokedAt: null,
+      rotatedFromId: null,
+      secretDigest,
+    };
+    return {key, token};
+  });
+
+  const prepareOAuthKeySecret = (keyId: string) => {
+    const token = `as_key_${keyId}_${dependencies.secrets.issue()}`;
+    return {
+      prefix: token.slice(0, Math.min(token.length, 32)),
+      secretDigest: dependencies.secrets.digest(token),
+      token,
+    };
+  };
+
   const listApiKeys = Effect.fn(
     "InstallationAccessService.listApiKeys",
   )(function*(principal: Principal) {
@@ -839,12 +900,15 @@ function makeInstallationAccessService(
     authenticateSession,
     completeExternalIdentity,
     deactivateMember,
+    evictManagedKeys: () => apiKeyCache?.clear(),
     issueApiKey,
     issueLocalBrowserLogin,
     loginAsLocalOwner,
     listApiKeys,
     listMembers,
     loginWithLocalBrowserToken,
+    prepareOAuthKeySecret,
+    prepareOAuthMemberKey,
     principalDisplayNames,
     revokeApiKey,
     revokeSession,

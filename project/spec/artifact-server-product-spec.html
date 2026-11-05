@@ -3037,7 +3037,7 @@ v12-7f3a.content.example.net</code></pre>
                       <tr>
                         <td>Private or self-hosted server</td>
                         <td>Server API key</td>
-                        <td>Configure a revocable key. A compatible company authorization service may replace it. Better Auth is a candidate for optional built-in browser authorization after its current beta MCP path passes testing.</td>
+                        <td>Configure a revocable key. A compatible company authorization service may replace it. An installation with OIDC login authorizes its own clients.</td>
                       </tr>
                       <tr>
                         <td>One laptop</td>
@@ -3518,7 +3518,6 @@ artifact_delete</code></pre>
             <ol>
               <li><strong>Private site delivery:</strong> current tests exercise the bootstrap token and version-scoped content cookie, but the complete supported-browser and per-deployment matrix remains open.</li>
               <li><strong>Version origins:</strong> local <code>*.localhost</code> behavior has evidence. Equivalent DNS, certificate, proxy, and hostile-host proof remains open for each deployment before support is advertised.</li>
-              <li><strong>Embedded self-hosted OAuth:</strong> decide whether Better Auth's beta MCP path is mature enough; API keys and compatible external issuers remain the default until it passes the same hostile tests.</li>
               <li><strong>Capacity claims:</strong> the OSS release need not advertise universal capacity or cost envelopes. Any target-specific claim must be backed by measured evidence.</li>
               <li><strong>Recovery:</strong> define retention, tombstone duration, backup schedule, restore procedure, recovery-point and recovery-time promises, and an operator-visible integrity check.</li>
               <li><strong>Optional enterprise policy:</strong> encryption keys, regional placement, audit export, legal hold, deletion proof, data residency, and regulated-content boundaries are outside the simple first release.</li>

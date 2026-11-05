@@ -52,12 +52,15 @@ import {
 import type {ExpiredStagingCleanupReport} from
   "../application/expired-staging-cleanup.js";
 import {createNodeWebAssetStore} from "../http/node-web-assets.js";
+import type {OAuthAuthorizationConfiguration} from "../application/oauth-authorization.js";
+import {SqliteOAuthRepository} from "../storage/sqlite-oauth-repository.js";
 import {browserAccessModes} from "../core/browser-access.js";
 import {ensureBootstrapManagedApiKey} from
   "../application/bootstrap-managed-api-key.js";
 export interface LocalRuntimeConfig {
   readonly apiToken: string;
   readonly apiOAuthResource?: ApiOAuthResourceConfiguration;
+  readonly oauthAuthorization?: OAuthAuthorizationConfiguration;
   readonly applicationOrigin?: string;
   readonly bootstrapAdministratorEmail?: string;
   readonly externalIdentityAdmissionPolicy?: ExternalIdentityAdmissionPolicy;
@@ -108,6 +111,7 @@ export async function createLocalRuntime(
     defaultStagingCleanupPolicy;
   const repository = new SqliteArtifactRepository(databasePath, installationId);
   const identityRepository = new SqliteIdentityRepository(databasePath);
+  const oauthRepository = new SqliteOAuthRepository(databasePath, installationId);
   const apiToken = Redacted.make(config.apiToken, {label: "local-api-token"});
   if (config.browserAccess.mode === browserAccessModes.privateTeam) {
     try {
@@ -119,6 +123,7 @@ export async function createLocalRuntime(
       });
     } catch (cause) {
       identityRepository.close();
+      oauthRepository.close();
       repository.close();
       throw cause;
     }
@@ -155,10 +160,12 @@ export async function createLocalRuntime(
     Effect.acquireRelease(
       Effect.succeed({
         identityRepository,
+        oauthRepository,
         repository,
       }),
       (owned) => Effect.sync(() => {
         owned.identityRepository.close();
+        owned.oauthRepository.close();
         owned.repository.close();
       }),
     ),
@@ -179,6 +186,8 @@ export async function createLocalRuntime(
     identityRepository,
     installationId,
     interactiveIdentityProvider: config.interactiveIdentityProvider ?? null,
+    oauthAuthorization: config.oauthAuthorization ?? null,
+    oauthRepository,
     localBootstrapCredential: config.localBootstrapToken === undefined
       ? null
       : Redacted.make(config.localBootstrapToken, {
@@ -237,6 +246,12 @@ export async function createLocalRuntime(
       appDependencies = {
         ...appDependencies,
         apiOAuthResource: config.apiOAuthResource,
+      };
+    }
+    if (config.oauthAuthorization !== undefined) {
+      appDependencies = {
+        ...appDependencies,
+        oauthAuthorization: config.oauthAuthorization,
       };
     }
     if (config.mcpOAuthResource !== undefined) {

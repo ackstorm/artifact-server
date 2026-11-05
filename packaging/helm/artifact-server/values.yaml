@@ -47,6 +47,8 @@ identity:
   oidcScopes: ""
   oidcAutoAdmit: false
   oidcAllowedEmailDomains: []
+  # Exact HTTPS redirect URIs for hosted OAuth clients. Loopback needs no entry.
+  oauthAllowedRedirectUris: []
 
 serviceAccount:
   create: true

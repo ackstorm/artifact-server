@@ -23,7 +23,10 @@ import path from "node:path";
 import {afterEach, describe, expect, test} from "vitest";
 import {z} from "zod";
 
+import {signInAdministrator} from "../support/agent-dispatch.js";
 import {fetchLoopbackContent} from "../support/fetch-loopback-content.js";
+import {startOAuthServer} from "../support/oauth-client.js";
+import {createTestInstallation, removeTestInstallation} from "../support/runtime-harness.js";
 
 const repositoryRoot = path.resolve(import.meta.dirname, "../..");
 const cliExecutable = path.join(repositoryRoot, "node_modules/.bin/tsx");
@@ -518,6 +521,66 @@ describe("authenticated CLI profiles and remote publication", () => {
       await rm(temporaryDirectory, {force: true, recursive: true});
     }
   }, 30_000);
+
+  test("CLI-001-B: the CLI signs in and logs out against this server's own routes", async () => {
+    const temporaryDirectory = await mkdtemp(
+      path.join(tmpdir(), "artifact-server-cli-own-oauth-"),
+    );
+    const profileData = path.join(temporaryDirectory, "profiles");
+    const helperState = path.join(temporaryDirectory, "credential-helper.json");
+    const helper = path.join(temporaryDirectory, "credential-helper.mjs");
+    const browser = path.join(temporaryDirectory, "browser.mjs");
+    const environment = await credentialHelperEnvironment(helper, helperState);
+    await writeConsentingBrowserHelper(browser);
+    const installation = await createTestInstallation();
+    const server = await startOAuthServer(installation);
+    try {
+      const cookies = await signInAdministrator(server, installation);
+      environment["ARTIFACT_SERVER_BROWSER_COMMAND"] = browser;
+      environment["TEST_BROWSER_COOKIE"] = cookies.header;
+      const login = await runCli([
+        "auth",
+        "login",
+        server.baseUrl,
+        "--name",
+        "own-server",
+        "--profile-data",
+        profileData,
+      ], environment);
+      expect({exitCode: login.exitCode, stderr: login.stderr}).toEqual({
+        exitCode: 0,
+        stderr: "",
+      });
+      expect(profileOutputSchema.parse(JSON.parse(login.stdout))).toMatchObject({
+        authentication: "oauth",
+        name: "own-server",
+        status: "authenticated",
+      });
+      const status = await runCli([
+        "auth",
+        "status",
+        "own-server",
+        "--profile-data",
+        profileData,
+      ], environment);
+      expect(status.exitCode).toBe(0);
+      const logout = await runCli([
+        "auth",
+        "logout",
+        "own-server",
+        "--profile-data",
+        profileData,
+      ], environment);
+      expect(JSON.parse(logout.stdout)).toMatchObject({
+        remoteRevocation: "confirmed",
+        status: "logged_out",
+      });
+    } finally {
+      await server.stop();
+      await removeTestInstallation(installation);
+      await rm(temporaryDirectory, {force: true, recursive: true});
+    }
+  });
 });
 
 interface ProcessResult {
@@ -726,6 +789,37 @@ if (operation === "read") {
     ARTIFACT_SERVER_CREDENTIAL_HELPER: helper,
     CREDENTIAL_HELPER_STATE: statePath,
   };
+}
+
+async function writeConsentingBrowserHelper(target: string): Promise<void> {
+  await writeFile(target, `#!/usr/bin/env node
+const url = process.argv[2];
+if (url === undefined) process.exit(2);
+const cookie = process.env.TEST_BROWSER_COOKIE;
+const origin = new URL(url).origin;
+const page = await fetch(url, {headers: {cookie}, redirect: "manual"});
+const html = await page.text();
+const fields = new URLSearchParams({decision: "approve"});
+for (const match of html.matchAll(/<input type="hidden" name="([^"]+)" value="([^"]*)">/g)) {
+  fields.set(match[1], match[2].replaceAll("&amp;", "&"));
+}
+const decided = await fetch(origin + "/oauth/authorize", {
+  body: fields,
+  headers: {
+    "content-type": "application/x-www-form-urlencoded",
+    cookie,
+    origin,
+    "sec-fetch-mode": "navigate",
+    "sec-fetch-site": "same-origin",
+  },
+  method: "POST",
+  redirect: "manual",
+});
+const location = decided.headers.get("location");
+if (location === null) process.exit(3);
+if (!(await fetch(location)).ok) process.exit(4);
+`, {mode: 0o700});
+  await chmod(target, 0o700);
 }
 
 async function writeBrowserHelper(target: string): Promise<void> {

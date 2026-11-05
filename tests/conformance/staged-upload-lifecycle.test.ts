@@ -23,6 +23,7 @@ import {LocalBlobStore} from "../../src/storage/local-blob-store.js";
 import {LocalStagingStore} from "../../src/storage/local-staging-store.js";
 import {SqliteArtifactRepository} from "../../src/storage/sqlite-artifact-repository.js";
 import {SqliteIdentityRepository} from "../../src/storage/sqlite-identity-repository.js";
+import {SqliteOAuthRepository} from "../../src/storage/sqlite-oauth-repository.js";
 
 describe("staged upload lifecycle", () => {
   let clock: ControlledClock;
@@ -30,6 +31,7 @@ describe("staged upload lifecycle", () => {
   let blobs: LocalBlobStore;
   let repository: SqliteArtifactRepository;
   let identityRepository: SqliteIdentityRepository;
+  let oauthRepository: SqliteOAuthRepository;
   let runtime: ApplicationRuntime;
   let staging: LocalStagingStore;
 
@@ -40,6 +42,7 @@ describe("staged upload lifecycle", () => {
     blobs = new LocalBlobStore(path.join(dataDirectory, "blobs"));
     repository = new SqliteArtifactRepository(databasePath);
     identityRepository = new SqliteIdentityRepository(databasePath);
+    oauthRepository = new SqliteOAuthRepository(databasePath, "test-installation");
     staging = new LocalStagingStore(path.join(dataDirectory, "staging"));
     runtime = ManagedRuntime.make(createApplicationLayer({
       apiToken: Redacted.make("test-api-token"),
@@ -55,6 +58,8 @@ describe("staged upload lifecycle", () => {
       installationId: "test-installation",
       interactiveIdentityProvider: null,
       localBootstrapCredential: null,
+      oauthAuthorization: null,
+      oauthRepository,
       protectBootstrapAdministrator: false,
       publicLinksEnabled: null,
       repository,
@@ -66,6 +71,7 @@ describe("staged upload lifecycle", () => {
   afterEach(async () => {
     await runtime.dispose();
     identityRepository.close();
+    oauthRepository.close();
     repository.close();
     await rm(dataDirectory, {force: true, recursive: true});
   });
@@ -116,6 +122,10 @@ describe("staged upload lifecycle", () => {
     const foreignIdentityRepository = new SqliteIdentityRepository(
       path.join(dataDirectory, "foreign-installation.db"),
     );
+    const foreignOAuthRepository = new SqliteOAuthRepository(
+      path.join(dataDirectory, "foreign-installation.db"),
+      "foreign-installation",
+    );
     try {
       const foreignRuntime: ApplicationRuntime = ManagedRuntime.make(
         createApplicationLayer({
@@ -132,6 +142,8 @@ describe("staged upload lifecycle", () => {
           installationId: "foreign-installation",
           interactiveIdentityProvider: null,
           localBootstrapCredential: null,
+          oauthAuthorization: null,
+          oauthRepository: foreignOAuthRepository,
           protectBootstrapAdministrator: false,
           publicLinksEnabled: null,
           repository: foreignRepository,
@@ -175,6 +187,7 @@ describe("staged upload lifecycle", () => {
       }
     } finally {
       foreignIdentityRepository.close();
+      foreignOAuthRepository.close();
       foreignRepository.close();
     }
   });

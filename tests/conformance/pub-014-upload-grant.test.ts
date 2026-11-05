@@ -29,6 +29,7 @@ import {LocalBlobStore} from "../../src/storage/local-blob-store.js";
 import {LocalStagingStore} from "../../src/storage/local-staging-store.js";
 import {SqliteArtifactRepository} from "../../src/storage/sqlite-artifact-repository.js";
 import {SqliteIdentityRepository} from "../../src/storage/sqlite-identity-repository.js";
+import {SqliteOAuthRepository} from "../../src/storage/sqlite-oauth-repository.js";
 import {
   createTestInstallation,
   removeTestInstallation,
@@ -74,6 +75,7 @@ describe("upload grants: staged upload service", () => {
   let clock: ControlledClock;
   let dataDirectory: string;
   let identityRepository: SqliteIdentityRepository;
+  let oauthRepository: SqliteOAuthRepository;
   let repository: SqliteArtifactRepository;
   let runtime: ApplicationRuntime;
 
@@ -83,6 +85,7 @@ describe("upload grants: staged upload service", () => {
     const databasePath = path.join(dataDirectory, "artifact-server.db");
     repository = new SqliteArtifactRepository(databasePath);
     identityRepository = new SqliteIdentityRepository(databasePath);
+    oauthRepository = new SqliteOAuthRepository(databasePath, "test-installation");
     runtime = ManagedRuntime.make(createApplicationLayer({
       apiToken: Redacted.make("test-api-token"),
       blobs: new LocalBlobStore(path.join(dataDirectory, "blobs")),
@@ -97,6 +100,8 @@ describe("upload grants: staged upload service", () => {
       installationId: "test-installation",
       interactiveIdentityProvider: null,
       localBootstrapCredential: null,
+      oauthAuthorization: null,
+      oauthRepository,
       protectBootstrapAdministrator: false,
       publicLinksEnabled: null,
       repository,
@@ -108,6 +113,7 @@ describe("upload grants: staged upload service", () => {
   afterEach(async () => {
     await runtime.dispose();
     identityRepository.close();
+    oauthRepository.close();
     repository.close();
     await rm(dataDirectory, {force: true, recursive: true});
   });

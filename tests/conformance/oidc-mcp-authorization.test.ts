@@ -324,6 +324,7 @@ describe("generic OIDC MCP authorization", () => {
     expect.hasAssertions();
     const slashed = `${issuer}/`;
     const hosted = await createOidcHostedAuthentication({
+      allowedRedirectUris: [],
       applicationOrigin: "https://staging.artifactserver.test",
       clientId: "artifact-server",
       clientSecret: null,
@@ -338,8 +339,6 @@ describe("generic OIDC MCP authorization", () => {
       issuer: slashed,
       scopes: "openid email profile",
     });
-    expect(hosted.mcpOAuthResource.authorizationServerMetadata)
-      .toMatchObject({issuer: slashed});
     const verified = await Effect.runPromise(
       hosted.externalMcpOAuthVerifier.verify(
         Redacted.make(await issueToken({issuer: slashed})),
@@ -354,6 +353,7 @@ describe("generic OIDC MCP authorization", () => {
   test("the MCP resource follows the application origin and nothing else opens it", async () => {
     expect.hasAssertions();
     const hosted = await createOidcHostedAuthentication({
+      allowedRedirectUris: [],
       applicationOrigin: "https://staging.artifactserver.test",
       clientId: "artifact-server",
       clientSecret: null,
@@ -361,9 +361,9 @@ describe("generic OIDC MCP authorization", () => {
       scopes: "openid email profile",
     });
     expect(hosted.mcpOAuthResource.resource).toBe(resource);
-    expect(hosted.mcpOAuthResource.scopes).toEqual(["openid", "email", "profile"]);
+    expect(hosted.mcpOAuthResource.scopes).toEqual(["artifactserver", "offline_access"]);
     expect(hosted.mcpOAuthResource.authorizationServerMetadata)
-      .toMatchObject({issuer});
+      .toMatchObject({issuer: "https://staging.artifactserver.test"});
     await expect(verifiedSubject(hosted.externalMcpOAuthVerifier, await
       issueToken({}))).resolves.toBe(subject);
     await expect(verifiedSubject(hosted.externalMcpOAuthVerifier, await

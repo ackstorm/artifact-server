@@ -35,6 +35,11 @@ artifactserver auth login https://artifacts.example.com --name team
 artifactserver publish ./dist --profile team
 ```
 
+This works on any installation with OIDC login, whichever provider it uses. The
+first login asks you to approve the CLI in the browser. To connect over SSH or
+from a remote workspace, forward the loopback port the CLI prints, or use
+`--api-key-stdin`.
+
 ## Publish another version
 
 Provide the artifact ID and expected current version:

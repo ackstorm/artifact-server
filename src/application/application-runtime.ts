@@ -10,6 +10,7 @@ import type { ArtifactCommentService } from "./artifact-comments.js";
 import type { ArtifactManagementService } from "./artifact-management.js";
 import type { CompareArtifactService } from "./compare-artifact.js";
 import type { InstallationAccessService } from "./installation-access.js";
+import type { OAuthAuthorizationService } from "./oauth-authorization.js";
 import type { InteractiveLoginService } from "./interactive-login.js";
 import type { LinkedArtifactService } from "./linked-artifacts.js";
 import type {ProjectManagementService} from "./project-management.js";
@@ -31,6 +32,7 @@ export type ApplicationServices =
   | InstallationAccessService
   | InteractiveLoginService
   | LinkedArtifactService
+  | OAuthAuthorizationService
   | PublishArtifactService
   | ProjectManagementService
   | PublicLinkAdministrationService

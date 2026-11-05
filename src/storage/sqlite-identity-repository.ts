@@ -737,6 +737,48 @@ export class SqliteIdentityRepository implements BootstrapManagedApiKeyRepositor
         expires_at TEXT NOT NULL,
         consumed_at TEXT
       );
+
+      CREATE TABLE IF NOT EXISTS oauth_clients (
+        installation_id TEXT NOT NULL,
+        id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        redirect_uris_json TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        PRIMARY KEY (installation_id, id)
+      );
+
+      CREATE TABLE IF NOT EXISTS oauth_authorization_codes (
+        installation_id TEXT NOT NULL,
+        code_digest TEXT NOT NULL,
+        client_id TEXT NOT NULL,
+        member_id TEXT NOT NULL,
+        redirect_uri TEXT NOT NULL,
+        code_challenge TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        PRIMARY KEY (installation_id, code_digest)
+      );
+
+      CREATE TABLE IF NOT EXISTS oauth_grants (
+        installation_id TEXT NOT NULL,
+        id TEXT NOT NULL,
+        client_id TEXT NOT NULL,
+        member_id TEXT NOT NULL,
+        api_key_id TEXT NOT NULL,
+        refresh_digest TEXT NOT NULL,
+        previous_refresh_digest TEXT,
+        created_at TEXT NOT NULL,
+        refreshed_at TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        PRIMARY KEY (installation_id, id),
+        UNIQUE (installation_id, client_id, member_id)
+      );
+      CREATE INDEX IF NOT EXISTS oauth_clients_created_idx
+        ON oauth_clients(installation_id, created_at);
+      CREATE INDEX IF NOT EXISTS oauth_grants_refresh_idx
+        ON oauth_grants(installation_id, refresh_digest);
+      CREATE INDEX IF NOT EXISTS oauth_grants_previous_refresh_idx
+        ON oauth_grants(installation_id, previous_refresh_digest);
     `);
     this.#addLoginAttemptNonceIfMissing();
     this.#database.exec(`PRAGMA user_version = ${requiredSqliteSchemaVersion};`);
