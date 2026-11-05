@@ -33,7 +33,7 @@ guide does not cover, search through the source code in `node_modules/effect/src
 
 ## Performance verification
 
-- `pnpm verify:iteration` is the canonical end-of-iteration gate. It runs the complete correctness, conformance, build, and smoke path.
+- `pnpm verify:iteration` is the canonical end-of-iteration gate. It runs the complete correctness, conformance, build, and smoke path. CI runs it as the Full tier on every pull request, about 10 minutes. Do not run it locally: compose and Helm need a containerd image store, and local timeouts are not product failures.
 - Coverage is diagnostic. Do not add a test only to move a percentage, lower a threshold, or exercise an implementation detail. A test must prove an observable product behavior, security boundary, recovery path, or measured performance characteristic.
 - Run `pnpm smoke` after changing HTTP delivery, publication, SQLite, blob storage, restart behavior, or cleanup.
 - Run `pnpm verify:object-storage` after changing remote blob or staging storage. It requires Docker and proves the S3-compatible adapter against pinned MinIO.
@@ -44,7 +44,7 @@ guide does not cover, search through the source code in `node_modules/effect/src
 
 ## Before handing off work
 
-Run `pnpm verify:iteration`. Report any requirement that is still specified but not proved; do not mark it verified optimistically.
+Run lint, typecheck, and the tests the change touches. Open the pull request and arm auto-merge with `gh pr merge --auto --merge`, unless the user asked to review first, then stop: do not wait on CI. Required checks include the Full tier. Report any requirement that is still specified but not proved; do not mark it verified optimistically.
 
 ## Releasing
 
