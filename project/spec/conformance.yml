@@ -2312,6 +2312,30 @@ requirements:
     proof_gap: Slug widening is exercised through HTTP against SQLite; the Postgres migration that drops the kind CHECK constraint is covered by its runtime suite's registration path but no dedicated widening test runs against external storage.
     depends_on: [DSP-001]
 
+  - id: VOX-001
+    kind: behavior
+    behavior: voice_say queues a sentence for the caller's own principal only while that principal has a connected agent of kind habla, and answers whether it queued.
+    owner: agent-presence
+    source: {file: voice-inbox-spec.md, anchor: behavior}
+    acceptance:
+      behavior: {id: VOX-001-B, description: "With a connected habla agent of the caller, voice_say answers queued true and the listener receives the trimmed text."}
+      failure: {id: VOX-001-F, description: "With no habla agent, a stale one, or only another principal's, voice_say answers queued false and stores nothing; empty or over-long text is refused."}
+    deployments: *all
+    status: specified
+    depends_on: [PRS-007]
+
+  - id: VOX-002
+    kind: behavior
+    behavior: A habla listener's voice poll is its heartbeat, returns its principal's pending messages oldest first exactly once, and drops messages older than sixty seconds.
+    owner: agent-presence
+    source: {file: voice-inbox-spec.md, anchor: behavior}
+    acceptance:
+      behavior: {id: VOX-002-B, description: "Two queued sentences come back oldest first in one poll and never again; an empty poll answers 204 within its wait and keeps the listener connected."}
+      failure: {id: VOX-002-F, description: "A message older than sixty seconds is never returned, another principal's agent and a non-habla agent are refused, and voice messages never appear in artifact listings."}
+    deployments: *all
+    status: specified
+    depends_on: [VOX-001, PRS-007]
+
   - id: SND-001
     kind: behavior
     behavior: Review loads every comment page for the exact version, presents one exact open-undispatched count, and makes sending all open comments the primary human action while preserving sent-state inspection and recovery.
