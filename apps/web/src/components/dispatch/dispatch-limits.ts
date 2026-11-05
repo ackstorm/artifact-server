@@ -7,3 +7,9 @@
 export const maximumDispatchBundleSize = 100;
 
 export const maximumDispatchNoteCharacters = 2_000;
+
+/**
+ * The agent kind that only listens for voice messages; the server refuses to
+ * dispatch to it, so a send control never offers it as a destination.
+ */
+export const voiceListenerKind = "habla";

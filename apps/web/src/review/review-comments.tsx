@@ -32,6 +32,7 @@ import {
 import {formatTimestamp} from "@/lib/presentation";
 import {bundleOfThreads} from "@/components/dispatch/dispatch-bundle";
 import {loadDispatchIndex} from "@/components/dispatch/dispatch-index";
+import {voiceListenerKind} from "@/components/dispatch/dispatch-limits";
 import {
   dispatchIsCancelable,
   DispatchStateChip,
@@ -659,7 +660,9 @@ export const ReviewCommentsInspector = forwardRef<ReviewCommentsInspectorHandle,
   );
 
   const openThreads = session.threads.filter((thread) => thread.state === "open");
-  const noAgentConnected = agents !== null && !agents.some((agent) => agent.connected);
+  const noAgentConnected = agents !== null && !agents.some((agent) =>
+    agent.connected && agent.kind !== voiceListenerKind
+  );
   const agentPrompt = session.artifactId === null || versionId === null
     ? null
     : manualAgentPrompt(session.projectId, session.artifactId, versionId, openThreads);

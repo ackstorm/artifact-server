@@ -649,6 +649,11 @@ function makeAgentDispatchService(
       const note = yield* requireNote(command.note);
       const idempotencyKey = yield* parseIdempotencyKey(command.idempotencyKey);
       const agent = yield* requireAgent(command.agentId);
+      if (agent.kind === voiceListenerKind) {
+        return yield* new InvalidDispatch({
+          message: "A habla agent only speaks; it takes no dispatches.",
+        });
+      }
       yield* requireSendable(command.principal, agent, project.id, threadIds);
       return yield* dependencies.repository.createDispatch({
         agentDisplayName: agent.displayName,

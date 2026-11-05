@@ -31,6 +31,7 @@ async function connectFakeAgent(
   input: {
     readonly capabilities?: object;
     readonly connectionKey: string;
+    readonly kind?: string;
     readonly name: string;
   },
 ): Promise<{readonly agentId: string; readonly client: ApiClient}> {
@@ -46,6 +47,7 @@ async function connectFakeAgent(
     agentSessionId: `session-${input.name}`,
     connectionKey: input.connectionKey,
     displayName: input.name,
+    kind: input.kind ?? "pi",
     workingDirectory: `/work/${input.name}`,
   };
   const agent = await client.registerAgent(input.capabilities === undefined
@@ -83,6 +85,12 @@ test.describe("PRS-004 one-click send and undo", () => {
           versionId,
         });
       }
+      // A connected habla listener registered first is never a destination.
+      await connectFakeAgent(fixture, {
+        connectionKey: "prs-004-habla-connection-key",
+        kind: "habla",
+        name: "listener",
+      });
       const agent = await connectFakeAgent(fixture, {
         connectionKey: "prs-004-connection-key",
         name: "solo",
@@ -178,6 +186,8 @@ test.describe("PRS-004 one-click send and undo", () => {
         name: "Choose agent or send with a note",
       }).first().click();
       await expect(page.getByRole("button", {name: "duo /work/duo"})).toBeVisible();
+      await expect(page.getByRole("button", {name: "listener /work/listener"}))
+        .toHaveCount(0);
 
       expect(await browserStorage(page)).toEqual({
         indexedDatabaseNames: [],
