@@ -690,6 +690,9 @@ function makeAgentDispatchService(
       const at = yield* dependencies.clock.now;
       return yield* dependencies.repository.enqueueVoiceMessage({
         createdAt: DateTime.formatIso(at),
+        expiredBefore: DateTime.formatIso(
+          DateTime.subtractDuration(at, voiceMessageLifetimeMilliseconds),
+        ),
         id: dependencies.ids.voiceMessageId(),
         installationId: dependencies.installationId,
         listenerSeenSince: DateTime.formatIso(

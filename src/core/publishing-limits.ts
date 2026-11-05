@@ -54,3 +54,6 @@ export const maximumVoiceTextCharacters = 500;
 
 /** The registered-agent kind that listens for voice messages. */
 export const voiceListenerKind = "habla";
+
+/** Most voice messages one listener poll takes, oldest first. */
+export const maximumVoiceMessagesPerTake = 20;

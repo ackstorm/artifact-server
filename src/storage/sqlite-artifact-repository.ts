@@ -131,6 +131,7 @@ import type {
 import {
   agentDispatchLeaseMilliseconds,
   agentUnavailableStalenessMilliseconds,
+  maximumVoiceMessagesPerTake,
   registeredAgentRetentionMilliseconds,
   voiceListenerKind,
 } from "../core/publishing-limits.js";
@@ -3426,6 +3427,12 @@ export class SqliteArtifactRepository implements
         if (listener === undefined) return false;
         this.#database
           .prepare(
+            `DELETE FROM voice_messages
+             WHERE installation_id = ? AND principal_id = ? AND created_at < ?`,
+          )
+          .run(command.installationId, command.principalId, command.expiredBefore);
+        this.#database
+          .prepare(
             `INSERT INTO voice_messages
                (id, installation_id, principal_id, text, created_at)
              VALUES (?, ?, ?, ?, ?)`,
@@ -3470,16 +3477,26 @@ export class SqliteArtifactRepository implements
         }
         this.#database
           .prepare(
-            "DELETE FROM voice_messages WHERE installation_id = ? AND created_at < ?",
+            `DELETE FROM voice_messages
+             WHERE installation_id = ? AND principal_id = ? AND created_at < ?`,
           )
-          .run(command.installationId, command.expiredBefore);
+          .run(command.installationId, command.principalId, command.expiredBefore);
         const rows = this.#database
           .prepare(
-            `DELETE FROM voice_messages
-             WHERE installation_id = ? AND principal_id = ?
+            `DELETE FROM voice_messages WHERE id IN (
+               SELECT id FROM voice_messages
+               WHERE installation_id = ? AND principal_id = ?
+                 AND created_at >= ?
+               ORDER BY created_at, id LIMIT ?
+             )
              RETURNING id, text, created_at AS createdAt`,
           )
-          .all(command.installationId, command.principalId);
+          .all(
+            command.installationId,
+            command.principalId,
+            command.expiredBefore,
+            maximumVoiceMessagesPerTake,
+          );
         // RETURNING carries no order, so the taken messages are sorted here.
         return z.array(voiceMessageRowSchema).parse(rows).toSorted((a, b) =>
           a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id)

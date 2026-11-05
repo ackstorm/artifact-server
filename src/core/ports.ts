@@ -574,6 +574,8 @@ export interface VoiceMessageRecord {
 /** Values used to queue one voice message for a listening principal. */
 export interface EnqueueVoiceMessage {
   readonly createdAt: string;
+  /** The principal's messages created before this are deleted unread. */
+  readonly expiredBefore: string;
   readonly id: string;
   readonly installationId: string;
   /** Oldest last_seen_at that still counts as a connected listener. */
@@ -586,7 +588,7 @@ export interface EnqueueVoiceMessage {
 export interface TakeVoiceMessages {
   readonly agentId: string;
   readonly bumpHeartbeat: boolean;
-  /** Messages created before this are deleted unread. */
+  /** The principal's messages created before this are deleted unread. */
   readonly expiredBefore: string;
   readonly installationId: string;
   readonly now: string;
@@ -618,8 +620,9 @@ export interface AgentDispatchRepository {
   createDispatch(command: CreateAgentDispatch): Promise<AgentDispatchCreation>;
   disconnectAgent(installationId: string, agentId: string): Promise<void>;
   /**
-   * Insert one voice message when the principal has an agent of kind habla
-   * seen since listenerSeenSince; false (and nothing stored) otherwise.
+   * Insert one voice message, after deleting the principal's expired ones,
+   * when the principal has an agent of kind habla seen since
+   * listenerSeenSince; false (and nothing stored) otherwise.
    */
   enqueueVoiceMessage(command: EnqueueVoiceMessage): Promise<boolean>;
   findAgent(
@@ -651,8 +654,9 @@ export interface AgentDispatchRepository {
   recordActivity(command: RecordAgentActivity): Promise<void>;
   registerAgent(command: RegisterAgent): Promise<RegisteredAgentRecord>;
   /**
-   * In one transaction: bump the agent's heartbeat when asked, delete expired
-   * messages, then return and delete the principal's pending ones, oldest first.
+   * In one transaction: bump the agent's heartbeat when asked, delete the
+   * principal's expired messages, then return and delete up to
+   * maximumVoiceMessagesPerTake of its pending ones, oldest first.
    */
   takeVoiceMessages(
     command: TakeVoiceMessages,

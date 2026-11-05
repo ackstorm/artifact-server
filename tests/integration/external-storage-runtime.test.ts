@@ -3152,6 +3152,7 @@ describe.sequential("external-storage Postgres and S3 runtime", () => {
       const say = (id: string, text: string, listenerSeenSince: string) =>
         repository.enqueueVoiceMessage({
           createdAt: at(1_000),
+          expiredBefore: at(-59_000),
           id,
           installationId: identity.installationId,
           listenerSeenSince,
@@ -3173,6 +3174,16 @@ describe.sequential("external-storage Postgres and S3 runtime", () => {
         {createdAt: at(1_000), id: "vox_first", text: "Done"},
       ]);
       expect(await take(false)).toEqual([]);
+
+      // One take hands over at most twenty, oldest first; the rest wait.
+      const queued = Array.from(
+        {length: 21},
+        (_, index) => `vox_${String(index).padStart(2, "0")}`,
+      );
+      expect(await Promise.all(queued.map((id) => say(id, id, at(-90_000)))))
+        .toEqual(queued.map(() => true));
+      expect((await take(true)).map(({id}) => id)).toEqual(queued.slice(0, 20));
+      expect((await take(false)).map(({id}) => id)).toEqual(queued.slice(20));
 
       // A listener last seen before the window queues nothing.
       expect(await say("vox_unheard", "Unheard", at(10_000))).toBe(false);

@@ -125,6 +125,7 @@ import {normalizeArtifactSearchText} from "../application/artifact-tags.js";
 import {
   agentDispatchLeaseMilliseconds,
   agentUnavailableStalenessMilliseconds,
+  maximumVoiceMessagesPerTake,
   registeredAgentRetentionMilliseconds,
   voiceListenerKind,
 } from "../core/publishing-limits.js";
@@ -2489,6 +2490,10 @@ export class PostgresArtifactRepository implements
             AND last_seen_at >= ${command.listenerSeenSince}
           LIMIT 1`;
         if (listener.length === 0) return false;
+        yield* sql`DELETE FROM voice_messages
+          WHERE installation_id = ${command.installationId}
+            AND principal_id = ${command.principalId}
+            AND created_at < ${command.expiredBefore}`;
         yield* sql`INSERT INTO voice_messages
             (installation_id, id, principal_id, text, created_at)
           VALUES (${command.installationId}, ${command.id},
@@ -2521,10 +2526,18 @@ export class PostgresArtifactRepository implements
         }
         yield* sql`DELETE FROM voice_messages
           WHERE installation_id = ${command.installationId}
+            AND principal_id = ${command.principalId}
             AND created_at < ${command.expiredBefore}`;
         const rows = yield* sql`DELETE FROM voice_messages
           WHERE installation_id = ${command.installationId}
-            AND principal_id = ${command.principalId}
+            AND id IN (
+              SELECT id FROM voice_messages
+              WHERE installation_id = ${command.installationId}
+                AND principal_id = ${command.principalId}
+                AND created_at >= ${command.expiredBefore}
+              ORDER BY created_at, id
+              LIMIT ${maximumVoiceMessagesPerTake}
+            )
           RETURNING id, text, created_at AS "createdAt"`;
         // RETURNING carries no order, so the taken messages are sorted here.
         return z.array(voiceMessageRowSchema).parse(rows).toSorted((a, b) =>
