@@ -50,6 +50,15 @@ import {
   type RunningStubOidcProvider,
 } from "../support/stub-oidc-provider.js";
 import {browserMutationHeaders, type ApplicationCookies} from "../support/browser-session.js";
+import {
+  approveOAuthClient,
+  exchangeOAuthCode,
+  oauthPkce,
+  oauthRedirectUri,
+  postToken,
+  refreshOAuthToken,
+  registerOAuthClient,
+} from "../support/oauth-client.js";
 
 const repositoryRoot = path.resolve(import.meta.dirname, "../..");
 const externalStorageCli = path.join(repositoryRoot, "dist/cli/main.js");
@@ -346,6 +355,9 @@ describe.sequential("external-storage Postgres and S3 runtime", () => {
           yield* sql.unsafe("ALTER TABLE artifacts DROP COLUMN listed");
           yield* sql.unsafe("ALTER TABLE artifacts DROP COLUMN owner_principal_id");
           yield* sql.unsafe("ALTER TABLE artifact_installations DROP COLUMN public_links_enabled");
+          yield* sql.unsafe("DROP TABLE oauth_grants");
+          yield* sql.unsafe("DROP TABLE oauth_authorization_codes");
+          yield* sql.unsafe("DROP TABLE oauth_clients");
           yield* sql.unsafe("DELETE FROM artifact_server_postgres_migrations WHERE migration_id >= 12");
         }));
       }));
@@ -518,6 +530,9 @@ describe.sequential("external-storage Postgres and S3 runtime", () => {
               ADD CONSTRAINT idempotency_records_access_setting_check
                 CHECK (access_setting IS NULL OR access_setting IN ('account_required', 'public_link'))`,
             "ALTER TABLE artifact_installations DROP COLUMN public_links_enabled",
+            "DROP TABLE oauth_grants",
+            "DROP TABLE oauth_authorization_codes",
+            "DROP TABLE oauth_clients",
             "DELETE FROM artifact_server_postgres_migrations WHERE migration_id >= 14",
           ];
           for (const statement of statements) {
@@ -759,7 +774,7 @@ describe.sequential("external-storage Postgres and S3 runtime", () => {
         ARTIFACT_SERVER_INSTALLATION_ID: identity.installationId,
       });
       expect(status.exitCode).toBe(0);
-      expect(JSON.parse(status.output)).toMatchObject({currentVersion: 19});
+      expect(JSON.parse(status.output)).toMatchObject({currentVersion: requiredPostgresSchemaVersion});
     } finally {
       Object.assign(oidcProvider.claims, previousClaims);
     }
@@ -892,7 +907,7 @@ describe.sequential("external-storage Postgres and S3 runtime", () => {
         ARTIFACT_SERVER_INSTALLATION_ID: identity.installationId,
       });
       expect(status.exitCode).toBe(0);
-      expect(JSON.parse(status.output)).toMatchObject({currentVersion: 19});
+      expect(JSON.parse(status.output)).toMatchObject({currentVersion: requiredPostgresSchemaVersion});
     } finally {
       Object.assign(oidcProvider.claims, previousClaims);
     }
@@ -1065,6 +1080,9 @@ describe.sequential("external-storage Postgres and S3 runtime", () => {
           "CREATE INDEX versions_artifact_id ON versions (installation_id, artifact_id, number)",
           "CREATE INDEX artifacts_active_created ON artifacts (installation_id, deleted_at, created_at DESC, id DESC)",
           "CREATE INDEX actions_artifact_created ON actions (installation_id, artifact_id, created_at DESC, id DESC)",
+          "DROP TABLE oauth_grants",
+          "DROP TABLE oauth_authorization_codes",
+          "DROP TABLE oauth_clients",
           "DELETE FROM artifact_server_postgres_migrations WHERE migration_id >= 2",
         ] as const;
         for (const statement of statements) {
@@ -1670,6 +1688,54 @@ describe.sequential("external-storage Postgres and S3 runtime", () => {
     } finally {
       await server.stop();
     }
+  });
+
+  test("OAuth on Postgres: a client connects through one process and its key rotates across another", async () => {
+    expect.hasAssertions();
+    const identity = {
+      apiToken: managedTestKey("oauth-runtime"),
+      installationId: "external-storage-oauth-installation",
+    };
+    const [first, second] = await Promise.all([
+      startExternalStorageProcess(environment, identity),
+      startInProcessExternalStorageServer(environment, identity),
+    ]);
+    const origin = "https://artifacts.example.com";
+    const cookies = applicationCookies(
+      (await oidcBrowserLogin(first.baseUrl)).headers.getSetCookie(),
+    );
+    const clientId = await registerOAuthClient(first);
+    const {challenge, verifier} = oauthPkce();
+    const code = await approveOAuthClient(first, cookies, clientId, challenge, origin);
+    const issued = await exchangeOAuthCode(first, {clientId, code, verifier});
+    const projects = (token: string) => fetch(`${second.baseUrl}/api/v1/projects`, {
+      headers: {Authorization: `Bearer ${token}`},
+    });
+    expect((await projects(issued.access_token)).status).toBe(200);
+
+    const reused = await postToken(first, {
+      client_id: clientId,
+      code,
+      code_verifier: verifier,
+      grant_type: "authorization_code",
+      redirect_uri: oauthRedirectUri,
+    });
+    expect(reused.status).toBe(400);
+
+    const refreshed = await refreshOAuthToken(first, clientId, issued.refresh_token);
+    expect((await projects(refreshed.access_token)).status).toBe(200);
+
+    const revoked = await fetch(`${first.baseUrl}/oauth/revoke`, {
+      body: new URLSearchParams({client_id: clientId, token: refreshed.refresh_token}),
+      method: "POST",
+    });
+    expect(revoked.status).toBe(200);
+    const denied = await postToken(first, {
+      client_id: clientId,
+      grant_type: "refresh_token",
+      refresh_token: refreshed.refresh_token,
+    });
+    expect(denied.status).toBe(400);
   });
 
   test("AUTH-009-B AUTH-009-F: sessions, managed keys, and staged uploads cross process boundaries", async () => {
