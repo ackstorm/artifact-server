@@ -51,10 +51,38 @@ applicable.
 
 Anyone may register a client, so consent is mandatory for a new client and
 redirects are limited to loopback or an operator allowlist. The client name is
-unverified, so the page also shows the redirect host. Registrations with no
-grant expire after 24 hours and the table is capped at 10,000 rows.
+unverified, so the page also shows the redirect host.
+
+Registered clients stay, so a persisted MCP client keeps its `client_id`. The
+table is capped at 10,000 rows. At the cap, the oldest client with no live grant
+is evicted with its dead grants, their keys, and its codes, and registration
+answers 503 only when every client holds a live grant. A client whose
+`client_id` was evicted must register again.
 
 ### Refresh reuse grace
 
 The previous refresh token stays usable for 30 seconds so a retry after a lost
 response succeeds. Presented later, it revokes the grant.
+
+Two callers racing with one current token both succeed. The loser re-reads the
+grant, finds its token superseded inside the grace, and rotates from the new
+one. A key has one secret, so only the last access token issued works; the other
+caller's refresh token stays usable for the grace.
+
+### Grant lifetime
+
+A grant ends 30 days after its creation and refresh does not extend it. Past
+that, refresh returns `invalid_grant` and the client goes back through
+`/oauth/authorize`.
+
+### Revocation
+
+`/oauth/revoke` acts on refresh tokens only. An access token is a managed key,
+which administrators revoke under API keys.
+
+### OAuth key capabilities
+
+An OAuth key cannot manage projects, whoever approved it. It carries
+`artifact:manage:any`, so a plain member's key can delete other people's
+comments on that member's own artifacts, which their browser session cannot.
+This is accepted: the member owns the artifact, and the client acts for them.

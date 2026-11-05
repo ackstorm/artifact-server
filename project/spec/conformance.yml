@@ -1331,20 +1331,20 @@ requirements:
       failure: {id: AUTH-040-F, description: "Confidential clients, unsafe redirects, missing or plain PKCE, unknown scopes, cross-site approval, and a wrong CSRF value issue no code; an invalid client or redirect is never redirected to."}
     deployments: *all
     status: behavior_verified
-    proof_gap: Browser consent is proved in real Chromium against a loopback redirect and through the CLI, Keycloak, and Postgres, but not against Dex or any provider beyond Keycloak, and no MCP client product has completed the flow.
+    proof_gap: Browser consent is proved in real Chromium against a loopback redirect and through the CLI, Keycloak, and Postgres, but not against Dex or any provider beyond Keycloak, and no MCP client product has completed the flow. An anonymous first login is proved only as far as the redirect to /auth/login with returnTo; no test follows it through the identity provider and back to consent.
     depends_on: [AUTH-009, AUTH-019]
 
   - id: AUTH-041
     kind: security
-    behavior: The token endpoint exchanges a single-use code for an expiring member key usable at /mcp and /api, and refresh replaces that key's secret in place with rotating refresh tokens.
+    behavior: The token endpoint exchanges a single-use code for an expiring member key usable at /mcp and /api, and refresh replaces that key's secret in place with rotating refresh tokens until the grant ends 30 days after creation.
     owner: authorization
     source: {file: decisions/0036-own-authorization-server.md, anchor: a-token-is-a-managed-member-key}
     acceptance:
       behavior: {id: AUTH-041-B, description: "Exchange a code, call /mcp and /api as the member, refresh, keep one key row, and retry a refresh inside the grace."}
-      failure: {id: AUTH-041-F, description: "A reused code, a wrong verifier, client, or redirect, an expired code, a revoked key, a deactivated member, and a stale refresh token fail closed; a stale refresh token revokes the grant, and an OAuth key cannot administer."}
+      failure: {id: AUTH-041-F, description: "A reused code, a wrong verifier, client, or redirect, an expired code, a revoked key, a deactivated member, an expired grant, and a stale refresh token fail closed; a stale refresh token revokes the grant, and an OAuth key cannot administer or manage projects."}
     deployments: *all
     status: behavior_verified
-    proof_gap: Member deactivation is proved through key revocation, which deactivateMember already performs for every human key; no test deactivates a member mid-grant. An expired authorization code is not tested separately from a reused one.
+    proof_gap: Member deactivation is proved at code exchange; mid-grant it rests on key revocation, which deactivateMember already performs for every human key, and no test refreshes after it. An expired authorization code is not tested separately from a reused one. Parallel refreshes interleave only across Postgres processes; on one SQLite process they run in sequence, so the loser's re-read is proved on Postgres alone.
     depends_on: [AUTH-040]
 
   - id: SEC-001
@@ -3197,7 +3197,8 @@ requirements:
       behavior: {id: GATE-006-B, description: "Run the complete OAuth matrix against the embedded provider and document operational responsibility and upgrade behavior."}
       failure: {id: GATE-006-F, description: "Beta incompatibility, lost client or consent state, weak audience binding, refresh replay, failed migration, or missing revocation keeps the option disabled."}
     deployments: *external_storage
-    status: specified
+    status: not_applicable
+    rationale: Decision 0036 authorizes clients with handwritten routes proved by AUTH-040 and AUTH-041, so no embedded Better Auth provider exists for this gate to release.
     depends_on: [MCP-014]
 
   - id: GATE-009

@@ -70,7 +70,7 @@ An installation with OIDC login authorizes its own clients. Point a client at
 opens a browser, and asks you to approve it. Any provider that supports browser
 login works, and the provider needs no extra client.
 
-Each connected client gets an expiring member key, which administrators see and revoke under API keys.
+Each connected client gets an expiring member key, which administrators see and revoke under API keys. A connection lasts 30 days from approval, then the client asks you to approve it again in the browser.
 
 Redirects must be loopback. For a hosted client, set
 `ARTIFACT_SERVER_OAUTH_ALLOWED_REDIRECT_URIS` to a comma-separated list of exact

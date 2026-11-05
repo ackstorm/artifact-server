@@ -522,7 +522,7 @@ describe("authenticated CLI profiles and remote publication", () => {
     }
   }, 30_000);
 
-  test("CLI-001-B: the CLI signs in, refreshes, and logs out against this server's own routes", async () => {
+  test("CLI-001-B: the CLI signs in and logs out against this server's own routes", async () => {
     const temporaryDirectory = await mkdtemp(
       path.join(tmpdir(), "artifact-server-cli-own-oauth-"),
     );
