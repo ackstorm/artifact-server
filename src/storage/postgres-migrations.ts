@@ -762,6 +762,52 @@ const setReviewModeInteract = Effect.gen(function*() {
   yield* sql.unsafe("UPDATE artifacts SET review_mode = 'interact'");
 });
 
+const addOAuthAuthorization = Effect.gen(function*() {
+  const sql = yield* SqlClient;
+  const statements = [
+    `CREATE TABLE oauth_clients (
+      installation_id TEXT NOT NULL REFERENCES artifact_installations(id),
+      id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      redirect_uris_json TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      PRIMARY KEY (installation_id, id)
+    )`,
+    `CREATE TABLE oauth_authorization_codes (
+      installation_id TEXT NOT NULL REFERENCES artifact_installations(id),
+      code_digest TEXT NOT NULL,
+      client_id TEXT NOT NULL,
+      member_id TEXT NOT NULL,
+      redirect_uri TEXT NOT NULL,
+      code_challenge TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      expires_at TEXT NOT NULL,
+      PRIMARY KEY (installation_id, code_digest)
+    )`,
+    `CREATE TABLE oauth_grants (
+      installation_id TEXT NOT NULL REFERENCES artifact_installations(id),
+      id TEXT NOT NULL,
+      client_id TEXT NOT NULL,
+      member_id TEXT NOT NULL,
+      api_key_id TEXT NOT NULL,
+      refresh_digest TEXT NOT NULL,
+      previous_refresh_digest TEXT,
+      created_at TEXT NOT NULL,
+      refreshed_at TEXT NOT NULL,
+      idle_expires_at TEXT NOT NULL,
+      PRIMARY KEY (installation_id, id),
+      UNIQUE (installation_id, client_id, member_id)
+    )`,
+    `CREATE INDEX oauth_grants_refresh_idx
+      ON oauth_grants (installation_id, refresh_digest)`,
+    `CREATE INDEX oauth_grants_previous_refresh_idx
+      ON oauth_grants (installation_id, previous_refresh_digest)`,
+  ];
+  for (const statement of statements) {
+    yield* sql.unsafe(statement);
+  }
+});
+
 const migrationLoader = Migrator.fromRecord({
   "0001_initial_shared_schema": initialSchema,
   "0002_project_scoped_artifacts": addProjectScope,
@@ -782,10 +828,11 @@ const migrationLoader = Migrator.fromRecord({
   "0017_artifact_pins": addArtifactPins,
   "0018_artifact_listing": addArtifactListing,
   "0019_review_mode_interact": setReviewModeInteract,
+  "0020_oauth_authorization": addOAuthAuthorization,
 });
 
 /** Schema revision required by this Artifact Server build. */
-export const requiredPostgresSchemaVersion = 19;
+export const requiredPostgresSchemaVersion = 20;
 
 /** Migration compatibility observed without changing Postgres. */
 export interface PostgresMigrationStatus {
@@ -897,6 +944,9 @@ export const readPostgresMigrationStatus = Effect.gen(function*() {
   }, {
     migration_id: 19,
     name: "review_mode_interact",
+  }, {
+    migration_id: 20,
+    name: "oauth_authorization",
   }] as const;
   const observedRequiredHistory = rows.filter(
     (row) => row.migration_id <= requiredPostgresSchemaVersion,
