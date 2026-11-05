@@ -49,12 +49,15 @@ import {
 import type {
   CancelAgentDispatch,
   CreateAgentDispatch,
+  EnqueueVoiceMessage,
   IdGenerator,
   ListAgentDispatches,
   MarkDispatchDelivered,
   MarkDispatchFailed,
   RecordAgentActivity,
   RegisterAgent,
+  TakeVoiceMessages,
+  VoiceMessageRecord,
 } from "../core/ports.js";
 import {
   agentActivityBeaconTtlMilliseconds,
@@ -94,6 +97,9 @@ export interface AgentDispatchPersistence {
     installationId: string,
     agentId: string,
   ) => Effect.Effect<void, AgentDispatchRepositoryFailure>;
+  readonly enqueueVoiceMessage: (
+    command: EnqueueVoiceMessage,
+  ) => Effect.Effect<boolean, AgentDispatchRepositoryFailure>;
   readonly findAgent: (
     installationId: string,
     agentId: string,
@@ -137,6 +143,9 @@ export interface AgentDispatchPersistence {
   readonly registerAgent: (
     command: RegisterAgent,
   ) => Effect.Effect<RegisteredAgentRecord, AgentDispatchRepositoryFailure>;
+  readonly takeVoiceMessages: (
+    command: TakeVoiceMessages,
+  ) => Effect.Effect<readonly VoiceMessageRecord[], AgentDispatchRepositoryFailure>;
 }
 
 /** Dependencies used to construct agent-dispatch operations. */

@@ -54,4 +54,9 @@ export class SystemIdGenerator implements IdGenerator {
   versionId(): string {
     return `ver_${randomUUID()}`;
   }
+
+  /** Create one opaque voice message identity. */
+  voiceMessageId(): string {
+    return `vox_${randomUUID()}`;
+  }
 }

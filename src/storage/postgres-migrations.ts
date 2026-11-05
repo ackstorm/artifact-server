@@ -810,6 +810,25 @@ const addOAuthAuthorization = Effect.gen(function*() {
   }
 });
 
+const addVoiceMessages = Effect.gen(function*() {
+  const sql = yield* SqlClient;
+  const statements = [
+    `CREATE TABLE voice_messages (
+      installation_id TEXT NOT NULL REFERENCES artifact_installations(id),
+      id TEXT NOT NULL,
+      principal_id TEXT NOT NULL,
+      text TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      PRIMARY KEY (installation_id, id)
+    )`,
+    `CREATE INDEX voice_messages_principal
+      ON voice_messages (installation_id, principal_id, created_at, id)`,
+  ];
+  for (const statement of statements) {
+    yield* sql.unsafe(statement);
+  }
+});
+
 const migrationLoader = Migrator.fromRecord({
   "0001_initial_shared_schema": initialSchema,
   "0002_project_scoped_artifacts": addProjectScope,
@@ -831,10 +850,11 @@ const migrationLoader = Migrator.fromRecord({
   "0018_artifact_listing": addArtifactListing,
   "0019_review_mode_interact": setReviewModeInteract,
   "0020_oauth_authorization": addOAuthAuthorization,
+  "0021_voice_messages": addVoiceMessages,
 });
 
 /** Schema revision required by this Artifact Server build. */
-export const requiredPostgresSchemaVersion = 20;
+export const requiredPostgresSchemaVersion = 21;
 
 /** Migration compatibility observed without changing Postgres. */
 export interface PostgresMigrationStatus {
