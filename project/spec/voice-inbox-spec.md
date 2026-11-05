@@ -12,9 +12,10 @@ kind `habla`, long-polls for messages, and speaks them. Nothing is stored for a 
   `queued: false`.
 - Text is trimmed and holds 1 to 500 characters.
 - `POST /api/v1/agents/:agentId/voice?wait=N` (agent:connect, kind `habla`, the registering principal only) is the
-  listener's heartbeat and long poll. It answers the principal's pending messages oldest first and deletes them, or
+  listener's heartbeat and long poll. It answers up to 20 of the principal's pending messages oldest first and deletes them, or
   `204` when none arrive within `wait` (capped at 25 s).
 - A message is delivered at most once and expires 60 s after it was queued.
+- A habla agent is never a dispatch target: a dispatch to it is refused, and Review never offers it.
 - Voice messages are not artifacts: no artifact listing, search, or UI shows them.
 
 ## Conformance
