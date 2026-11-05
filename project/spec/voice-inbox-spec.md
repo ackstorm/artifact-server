@@ -1,6 +1,6 @@
 # Voice inbox
 
-Status: implementing.
+Status: implemented.
 
 An agent says one short sentence out loud to its own user. A habla client the user runs registers as an agent of
 kind `habla`, long-polls for messages, and speaks them. Nothing is stored for a user with no connected listener.
