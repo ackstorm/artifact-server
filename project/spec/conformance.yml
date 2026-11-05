@@ -625,7 +625,7 @@ requirements:
       failure: {id: CLI-001-F, description: "Credentials never appear in startup output, command output, project files, shell arguments, logs, traces, support bundles, or another origin's profile, and revoked or mismatched credentials fail closed."}
     deployments: *all
     status: implementing
-    proof_gap: The OAuth acceptance-ID test proves browser PKCE, refresh, status, and revocation, but not the local automatic-authentication and CI paths or every credential-leak surface named by CLI-001-F. Production wiring of browser login arrives with AUTH-040.
+    proof_gap: The OAuth acceptance-ID test proves browser PKCE, refresh, status, and revocation, but not the local automatic-authentication and CI paths or every credential-leak surface named by CLI-001-F. The real CLI login against this server's own routes is proved in the CLI suite, not against Dex.
     depends_on: [AUTH-009, AUTH-017]
 
   - id: CLI-002
@@ -1330,7 +1330,8 @@ requirements:
       behavior: {id: AUTH-040-B, description: "Register a client, sign in, approve it, and receive a code; a client with a grant skips consent."}
       failure: {id: AUTH-040-F, description: "Confidential clients, unsafe redirects, missing or plain PKCE, unknown scopes, cross-site approval, and a wrong CSRF value issue no code; an invalid client or redirect is never redirected to."}
     deployments: *all
-    status: specified
+    status: behavior_verified
+    proof_gap: Browser consent is proved in real Chromium against a loopback redirect and through the CLI, Keycloak, and Postgres, but not against Dex or any provider beyond Keycloak, and no MCP client product has completed the flow.
     depends_on: [AUTH-009, AUTH-019]
 
   - id: AUTH-041
@@ -1342,7 +1343,8 @@ requirements:
       behavior: {id: AUTH-041-B, description: "Exchange a code, call /mcp and /api as the member, refresh, keep one key row, and retry a refresh inside the grace."}
       failure: {id: AUTH-041-F, description: "A reused code, a wrong verifier, client, or redirect, an expired code, a revoked key, a deactivated member, and a stale refresh token fail closed; a stale refresh token revokes the grant, and an OAuth key cannot administer."}
     deployments: *all
-    status: specified
+    status: behavior_verified
+    proof_gap: Member deactivation is proved through key revocation, which deactivateMember already performs for every human key; no test deactivates a member mid-grant. An expired authorization code is not tested separately from a reused one.
     depends_on: [AUTH-040]
 
   - id: SEC-001
@@ -1512,7 +1514,7 @@ requirements:
       failure: {id: MCP-013-F, description: "Startup logs, diagnostics, project files, generic OIDC ID tokens, browser login cookies, and wrong-resource tokens cannot expose or substitute for a valid MCP credential."}
     deployments: [local, single_server, kubernetes]
     status: implementing
-    proof_gap: Local stdio, API-key, and generic OIDC access-token paths are implemented and covered by the local conformance suite and the real Keycloak harness, but the combined private OAuth, no-OAuth, local, wrong-credential, and credential-leak matrix has no deployment-specific MCP-013 evidence. The Keycloak harness obtains its MCP access tokens through the password grant; no MCP client has yet completed browser approval (authorization code with S256 PKCE, client registration, and the RFC 8707 resource parameter) against a generic OIDC issuer, so the browser-approval half of MCP-013-B is unproved for OIDC.
+    proof_gap: Local stdio, API-key, and generic OIDC access-token paths are implemented and covered by the local conformance suite and the real Keycloak harness, but the combined private OAuth, no-OAuth, local, wrong-credential, and credential-leak matrix has no deployment-specific MCP-013 evidence. Browser approval against this server's own authorization routes is proved by AUTH-040 and AUTH-041; no MCP client product has completed it, and Dex is unproved until a first real login.
     depends_on: [AUTH-009]
 
   - id: MCP-014
