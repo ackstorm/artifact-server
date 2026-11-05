@@ -3445,8 +3445,21 @@ export class SqliteArtifactRepository implements
   takeVoiceMessages(
     command: TakeVoiceMessages,
   ): Promise<readonly VoiceMessageRecord[]> {
-    return Promise.resolve().then(() =>
-      this.#transaction(() => {
+    return Promise.resolve().then(() => {
+      // A re-check inside one held poll is a pure read while nothing is
+      // pending; an expired row found here costs one write that returns none.
+      if (
+        !command.bumpHeartbeat &&
+        this.#database
+          .prepare(
+            `SELECT 1 FROM voice_messages
+             WHERE installation_id = ? AND principal_id = ? LIMIT 1`,
+          )
+          .get(command.installationId, command.principalId) === undefined
+      ) {
+        return [];
+      }
+      return this.#transaction(() => {
         if (command.bumpHeartbeat) {
           this.#database
             .prepare(
@@ -3471,8 +3484,8 @@ export class SqliteArtifactRepository implements
         return z.array(voiceMessageRowSchema).parse(rows).toSorted((a, b) =>
           a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id)
         );
-      }),
-    );
+      });
+    });
   }
 
   claimNextDispatch(

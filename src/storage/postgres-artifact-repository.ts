@@ -2504,6 +2504,15 @@ export class PostgresArtifactRepository implements
     this.#assertInstallationScope(command.installationId);
     return this.#database.run(Effect.gen(function*() {
       const sql = yield* SqlClient;
+      // A re-check inside one held poll is a pure read while nothing is
+      // pending; an expired row found here costs one write that returns none.
+      if (!command.bumpHeartbeat) {
+        const pending = yield* sql`SELECT 1 FROM voice_messages
+          WHERE installation_id = ${command.installationId}
+            AND principal_id = ${command.principalId}
+          LIMIT 1`;
+        if (pending.length === 0) return [];
+      }
       return yield* sql.withTransaction(Effect.gen(function*() {
         if (command.bumpHeartbeat) {
           yield* sql`UPDATE registered_agents SET last_seen_at = ${command.now}
