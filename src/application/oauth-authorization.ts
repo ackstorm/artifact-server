@@ -442,12 +442,13 @@ function makeOAuthAuthorizationService(
         }
         const {prefix, secretDigest, token} = access.prepareOAuthKeySecret(grant.apiKeyId);
         const nextRefresh = `as_ort_${secrets.issue()}`;
+        const accessExpiresAt = later(accessLifetimeMilliseconds);
         const rotated = yield* repositoryEffect(() =>
           repository.rotateGrant({
             apiKeyId: grant.apiKeyId,
             expectedRefreshDigest: grant.refreshDigest,
             grantId: grant.id,
-            keyExpiresAt: later(accessLifetimeMilliseconds),
+            keyExpiresAt: accessExpiresAt < grant.expiresAt ? accessExpiresAt : grant.expiresAt,
             keyPrefix: prefix,
             keySecretDigest: secretDigest,
             memberId: grant.memberId,
