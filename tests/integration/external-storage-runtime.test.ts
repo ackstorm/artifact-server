@@ -1722,19 +1722,24 @@ describe.sequential("external-storage Postgres and S3 runtime", () => {
     });
     expect(reused.status).toBe(400);
 
-    let refreshed = await refreshOAuthToken(first, clientId, issued.refresh_token);
-    expect((await projects(refreshed.access_token)).status).toBe(200);
+    const rotated = await refreshOAuthToken(first, clientId, issued.refresh_token);
+    expect((await projects(rotated.access_token)).status).toBe(200);
 
-    // Each pair races one current token through Postgres; both must answer 200.
-    for (let round = 0; round < 5; round += 1) {
+    // One pair interleaves only part of the time, so several pairs reach the losing path.
+    const racePairs = async (
+      token: string,
+      rounds: number,
+    ): Promise<typeof rotated> => {
       const [left, right] = await Promise.all([
-        refreshOAuthToken(first, clientId, refreshed.refresh_token),
-        refreshOAuthToken(first, clientId, refreshed.refresh_token),
+        refreshOAuthToken(first, clientId, token),
+        refreshOAuthToken(first, clientId, token),
       ]);
       const leftWorks = (await projects(left.access_token)).status === 200;
       expect((await projects(right.access_token)).status).toBe(leftWorks ? 401 : 200);
-      refreshed = leftWorks ? left : right;
-    }
+      const working = leftWorks ? left : right;
+      return rounds === 1 ? working : racePairs(working.refresh_token, rounds - 1);
+    };
+    const refreshed = await racePairs(rotated.refresh_token, 10);
 
     const revoked = await fetch(`${first.baseUrl}/oauth/revoke`, {
       body: new URLSearchParams({client_id: clientId, token: refreshed.refresh_token}),

@@ -292,39 +292,39 @@ describe("OAuth for team members", () => {
   });
 });
 
-describe("OAuth refresh expiry", () => {
-  const connectOnClock = async (
-    run: (input: {
-      readonly clientId: string;
-      readonly clock: MutableClock;
-      readonly installation: TestInstallation;
-      readonly server: RunningTestServer;
-      readonly tokens: Awaited<ReturnType<typeof exchangeOAuthCode>>;
-    }) => Promise<void>,
-  ): Promise<void> => {
-    const installation = await createTestInstallation();
-    const clock = new MutableClock();
-    const port = await reserveLoopbackPort();
-    const applicationOrigin = `http://127.0.0.1:${port}`;
-    const server = await startTestServer(installation, {
-      ...ownOAuthResources(applicationOrigin, []),
-      applicationOrigin,
-      clock,
-      port,
-    });
-    try {
-      const cookies = await signInAdministrator(server, installation);
-      const clientId = await registerOAuthClient(server);
-      const {challenge, verifier} = oauthPkce();
-      const code = await approveOAuthClient(server, cookies, clientId, challenge);
-      const tokens = await exchangeOAuthCode(server, {clientId, code, verifier});
-      await run({clientId, clock, installation, server, tokens});
-    } finally {
-      await server.stop();
-      await removeTestInstallation(installation);
-    }
-  };
+async function connectOnClock(
+  run: (input: {
+    readonly clientId: string;
+    readonly clock: MutableClock;
+    readonly installation: TestInstallation;
+    readonly server: RunningTestServer;
+    readonly tokens: Awaited<ReturnType<typeof exchangeOAuthCode>>;
+  }) => Promise<void>,
+): Promise<void> {
+  const installation = await createTestInstallation();
+  const clock = new MutableClock();
+  const port = await reserveLoopbackPort();
+  const applicationOrigin = `http://127.0.0.1:${port}`;
+  const server = await startTestServer(installation, {
+    ...ownOAuthResources(applicationOrigin, []),
+    applicationOrigin,
+    clock,
+    port,
+  });
+  try {
+    const cookies = await signInAdministrator(server, installation);
+    const clientId = await registerOAuthClient(server);
+    const {challenge, verifier} = oauthPkce();
+    const code = await approveOAuthClient(server, cookies, clientId, challenge);
+    const tokens = await exchangeOAuthCode(server, {clientId, code, verifier});
+    await run({clientId, clock, installation, server, tokens});
+  } finally {
+    await server.stop();
+    await removeTestInstallation(installation);
+  }
+}
 
+describe("OAuth refresh expiry", () => {
   test("a stale refresh token after the grace revokes the grant", async () => {
     await connectOnClock(async ({clientId, clock, server, tokens}) => {
       const second = await refreshOAuthToken(server, clientId, tokens.refresh_token);
