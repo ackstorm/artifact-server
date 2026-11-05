@@ -3285,6 +3285,8 @@ async function claimWithinPollDeadline<T>(
   signal: AbortSignal,
   bumpHeartbeat = true,
 ): Promise<T | null> {
+  // A re-check after the client left would take what nobody can receive.
+  if (!bumpHeartbeat && signal.aborted) return null;
   const dispatch = await attemptClaim(bumpHeartbeat);
   if (dispatch !== null) return dispatch;
   const remainingMilliseconds = deadlineMilliseconds - Date.now();
