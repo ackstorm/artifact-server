@@ -180,6 +180,12 @@ export async function createExternalStorageRuntime(
         apiOAuthResource: config.apiOAuthResource,
       };
     }
+    if (config.oauthAuthorization !== undefined) {
+      appDependencies = {
+        ...appDependencies,
+        oauthAuthorization: config.oauthAuthorization,
+      };
+    }
     if (config.mcpOAuthResource !== undefined) {
       appDependencies = {
         ...appDependencies,
