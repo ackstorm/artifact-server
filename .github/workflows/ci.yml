@@ -184,7 +184,7 @@ jobs:
 
   full:
     name: Full / ${{ matrix.suite }}
-    if: inputs.tier == 'release' || (github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.tier == 'full'))
+    if: inputs.tier == 'release' || github.event_name != 'workflow_dispatch' || inputs.tier == 'full'
     runs-on: ubuntu-latest
     timeout-minutes: 47
     strategy:
