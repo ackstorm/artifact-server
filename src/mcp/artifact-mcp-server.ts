@@ -64,7 +64,6 @@ import {
   maximumDispatchFailureReasonCharacters,
   maximumDispatchNoteCharacters,
   maximumUploadPlanRequestBytes,
-  maximumVoiceTextCharacters,
 } from "../core/publishing-limits.js";
 import {
   AgentNotFound,
@@ -2214,7 +2213,8 @@ export function createArtifactMcpServer(
       description:
         "Say one short sentence out loud to the user through their habla listener. Queues it only while that listener is connected and answers queued false otherwise; then carry on without retrying.",
       inputSchema: z.object({
-        text: z.string().min(1).max(maximumVoiceTextCharacters),
+        // The service checks the trimmed length; this only bounds the payload.
+        text: z.string().max(4_096),
       }).strict(),
       outputSchema: z.object({queued: z.boolean()}).strict(),
       annotations: additiveWriteAnnotations,
