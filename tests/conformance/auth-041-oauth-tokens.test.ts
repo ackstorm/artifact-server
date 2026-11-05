@@ -247,12 +247,21 @@ describe("OAuth for team members", () => {
     await removeTestInstallation(installation);
   });
 
-  test("an OAuth key cannot administer", async () => {
+  test("an OAuth key cannot administer, and only an administrator's manages projects", async () => {
     const administratorKey = (await connectClient(server, administrator)).access_token;
     const members = await fetch(`${server.baseUrl}/api/v1/members`, {
       headers: {Authorization: `Bearer ${administratorKey}`},
     });
     expect(members.status).toBe(403);
+    const administratorProject = await fetch(`${server.baseUrl}/api/v1/projects`, {
+      body: JSON.stringify({name: "From an administrator's agent"}),
+      headers: {
+        Authorization: `Bearer ${administratorKey}`,
+        "Content-Type": "application/json",
+      },
+      method: "POST",
+    });
+    expect(administratorProject.status).toBe(201);
 
     const headers = {
       Authorization: `Bearer ${(await connectClient(server, ada)).access_token}`,

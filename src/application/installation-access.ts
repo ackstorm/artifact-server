@@ -35,7 +35,7 @@ import {
 import {
   isHumanAdministrator,
   membershipRoles,
-  oauthMemberCapabilities,
+  oauthKeyCapabilities,
   principalCapabilities,
   principalKinds,
   type MembershipRole,
@@ -791,7 +791,7 @@ function makeInstallationAccessService(
     const key: StoredManagedApiKey = {
       // Always set, so the key is never a direct human principal and cannot administer.
       authorizedByPrincipalId: member.id,
-      capabilities: oauthMemberCapabilities,
+      capabilities: oauthKeyCapabilities(member.role),
       createdAt: dependencies.clock.now().toISOString(),
       expiresAt: command.expiresAt,
       id,

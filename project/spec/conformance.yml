@@ -1341,7 +1341,7 @@ requirements:
     source: {file: decisions/0036-own-authorization-server.md, anchor: a-token-is-a-managed-member-key}
     acceptance:
       behavior: {id: AUTH-041-B, description: "Exchange a code, call /mcp and /api as the member, refresh, keep one key row, and retry a refresh inside the grace."}
-      failure: {id: AUTH-041-F, description: "A reused code, a wrong verifier, client, or redirect, an expired code, a revoked key, a deactivated member, an expired grant, and a stale refresh token fail closed; a stale refresh token revokes the grant, and an OAuth key cannot administer or manage projects."}
+      failure: {id: AUTH-041-F, description: "A reused code, a wrong verifier, client, or redirect, an expired code, a revoked key, a deactivated member, an expired grant, and a stale refresh token fail closed; a stale refresh token revokes the grant, an OAuth key cannot administer, and a plain member's cannot manage projects."}
     deployments: *all
     status: behavior_verified
     proof_gap: Member deactivation is proved at code exchange; mid-grant it rests on key revocation, which deactivateMember already performs for every human key, and no test refreshes after it. An expired authorization code is not tested separately from a reused one. Parallel refreshes interleave only on Postgres; on one SQLite process they run in sequence, so the loser's re-read is proved on Postgres alone.

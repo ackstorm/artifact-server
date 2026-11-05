@@ -93,7 +93,7 @@ opens its raw immutable content. Agents should hand people the Review URL.
 | Management | `artifact_set_visibility`, `artifact_set_tags`, `artifact_set_review_mode`, `artifact_restore_version`, `artifact_delete` |
 | Comments | `comment_list`, `comment_get`, `comment_create`, `comment_reply`, `comment_update`, `comment_resolve`, `comment_delete` |
 
-A client connected through OAuth can list projects but not create, rename, or archive them. Those tools need a key with `project:manage`.
+A client connected through OAuth by a plain member can list projects but not create, rename, or archive them. Those tools need a key with `project:manage`, which an administrator's OAuth client carries.
 
 `artifact_set_visibility` sets an artifact's sharing level to `private`, `account_required` (Signed-in) or `public_link`. New artifacts are `private`, and `artifact_capabilities` reports `sharing.default: "private"`. Only the owner raises the level; an administrator can lower it. A caller that cannot read an artifact receives `ARTIFACT_NOT_FOUND`, and `artifact_list` returns only the caller's own artifacts. While public links are off (set by an administrator or by `ARTIFACT_SERVER_PUBLIC_LINKS_ENABLED=false`), raising to `public_link` or publishing at `public_link` fails with `PUBLIC_LINKS_DISABLED`, and `artifact_capabilities` omits `public_link` from `sharing.modes`.
 

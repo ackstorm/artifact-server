@@ -49,11 +49,11 @@ export type PrincipalCapability =
   (typeof principalCapabilities)[keyof typeof principalCapabilities];
 
 /**
- * What a member's OAuth client may do: artifact work, not project management.
+ * What every member's OAuth client may do: artifact work.
  * manageAnyArtifact is broader than a plain member's browser power: it lets an
  * artifact owner's key delete other people's comments on that artifact.
  */
-export const oauthMemberCapabilities: readonly PrincipalCapability[] = [
+const oauthMemberCapabilities: readonly PrincipalCapability[] = [
   principalCapabilities.connectAgents,
   principalCapabilities.createArtifact,
   principalCapabilities.issueContentSession,
@@ -62,6 +62,15 @@ export const oauthMemberCapabilities: readonly PrincipalCapability[] = [
   principalCapabilities.readArtifacts,
   principalCapabilities.writeComments,
 ];
+
+/** An OAuth key manages projects only when its member can in the browser. */
+export function oauthKeyCapabilities(
+  role: MembershipRole,
+): readonly PrincipalCapability[] {
+  return role === membershipRoles.administrator
+    ? [...oauthMemberCapabilities, principalCapabilities.manageProjects]
+    : oauthMemberCapabilities;
+}
 
 /** A credential-independent identity used by every application operation. */
 export interface Principal {

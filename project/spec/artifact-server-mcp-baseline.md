@@ -249,7 +249,7 @@ projects. Service principals require explicit capabilities.
 - Bind upload and operation handles to the verified principal and installation. An upload grant authorizes only the file uploads of the upload that issued it, until that upload is committed or expires.
 - API keys bind to a local user or service principal, installation, capabilities, expiry, and revoke state.
 - MCP handlers call the same authorization layer as the browser and normal HTTP API.
-- A member key issued through OAuth carries artifact and comment capabilities, not project management.
+- A member key issued through OAuth carries artifact and comment capabilities. Only an administrator's also carries project management.
 
 Plannotator-connected projects use the normal Artifact Server project, artifact,
 version, storage, audit, and access model. They do not live in a separate

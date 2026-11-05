@@ -82,7 +82,7 @@ which administrators revoke under API keys.
 
 ### OAuth key capabilities
 
-An OAuth key cannot manage projects, whoever approved it. It carries
-`artifact:manage:any`, so a plain member's key can delete other people's
+An OAuth key manages projects only when its member is an administrator,
+matching the browser. Every OAuth key carries `artifact:manage:any`, so a plain member's key can delete other people's
 comments on that member's own artifacts, which their browser session cannot.
 This is accepted: the member owns the artifact, and the client acts for them.
