@@ -12,10 +12,16 @@ import type {ApplicationServices} from "../application/application-runtime.js";
 import type {Principal} from "../core/identity.js";
 import type {HttpEnvironment} from "./create-http-app.js";
 
+const maximumClientNameLength = 100;
+const maximumRedirectUriLength = 2_048;
+const maximumRedirectUris = 5;
+
 const registrationBodySchema = z.object({
-  client_name: z.string().optional(),
+  client_name: z.string().max(maximumClientNameLength).optional(),
   grant_types: z.array(z.string()).optional(),
-  redirect_uris: z.array(z.string()).default([]),
+  redirect_uris: z.array(z.string().max(maximumRedirectUriLength))
+    .max(maximumRedirectUris)
+    .default([]),
   response_types: z.array(z.string()).optional(),
   token_endpoint_auth_method: z.string().optional(),
 });

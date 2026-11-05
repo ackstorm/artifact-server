@@ -16,8 +16,6 @@ const codeLifetimeMilliseconds = 60 * 1_000;
 const grantLifetimeMilliseconds = 30 * 24 * 60 * 60 * 1_000;
 const refreshReuseGraceMilliseconds = 30 * 1_000;
 const maximumClients = 10_000;
-const maximumRedirectUris = 5;
-const maximumClientNameLength = 100;
 const supportedScopes = new Set(["artifactserver", "offline_access"]);
 const loopbackHostnames = new Set(["localhost", "127.0.0.1", "[::1]"]);
 const pkceChallengePattern = /^[A-Za-z0-9_-]{43,128}$/u;
@@ -225,8 +223,7 @@ function makeOAuthAuthorizationService(
         );
       }
       const uris = registration.redirectUris;
-      if (uris.length === 0 || uris.length > maximumRedirectUris ||
-        !uris.every(redirectAllowed)) {
+      if (uris.length === 0 || !uris.every(redirectAllowed)) {
         return refused<OAuthClient>(
           "invalid_redirect_uri",
           "Redirect URIs must be loopback or on this installation's allowlist.",
@@ -236,8 +233,7 @@ function makeOAuthAuthorizationService(
       const client: OAuthClient = {
         createdAt: clock.now().toISOString(),
         id: `cli_${randomUUID()}`,
-        name: (name === "" ? "Unnamed client" : name)
-          .slice(0, maximumClientNameLength),
+        name: name === "" ? "Unnamed client" : name,
         redirectUris: uris,
       };
       const stored = yield* repositoryEffect(() =>
@@ -267,7 +263,8 @@ function makeOAuthAuthorizationService(
           presented === undefined ||
           !client.redirectUris.some((registered) =>
             redirectMatches(registered, presented)
-          )
+          ) ||
+          !redirectAllowed(presented)
         ) {
           return refused<ValidatedAuthorization>(
             "invalid_request",
