@@ -16,6 +16,10 @@ import {
 import {createOidcIdentityProvider} from
   "../identity/oidc-identity-provider.js";
 import {
+  ownOAuthResources,
+  type OwnOAuthResources,
+} from "../identity/own-oauth-resources.js";
+import {
   checkCompactIntegrity,
   checkExternalStorageIntegrity,
 } from "../lifecycle/integrity-check.js";
@@ -365,7 +369,7 @@ async function startCompactServer(
 
 type OidcServerAuthentication = (
   | OidcHostedAuthentication
-  | Pick<OidcHostedAuthentication, "interactiveIdentityProvider">
+  | (Pick<OidcHostedAuthentication, "interactiveIdentityProvider"> & OwnOAuthResources)
 ) & Pick<OidcConfiguration, "externalIdentityAdmissionPolicy">;
 
 /** MCP OAuth needs the issuer at startup; browser login must survive it being down. */
@@ -380,10 +384,11 @@ async function oidcAuthenticationOrBrowserOnly(
   } catch (cause) {
     const reason = cause instanceof Error ? cause.message : "the request failed";
     process.stderr.write(
-      `OIDC configuration warning (discovery_failed): MCP OAuth stays off for ${oidc.issuer}: ${reason}\n`,
+      `OIDC configuration warning (discovery_failed): issuer tokens stay refused at /mcp for ${oidc.issuer}: ${reason}\n`,
     );
     return {
       interactiveIdentityProvider: createOidcIdentityProvider(oidc),
+      ...ownOAuthResources(oidc.applicationOrigin, oidc.allowedRedirectUris),
       ...admission,
     };
   }

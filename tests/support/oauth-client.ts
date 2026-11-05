@@ -19,7 +19,7 @@ const tokenSchema = z.object({
   token_type: z.literal("Bearer"),
 });
 
-export function oauthPkce(): {readonly challenge: string; readonly verifier: string} {
+export function oauthPkce() {
   const verifier = randomBytes(32).toString("base64url");
   return {
     challenge: createHash("sha256").update(verifier).digest("base64url"),
@@ -43,7 +43,7 @@ export async function startOAuthServer(
 
 export async function registerOAuthClient(
   server: OAuthServer,
-  overrides: Record<string, unknown> = {},
+  overrides: Readonly<Record<string, string | readonly string[]>> = {},
 ): Promise<string> {
   const response = await postRegistration(server, overrides);
   if (response.status !== 201) {
@@ -54,7 +54,7 @@ export async function registerOAuthClient(
 
 export function postRegistration(
   server: OAuthServer,
-  overrides: Record<string, unknown> = {},
+  overrides: Readonly<Record<string, string | readonly string[]>> = {},
 ): Promise<Response> {
   return fetch(`${server.baseUrl}/oauth/register`, {
     body: JSON.stringify({

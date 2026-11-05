@@ -287,7 +287,7 @@ describe.sequential("Keycloak generic OIDC browser login", () => {
     );
     expect(metadata.status).toBe(200);
     expect(await metadata.json()).toMatchObject({
-      authorization_servers: [realm.issuer],
+      authorization_servers: [application.baseUrl],
       resource: `${application.baseUrl}/mcp`,
     });
   });
@@ -656,6 +656,7 @@ async function startApplicationProcess(
     path.join(tmpdir(), "artifact-server-oidc-"),
   );
   const hosted = await createOidcHostedAuthentication({
+    allowedRedirectUris: [],
     applicationOrigin,
     clientId: oidcClientId,
     clientSecret: Redacted.make(oidcClientSecret, {label: "oidc-client-secret"}),

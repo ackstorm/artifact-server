@@ -42,12 +42,15 @@ export interface OAuthRouteHelpers {
   readonly textBody: MiddlewareHandler<HttpEnvironment>;
 }
 
-function field(value: unknown): string | undefined {
-  return typeof value === "string" && value !== "" ? value : undefined;
+/** A form with a file or repeated field is read as empty, so it is refused. */
+const formSchema = z.record(z.string(), z.string()).catch({});
+
+function field(value: string | undefined): string | undefined {
+  return value === "" ? undefined : value;
 }
 
 function authorizationRequest(
-  source: Record<string, unknown>,
+  source: Readonly<Record<string, string>>,
 ): OAuthAuthorizationRequest {
   return {
     clientId: field(source["client_id"]),
@@ -250,7 +253,7 @@ export function registerOAuthRoutes(
   app.post("/oauth/authorize", helpers.textBody, async (context) => {
     const session = await helpers.session(context);
     if (session === null) return refusalPage(context, "Sign in again and retry.");
-    const form = await context.req.parseBody();
+    const form = formSchema.parse(await context.req.parseBody());
     helpers.requireConsentSecurity(
       context,
       session.csrfDigest,
@@ -277,5 +280,54 @@ export function registerOAuthRoutes(
     );
     context.header("Cache-Control", "no-store");
     return context.redirect(location, 303);
+  });
+
+  app.post("/oauth/token", helpers.textBody, async (context) => {
+    const form = formSchema.parse(await context.req.parseBody());
+    context.header("Cache-Control", "no-store");
+    const grantType = field(form["grant_type"]);
+    const clientId = field(form["client_id"]);
+    if (grantType !== "authorization_code" && grantType !== "refresh_token") {
+      return context.json({error: "unsupported_grant_type"}, 400);
+    }
+    const outcome = await helpers.run(
+      context,
+      OAuthAuthorizationService.use((oauth) =>
+        grantType === "authorization_code"
+          ? oauth.exchangeCode({
+            clientId,
+            code: field(form["code"]),
+            codeVerifier: field(form["code_verifier"]),
+            redirectUri: field(form["redirect_uri"]),
+          })
+          : oauth.refresh({
+            clientId,
+            refreshToken: field(form["refresh_token"]),
+          })
+      ),
+    );
+    if (!outcome.ok) {
+      return context.json(
+        {error: outcome.error, error_description: outcome.description},
+        400,
+      );
+    }
+    return context.json({
+      access_token: outcome.value.accessToken,
+      expires_in: outcome.value.expiresInSeconds,
+      refresh_token: outcome.value.refreshToken,
+      scope: "artifactserver offline_access",
+      token_type: "Bearer",
+    });
+  });
+
+  app.post("/oauth/revoke", helpers.textBody, async (context) => {
+    const form = formSchema.parse(await context.req.parseBody());
+    await helpers.run(
+      context,
+      OAuthAuthorizationService.use((oauth) => oauth.revokeToken(field(form["token"]))),
+    );
+    context.header("Cache-Control", "no-store");
+    return context.body(null, 200);
   });
 }

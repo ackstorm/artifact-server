@@ -127,8 +127,9 @@
     "identity": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["oidcClientId", "oidcIssuer", "oidcScopes", "oidcAutoAdmit", "oidcAllowedEmailDomains"],
+      "required": ["oidcClientId", "oidcIssuer", "oidcScopes", "oidcAutoAdmit", "oidcAllowedEmailDomains", "oauthAllowedRedirectUris"],
       "properties": {
+        "oauthAllowedRedirectUris": {"type": "array", "items": {"type": "string", "pattern": "^https://"}},
         "oidcClientId": {"type": "string"},
         "oidcIssuer": {"type": "string"},
         "oidcScopes": {"type": "string"},

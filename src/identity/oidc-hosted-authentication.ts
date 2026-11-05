@@ -2,8 +2,8 @@ import type {Redacted} from "effect";
 
 import type {ExternalMcpBearerVerifier} from "../application/authentication.js";
 import type {InteractiveIdentityProvider} from "../application/interactive-login.js";
-import type {McpOAuthResourceConfiguration} from "../http/create-http-app.js";
 import {createOidcIdentityProvider} from "./oidc-identity-provider.js";
+import {ownOAuthResources, type OwnOAuthResources} from "./own-oauth-resources.js";
 import {requireOidcIssuer} from "./oidc-issuer.js";
 import {
   OidcMcpBearerVerifier,
@@ -12,6 +12,7 @@ import {
 import {loadOidcAuthorizationServer} from "./oidc-oauth-metadata.js";
 
 export interface OidcHostedAuthenticationConfig {
+  readonly allowedRedirectUris: readonly string[];
   readonly applicationOrigin: string;
   readonly clientId: string;
   readonly clientSecret: Redacted.Redacted | null;
@@ -20,10 +21,9 @@ export interface OidcHostedAuthenticationConfig {
   readonly scopes: string;
 }
 
-export interface OidcHostedAuthentication {
+export interface OidcHostedAuthentication extends OwnOAuthResources {
   readonly externalMcpOAuthVerifier: ExternalMcpBearerVerifier;
   readonly interactiveIdentityProvider: InteractiveIdentityProvider;
-  readonly mcpOAuthResource: McpOAuthResourceConfiguration;
 }
 
 /** Build browser and MCP authentication from one generic OIDC issuer. */
@@ -54,10 +54,6 @@ export async function createOidcHostedAuthentication(
       issuer,
       scopes: config.scopes,
     }),
-    mcpOAuthResource: {
-      authorizationServerMetadata: authorizationServer.metadata,
-      resource,
-      scopes: config.scopes.split(/\s+/u).filter((scope) => scope !== ""),
-    },
+    ...ownOAuthResources(config.applicationOrigin, config.allowedRedirectUris),
   };
 }

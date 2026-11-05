@@ -19,11 +19,13 @@ const oidcEnvironmentSchema = z.object({
   ARTIFACT_SERVER_OIDC_CLIENT_ID: z.string().min(1).optional(),
   ARTIFACT_SERVER_OIDC_ISSUER: z.string().min(1).optional(),
   ARTIFACT_SERVER_OIDC_SCOPES: z.string().min(1).optional(),
+  ARTIFACT_SERVER_OAUTH_ALLOWED_REDIRECT_URIS: z.string().optional(),
   ARTIFACT_SERVER_ORIGIN: z.url().optional(),
 });
 
 /** Complete optional generic OIDC browser-login configuration. */
 export interface OidcConfiguration {
+  readonly allowedRedirectUris: readonly string[];
   readonly applicationOrigin: string;
   readonly bootstrapAdministratorEmail: string;
   readonly clientId: string;
@@ -73,7 +75,19 @@ export async function loadOidcConfiguration(
     parsed.ARTIFACT_SERVER_OIDC_AUTO_ADMIT,
     parsed.ARTIFACT_SERVER_OIDC_ALLOWED_EMAIL_DOMAINS,
   );
+  const allowedRedirectUris = (parsed.ARTIFACT_SERVER_OAUTH_ALLOWED_REDIRECT_URIS ?? "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter((value) => value !== "");
+  for (const uri of allowedRedirectUris) {
+    if (!URL.canParse(uri) || new URL(uri).protocol !== "https:") {
+      throw new Error(
+        "ARTIFACT_SERVER_OAUTH_ALLOWED_REDIRECT_URIS must list exact HTTPS URIs.",
+      );
+    }
+  }
   const configuration: OidcConfiguration = {
+    allowedRedirectUris,
     applicationOrigin: requireString(parsed.ARTIFACT_SERVER_ORIGIN),
     bootstrapAdministratorEmail: requireString(
       parsed.ARTIFACT_SERVER_BOOTSTRAP_ADMIN_EMAIL,

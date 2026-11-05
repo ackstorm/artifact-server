@@ -60,7 +60,7 @@ describe("OAuth authorization", () => {
     expect(location.searchParams.get("code")).toMatch(/^as_orc_/u);
   });
 
-  test("AUTH-040-B: a client with a live grant skips consent", async () => {
+  test("a client with a live grant skips consent", async () => {
     const clientId = await registerOAuthClient(server);
     const pkce = oauthPkce();
     const code = await approveOAuthClient(server, cookies, clientId, pkce.challenge);
@@ -75,7 +75,7 @@ describe("OAuth authorization", () => {
       .toMatch(/^as_orc_/u);
   });
 
-  test("AUTH-040-B: without a session the browser goes to login and returns", async () => {
+  test("without a session the browser goes to login and returns", async () => {
     const clientId = await registerOAuthClient(server);
     const response = await getAuthorization(
       authorizationUrl(server, clientId, oauthPkce().challenge),
@@ -88,7 +88,7 @@ describe("OAuth authorization", () => {
   });
 
   test("AUTH-040-F: registration refuses confidential clients and unsafe redirects", async () => {
-    for (const overrides of [
+    const statuses = await Promise.all([
       {token_endpoint_auth_method: "client_secret_basic"},
       {redirect_uris: ["https://attacker.example.test/callback"]},
       {redirect_uris: ["http://10.0.0.1/callback"]},
@@ -96,27 +96,25 @@ describe("OAuth authorization", () => {
       {redirect_uris: []},
       {grant_types: ["client_credentials"]},
       {response_types: ["token"]},
-    ]) {
-      expect((await postRegistration(server, overrides)).status).toBe(400);
-    }
+    ].map(async (overrides) => (await postRegistration(server, overrides)).status));
+    expect(statuses).toEqual(statuses.map(() => 400));
   });
 
-  test("AUTH-040-F: an unknown client or foreign redirect is never redirected to", async () => {
+  test("an unknown client or foreign redirect is never redirected to", async () => {
     const clientId = await registerOAuthClient(server);
     const {challenge} = oauthPkce();
-    for (const url of [
+    const responses = await Promise.all([
       authorizationUrl(server, "cli_missing", challenge),
       authorizationUrl(server, clientId, challenge, {
         redirect_uri: "https://attacker.example.test/callback",
       }),
-    ]) {
-      const response = await getAuthorization(url, cookies);
-      expect(response.status).toBe(400);
-      expect(response.headers.get("location")).toBeNull();
-    }
+    ].map((url) => getAuthorization(url, cookies)));
+    expect(responses.map((response) => response.status)).toEqual([400, 400]);
+    expect(responses.map((response) => response.headers.get("location")))
+      .toEqual([null, null]);
   });
 
-  test("AUTH-040-F: missing or plain PKCE, unknown scopes, and foreign resources issue no code", async () => {
+  test("missing or plain PKCE, unknown scopes, and foreign resources issue no code", async () => {
     const clientId = await registerOAuthClient(server);
     const {challenge} = oauthPkce();
     const cases: readonly [Record<string, string>, string][] = [
@@ -126,19 +124,24 @@ describe("OAuth authorization", () => {
       [{resource: "https://other.example.test/mcp"}, "invalid_target"],
       [{response_type: "token"}, "unsupported_response_type"],
     ];
-    for (const [overrides, error] of cases) {
-      const response = await getAuthorization(
+    const responses = await Promise.all(cases.map(([overrides]) =>
+      getAuthorization(
         authorizationUrl(server, clientId, challenge, overrides),
         cookies,
-      );
-      expect(response.status).toBe(302);
-      const location = new URL(response.headers.get("location") ?? "");
-      expect(location.searchParams.get("error")).toBe(error);
-      expect(location.searchParams.get("code")).toBeNull();
-    }
+      )
+    ));
+    expect(responses.map((response) => response.status))
+      .toEqual(cases.map(() => 302));
+    const locations = responses.map((response) =>
+      new URL(response.headers.get("location") ?? "")
+    );
+    expect(locations.map((location) => location.searchParams.get("error")))
+      .toEqual(cases.map(([, error]) => error));
+    expect(locations.map((location) => location.searchParams.get("code")))
+      .toEqual(cases.map(() => null));
   });
 
-  test("AUTH-040-F: a cross-site or CSRF-less approval issues no code", async () => {
+  test("a cross-site or CSRF-less approval issues no code", async () => {
     const clientId = await registerOAuthClient(server);
     const page = await getAuthorization(
       authorizationUrl(server, clientId, oauthPkce().challenge),
@@ -155,7 +158,7 @@ describe("OAuth authorization", () => {
     expect(wrongCsrf.status).toBe(403);
   });
 
-  test("AUTH-040-F: a hostile client name is escaped on the consent page", async () => {
+  test("a hostile client name is escaped on the consent page", async () => {
     const clientId = await registerOAuthClient(server, {
       client_name: '<script>alert("x")</script>',
     });

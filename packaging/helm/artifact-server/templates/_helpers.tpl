@@ -186,6 +186,8 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
   value: {{ .Values.identity.oidcAutoAdmit | quote }}
 - name: ARTIFACT_SERVER_OIDC_ALLOWED_EMAIL_DOMAINS
   value: {{ join "," .Values.identity.oidcAllowedEmailDomains | quote }}
+- name: ARTIFACT_SERVER_OAUTH_ALLOWED_REDIRECT_URIS
+  value: {{ join "," .Values.identity.oauthAllowedRedirectUris | quote }}
 {{- if .Values.secret.keys.oidcClientSecret }}
 - name: ARTIFACT_SERVER_OIDC_CLIENT_SECRET_FILE
   value: /run/secrets/artifact-server/oidc-client-secret
