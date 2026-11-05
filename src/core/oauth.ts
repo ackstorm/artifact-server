@@ -39,18 +39,22 @@ export interface OAuthGrantRotation {
   readonly keyExpiresAt: string;
   readonly keyPrefix: string;
   readonly keySecretDigest: string;
+  readonly memberId: string;
   readonly refreshDigest: string;
   readonly refreshedAt: string;
 }
 
 /** Durable OAuth state for one installation. */
 export interface OAuthRepository {
-  /** Replace the client's earlier grant for this member and revoke its key. */
+  /**
+   * Replace the client's earlier grant for this member and revoke its key.
+   * False, with nothing stored, when the member is not active.
+   */
   readonly connectGrant: (
     grant: OAuthGrant,
     key: StoredManagedApiKey,
     connectedAt: string,
-  ) => Promise<void>;
+  ) => Promise<boolean>;
   /** Atomically remove and return one unexpired code. */
   readonly consumeCode: (
     codeDigest: string,
@@ -79,6 +83,6 @@ export interface OAuthRepository {
     memberId: string,
     revokedAt: string,
   ) => Promise<boolean>;
-  /** Apply one refresh; false when the grant moved or its key is revoked. */
+  /** Apply one refresh; false when the grant moved, its key is revoked, or its member is not active. */
   readonly rotateGrant: (rotation: OAuthGrantRotation) => Promise<boolean>;
 }

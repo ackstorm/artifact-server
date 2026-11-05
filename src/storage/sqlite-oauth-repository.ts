@@ -2,7 +2,10 @@ import {DatabaseSync} from "node:sqlite";
 
 import {z} from "zod";
 
-import type {StoredManagedApiKey} from "../core/installation-identity.js";
+import {
+  memberStatuses,
+  type StoredManagedApiKey,
+} from "../core/installation-identity.js";
 import type {
   OAuthAuthorizationCode,
   OAuthClient,
@@ -60,8 +63,9 @@ export class SqliteOAuthRepository implements OAuthRepository {
     grant: OAuthGrant,
     key: StoredManagedApiKey,
     connectedAt: string,
-  ): Promise<void> => {
+  ): Promise<boolean> =>
     this.#transaction(() => {
+      if (!this.#memberIsActive(grant.memberId)) return false;
       this.#database.prepare(`
         UPDATE managed_api_keys
         SET revoked_at = COALESCE(revoked_at, ?)
@@ -115,8 +119,8 @@ export class SqliteOAuthRepository implements OAuthRepository {
         grant.refreshedAt,
         grant.expiresAt,
       );
+      return true;
     });
-  };
 
   consumeCode = async (
     codeDigest: string,
@@ -268,38 +272,46 @@ export class SqliteOAuthRepository implements OAuthRepository {
 
   rotateGrant = async (rotation: OAuthGrantRotation): Promise<boolean> =>
     this.#transaction(() => {
-      const key = this.#database.prepare(`
+      if (!this.#memberIsActive(rotation.memberId)) return false;
+      const grant = this.#database.prepare(`
+        UPDATE oauth_grants
+        SET previous_refresh_digest = refresh_digest, refresh_digest = ?,
+          refreshed_at = ?
+        WHERE installation_id = ? AND id = ? AND refresh_digest = ?
+          AND EXISTS (
+            SELECT 1 FROM managed_api_keys
+            WHERE installation_id = ? AND id = ? AND revoked_at IS NULL
+          )
+      `).run(
+        rotation.refreshDigest,
+        rotation.refreshedAt,
+        this.#installationId,
+        rotation.grantId,
+        rotation.expectedRefreshDigest,
+        this.#installationId,
+        rotation.apiKeyId,
+      );
+      if (grant.changes === 0) return false;
+      this.#database.prepare(`
         UPDATE managed_api_keys
         SET prefix = ?, secret_digest = ?, expires_at = ?
-        WHERE installation_id = ? AND id = ? AND revoked_at IS NULL
-          AND EXISTS (
-            SELECT 1 FROM oauth_grants
-            WHERE installation_id = ? AND id = ? AND refresh_digest = ?
-          )
+        WHERE installation_id = ? AND id = ?
       `).run(
         rotation.keyPrefix,
         rotation.keySecretDigest,
         rotation.keyExpiresAt,
         this.#installationId,
         rotation.apiKeyId,
-        this.#installationId,
-        rotation.grantId,
-        rotation.expectedRefreshDigest,
-      );
-      if (key.changes === 0) return false;
-      this.#database.prepare(`
-        UPDATE oauth_grants
-        SET previous_refresh_digest = refresh_digest, refresh_digest = ?,
-          refreshed_at = ?
-        WHERE installation_id = ? AND id = ?
-      `).run(
-        rotation.refreshDigest,
-        rotation.refreshedAt,
-        this.#installationId,
-        rotation.grantId,
       );
       return true;
     });
+
+  #memberIsActive(memberId: string): boolean {
+    return this.#database.prepare(`
+      SELECT 1 FROM installation_members
+      WHERE installation_id = ? AND id = ? AND status = ?
+    `).get(this.#installationId, memberId, memberStatuses.active) !== undefined;
+  }
 
   #transaction<A>(run: () => A): A {
     this.#database.exec("BEGIN IMMEDIATE;");

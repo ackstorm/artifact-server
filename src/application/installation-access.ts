@@ -265,14 +265,14 @@ export interface InstallationAccessOperations {
   >;
   /** Forget cached managed-key authentications after a key changes elsewhere. */
   readonly evictManagedKeys: () => void;
-  /** Build, without storing, an OAuth key for an active member. */
+  /** Build, without storing, an OAuth key for a member; null unless the member is active. */
   readonly prepareOAuthMemberKey: (command: {
     readonly clientName: string;
     readonly expiresAt: string;
     readonly memberId: string;
   }) => Effect.Effect<
-    {readonly key: StoredManagedApiKey; readonly token: string},
-    IdentityNotFound | IdentityRepositoryFailure
+    {readonly key: StoredManagedApiKey; readonly token: string} | null,
+    IdentityRepositoryFailure
   >;
   /** Build a replacement token for an existing key id. */
   readonly prepareOAuthKeySecret: (keyId: string) => {
@@ -785,11 +785,7 @@ function makeInstallationAccessService(
       dependencies.installationId,
       command.memberId,
     );
-    if (member?.status !== memberStatuses.active) {
-      return yield* Effect.fail(new IdentityNotFound({
-        message: "The active member for this client does not exist.",
-      }));
-    }
+    if (member?.status !== memberStatuses.active) return null;
     const id = dependencies.ids.apiKeyId();
     const {prefix, secretDigest, token} = prepareOAuthKeySecret(id);
     const key: StoredManagedApiKey = {

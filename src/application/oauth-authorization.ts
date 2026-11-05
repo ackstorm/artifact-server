@@ -2,10 +2,7 @@ import {createHash, randomUUID} from "node:crypto";
 
 import {Context, Effect, Layer} from "effect";
 
-import {
-  type IdentityNotFound,
-  IdentityRepositoryFailure,
-} from "../core/errors.js";
+import {IdentityRepositoryFailure} from "../core/errors.js";
 import type {Principal} from "../core/identity.js";
 import type {OAuthClient, OAuthRepository} from "../core/oauth.js";
 import {
@@ -87,8 +84,6 @@ export interface OAuthTokens {
   readonly refreshToken: string;
 }
 
-type OAuthFailure = IdentityNotFound | IdentityRepositoryFailure;
-
 export interface OAuthAuthorizationOperations {
   readonly approve: (
     principal: Principal,
@@ -99,7 +94,7 @@ export interface OAuthAuthorizationOperations {
     readonly code: string | undefined;
     readonly codeVerifier: string | undefined;
     readonly redirectUri: string | undefined;
-  }) => Effect.Effect<OAuthOutcome<OAuthTokens>, OAuthFailure>;
+  }) => Effect.Effect<OAuthOutcome<OAuthTokens>, IdentityRepositoryFailure>;
   readonly hasLiveGrant: (
     clientId: string,
     memberId: string,
@@ -380,14 +375,18 @@ function makeOAuthAuthorizationService(
       if (client === null) {
         return refused<OAuthTokens>("invalid_grant", "The code is not valid.");
       }
-      const {key, token} = yield* access.prepareOAuthMemberKey({
+      const prepared = yield* access.prepareOAuthMemberKey({
         clientName: client.name,
         expiresAt: later(accessLifetimeMilliseconds),
         memberId: stored.memberId,
       });
+      if (prepared === null) {
+        return refused<OAuthTokens>("invalid_grant", "The code is not valid.");
+      }
+      const {key, token} = prepared;
       const refreshToken = `as_ort_${secrets.issue()}`;
       const now = clock.now().toISOString();
-      yield* repositoryEffect(() =>
+      const connected = yield* repositoryEffect(() =>
         repository.connectGrant({
           apiKeyId: key.id,
           clientId,
@@ -399,6 +398,9 @@ function makeOAuthAuthorizationService(
           refreshedAt: now,
         }, key, now)
       );
+      if (!connected) {
+        return refused<OAuthTokens>("invalid_grant", "The code is not valid.");
+      }
       access.evictManagedKeys();
       return {
         ok: true,
@@ -420,55 +422,60 @@ function makeOAuthAuthorizationService(
         );
       }
       const digest = secrets.digest(refreshToken);
-      const grant = yield* repositoryEffect(() =>
-        repository.findGrantByRefreshDigest(digest)
-      );
-      const now = clock.now();
-      if (
-        grant === null || grant.clientId !== clientId ||
-        grant.expiresAt <= now.toISOString()
-      ) {
-        return refused<OAuthTokens>("invalid_grant", "The refresh token is not valid.");
-      }
-      if (grant.refreshDigest !== digest) {
-        const age = now.getTime() - new Date(grant.refreshedAt).getTime();
-        if (age > refreshReuseGraceMilliseconds) {
-          yield* repositoryEffect(() =>
-            repository.revokeConnection(grant.id, grant.memberId, now.toISOString())
-          );
+      // A concurrent caller holding the same token loses the rotation once, then
+      // finds its token superseded inside the grace and rotates from the new one.
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        const grant = yield* repositoryEffect(() =>
+          repository.findGrantByRefreshDigest(digest)
+        );
+        const now = clock.now();
+        if (
+          grant === null || grant.clientId !== clientId ||
+          grant.expiresAt <= now.toISOString()
+        ) {
+          return refused<OAuthTokens>("invalid_grant", "The refresh token is not valid.");
+        }
+        if (grant.refreshDigest !== digest) {
+          const age = now.getTime() - new Date(grant.refreshedAt).getTime();
+          if (age > refreshReuseGraceMilliseconds) {
+            yield* repositoryEffect(() =>
+              repository.revokeConnection(grant.id, grant.memberId, now.toISOString())
+            );
+            access.evictManagedKeys();
+            return refused<OAuthTokens>(
+              "invalid_grant",
+              "The refresh token is not valid.",
+            );
+          }
+        }
+        const {prefix, secretDigest, token} = access.prepareOAuthKeySecret(grant.apiKeyId);
+        const nextRefresh = `as_ort_${secrets.issue()}`;
+        const rotated = yield* repositoryEffect(() =>
+          repository.rotateGrant({
+            apiKeyId: grant.apiKeyId,
+            expectedRefreshDigest: grant.refreshDigest,
+            grantId: grant.id,
+            keyExpiresAt: later(accessLifetimeMilliseconds),
+            keyPrefix: prefix,
+            keySecretDigest: secretDigest,
+            memberId: grant.memberId,
+            refreshDigest: secrets.digest(nextRefresh),
+            refreshedAt: now.toISOString(),
+          })
+        );
+        if (rotated) {
           access.evictManagedKeys();
-          return refused<OAuthTokens>(
-            "invalid_grant",
-            "The refresh token is not valid.",
-          );
+          return {
+            ok: true,
+            value: {
+              accessToken: token,
+              expiresInSeconds: accessLifetimeMilliseconds / 1_000,
+              refreshToken: nextRefresh,
+            },
+          };
         }
       }
-      const {prefix, secretDigest, token} = access.prepareOAuthKeySecret(grant.apiKeyId);
-      const nextRefresh = `as_ort_${secrets.issue()}`;
-      const rotated = yield* repositoryEffect(() =>
-        repository.rotateGrant({
-          apiKeyId: grant.apiKeyId,
-          expectedRefreshDigest: grant.refreshDigest,
-          grantId: grant.id,
-          keyExpiresAt: later(accessLifetimeMilliseconds),
-          keyPrefix: prefix,
-          keySecretDigest: secretDigest,
-          refreshDigest: secrets.digest(nextRefresh),
-          refreshedAt: now.toISOString(),
-        })
-      );
-      if (!rotated) {
-        return refused<OAuthTokens>("invalid_grant", "The refresh token is not valid.");
-      }
-      access.evictManagedKeys();
-      return {
-        ok: true,
-        value: {
-          accessToken: token,
-          expiresInSeconds: accessLifetimeMilliseconds / 1_000,
-          refreshToken: nextRefresh,
-        },
-      };
+      return refused<OAuthTokens>("invalid_grant", "The refresh token is not valid.");
     });
 
   return OAuthAuthorizationService.of({

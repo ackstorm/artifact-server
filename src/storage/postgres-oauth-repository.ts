@@ -1,8 +1,11 @@
-import {Effect} from "effect";
+import {Effect, Schema} from "effect";
 import {SqlClient} from "effect/unstable/sql/SqlClient";
 import {z} from "zod";
 
-import type {StoredManagedApiKey} from "../core/installation-identity.js";
+import {
+  memberStatuses,
+  type StoredManagedApiKey,
+} from "../core/installation-identity.js";
 import type {
   OAuthAuthorizationCode,
   OAuthClient,
@@ -12,7 +15,6 @@ import type {
 } from "../core/oauth.js";
 import type {PostgresDatabase} from "./postgres-database.js";
 
-const idRowSchema = z.object({id: z.string()});
 const keyIdRowSchema = z.object({api_key_id: z.string()});
 const countRowSchema = z.object({count: z.coerce.number()});
 const clientRowSchema = z.object({
@@ -40,7 +42,30 @@ const grantRowSchema = z.object({
   refresh_digest: z.string(),
   refreshed_at: z.string(),
 });
-/** OAuth state stored in the installation's Postgres database. */
+
+/** Fails a rotation whose grant update already ran, so the transaction rolls back. */
+class OAuthKeyRevoked extends Schema.TaggedError<OAuthKeyRevoked>()(
+  "OAuthKeyRevoked",
+  {},
+) {}
+
+/** Hold the member row against deactivation for the rest of the transaction. */
+const lockActiveMember = Effect.fnUntraced(function*(
+  sql: SqlClient,
+  installationId: string,
+  memberId: string,
+) {
+  const rows = yield* sql`SELECT id FROM installation_members
+    WHERE installation_id = ${installationId} AND id = ${memberId}
+      AND status = ${memberStatuses.active}
+    FOR SHARE`;
+  return rows.length > 0;
+});
+
+/**
+ * OAuth state stored in the installation's Postgres database. Transactions lock
+ * rows in member, grant, key order, skipping those they do not touch.
+ */
 export class PostgresOAuthRepository implements OAuthRepository {
   readonly #database: PostgresDatabase;
   readonly #installationId: string;
@@ -54,23 +79,28 @@ export class PostgresOAuthRepository implements OAuthRepository {
     grant: OAuthGrant,
     key: StoredManagedApiKey,
     connectedAt: string,
-  ): Promise<void> => {
+  ): Promise<boolean> => {
     const installationId = this.#installationId;
-    await this.#database.run(Effect.gen(function*() {
+    return this.#database.run(Effect.gen(function*() {
       const sql = yield* SqlClient;
-      yield* sql.withTransaction(Effect.gen(function*() {
-        yield* sql`UPDATE managed_api_keys
-          SET revoked_at = COALESCE(revoked_at, ${connectedAt})
-          WHERE installation_id = ${installationId} AND id IN (
-            SELECT api_key_id FROM oauth_grants
+      return yield* sql.withTransaction(Effect.gen(function*() {
+        yield* sql`SELECT pg_advisory_xact_lock(hashtextextended(
+          ${`oauth-connect:${installationId}:${grant.clientId}:${grant.memberId}`}, 0
+        ))`;
+        if (!(yield* lockActiveMember(sql, installationId, grant.memberId))) {
+          return false;
+        }
+        yield* sql`WITH replaced AS (
+            DELETE FROM oauth_grants
             WHERE installation_id = ${installationId}
               AND client_id = ${grant.clientId}
               AND member_id = ${grant.memberId}
-          )`;
-        yield* sql`DELETE FROM oauth_grants
+            RETURNING api_key_id
+          )
+          UPDATE managed_api_keys
+          SET revoked_at = COALESCE(revoked_at, ${connectedAt})
           WHERE installation_id = ${installationId}
-            AND client_id = ${grant.clientId}
-            AND member_id = ${grant.memberId}`;
+            AND id IN (SELECT api_key_id FROM replaced)`;
         yield* sql`INSERT INTO managed_api_keys (
             id, installation_id, name, prefix, secret_digest, principal_id,
             principal_kind, capabilities_json, authorized_by_principal_id,
@@ -90,6 +120,7 @@ export class PostgresOAuthRepository implements OAuthRepository {
             ${grant.apiKeyId}, ${grant.refreshDigest}, NULL,
             ${connectedAt}, ${grant.refreshedAt}, ${grant.expiresAt}
           )`;
+        return true;
       }));
     }));
   };
@@ -262,29 +293,29 @@ export class PostgresOAuthRepository implements OAuthRepository {
     return this.#database.run(Effect.gen(function*() {
       const sql = yield* SqlClient;
       return yield* sql.withTransaction(Effect.gen(function*() {
-        const updated = yield* sql`UPDATE managed_api_keys
+        if (!(yield* lockActiveMember(sql, installationId, rotation.memberId))) {
+          return false;
+        }
+        const grant = yield* sql`UPDATE oauth_grants
+          SET previous_refresh_digest = refresh_digest,
+            refresh_digest = ${rotation.refreshDigest},
+            refreshed_at = ${rotation.refreshedAt}
+          WHERE installation_id = ${installationId}
+            AND id = ${rotation.grantId}
+            AND refresh_digest = ${rotation.expectedRefreshDigest}
+          RETURNING id`;
+        if (grant.length === 0) return false;
+        const key = yield* sql`UPDATE managed_api_keys
           SET prefix = ${rotation.keyPrefix},
             secret_digest = ${rotation.keySecretDigest},
             expires_at = ${rotation.keyExpiresAt}
           WHERE installation_id = ${installationId}
             AND id = ${rotation.apiKeyId}
             AND revoked_at IS NULL
-            AND EXISTS (
-              SELECT 1 FROM oauth_grants
-              WHERE installation_id = ${installationId}
-                AND id = ${rotation.grantId}
-                AND refresh_digest = ${rotation.expectedRefreshDigest}
-            )
           RETURNING id`;
-        if (z.array(idRowSchema).parse(updated).length === 0) return false;
-        yield* sql`UPDATE oauth_grants
-          SET previous_refresh_digest = refresh_digest,
-            refresh_digest = ${rotation.refreshDigest},
-            refreshed_at = ${rotation.refreshedAt}
-          WHERE installation_id = ${installationId}
-            AND id = ${rotation.grantId}`;
+        if (key.length === 0) return yield* new OAuthKeyRevoked();
         return true;
-      }));
+      })).pipe(Effect.catchTag("OAuthKeyRevoked", () => Effect.succeed(false)));
     }));
   };
 }
