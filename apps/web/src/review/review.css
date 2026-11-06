@@ -1139,14 +1139,13 @@ select:focus-visible {
   border-radius: var(--as-radius);
   color: var(--as-muted);
   display: inline-flex;
+  font-family: "Atkinson Hyperlegible Mono", monospace;
+  font-size: 0.625rem;
+  font-weight: 600;
   height: 2.25rem;
   justify-content: center;
+  letter-spacing: 0.02em;
   width: 2.25rem;
-}
-
-.as-artifact-card__mark svg {
-  height: 1.2rem;
-  width: 1.2rem;
 }
 
 .as-artifact-card[data-selected="true"] .as-artifact-card__mark {

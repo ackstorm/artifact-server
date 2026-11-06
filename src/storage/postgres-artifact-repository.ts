@@ -199,6 +199,7 @@ const artifactRowSchema = z.object({
 const artifactListRowSchema = artifactRowSchema.extend({
   catalogGroup: z.coerce.number().int(),
   commentCount: z.coerce.number().int().nonnegative(),
+  entryMediaType: z.string(),
   pinned: z.boolean(),
   versionCount: z.coerce.number().int().positive(),
 });
@@ -952,6 +953,15 @@ export class PostgresArtifactRepository implements
                 AND versions.project_id = artifacts.project_id
                 AND versions.artifact_id = artifacts.id
             ) AS "versionCount",
+            (
+              SELECT manifest_entries.media_type FROM versions
+              JOIN manifest_entries
+                ON manifest_entries.installation_id = versions.installation_id
+                AND manifest_entries.version_id = versions.id
+                AND manifest_entries.path = versions.entry_path
+              WHERE versions.installation_id = artifacts.installation_id
+                AND versions.id = artifacts.current_version_id
+            ) AS "entryMediaType",
             EXISTS (
               SELECT 1 FROM artifact_pins
               WHERE artifact_pins.installation_id = artifacts.installation_id

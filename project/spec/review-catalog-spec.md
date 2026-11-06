@@ -342,6 +342,12 @@ No MCP tool or CLI command duplicates.
 - **Retries.** One click uses one idempotency key, and a retry of the same click
   reuses it.
 
+### Type badge
+
+Each catalog card names its artifact's type in a text badge taken from the
+current version's entry file: `HTML`, `MD`, `IMG`, `VID`, `AUD`, `PDF`, or
+`FILE` for any other type. A multi-file site takes the badge of its entry file.
+
 ## 6. API summary
 
 | Method and path | Body | Answer | PR |
@@ -397,6 +403,7 @@ New requirements:
 | ART-013 | A | **B:** Details, Versions and Activity show the owner's, publishers' and actors' names with initials avatars, and "via API key" for key-authorized actions. **F:** List, details, versions and actions responses name only principals recorded on artifacts the reader can read. A failed read names nobody, emails never appear, and members cannot list the directory. |
 | ART-014 | A | **B:** The catalog filters by sharing level, and pinned artifacts stay grouped at the top across reloads and under Pinned only. **F:** Pins are per principal and need read authority. Pages never repeat or skip an artifact across the pinned boundary in either sort, and a cursor without a group, or an unknown level, is refused. |
 | AUTH-038 | B | **B:** An owner lists a Members artifact from the Share modal and a colleague finds it under "Listed for everyone". An artifact the colleague opened by link appears under "Opened by link". **F:** Shared with me never contains Private artifacts, service-owned artifacts for an administrator, or another reader's openings. Non-controllers cannot change the listing, and a Private artifact cannot be listed. Each listing change, and the unlisting by a lowering to Private, writes one Activity record, and a repeat writes none. Only a browser-session read records an opening: API-key and MCP OAuth-bearer reads record nothing. |
+| ART-016 | D | **B:** Each catalog item reports the media type of its current version's entry file, and the report follows a new version. **F:** A multi-file artifact reports its entry file, never another file in the manifest. |
 | ART-015 | C | **B:** Duplicate from the ⋯ menu creates "{name} (copy)", Private and owned by the reader, with one version identical to the source, and opens it in Mine. **F:** A non-reader gets 404 and a reader without creation rights 403. A replay returns the same copy, a reused key with another source conflicts, and the source's versions, pointer, actions and bytes never change. |
 
 Reworded:

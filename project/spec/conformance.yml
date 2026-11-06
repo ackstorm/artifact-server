@@ -371,6 +371,18 @@ requirements:
     status: behavior_verified
     depends_on: [ART-001, PUB-006, AUTH-033]
 
+  - id: ART-016
+    kind: behavior
+    behavior: Each Review catalog card names its artifact's type from the media type of the current version's entry file.
+    owner: artifact-core
+    source: {file: review-catalog-spec.md, anchor: type-badge}
+    acceptance:
+      behavior: {id: ART-016-B, description: "Each catalog item reports the media type of its current version's entry file, and the report follows a new version."}
+      failure: {id: ART-016-F, description: "A multi-file artifact reports its entry file, never another file in the manifest."}
+    deployments: *all
+    status: behavior_verified
+    depends_on: [ART-011]
+
   - id: MAN-001
     kind: behavior
     behavior: A canonical manifest contains a sorted list of normalized paths, fingerprints, sizes, media types, disposition, entry file, routing mode, and serving metadata.

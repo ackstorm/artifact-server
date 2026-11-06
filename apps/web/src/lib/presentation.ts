@@ -70,6 +70,18 @@ export function accessSettingLabel(value: AccessSetting): string {
   return {account_required: "Members", private: "Private", public_link: "Public"}[value];
 }
 
+/** Names an artifact's file type for its catalog badge. */
+export function artifactTypeLabel(mediaType: string): string {
+  const essence = mediaType.split(";", 1)[0]?.trim().toLowerCase() ?? "";
+  if (essence === "text/html") return "HTML";
+  if (essence === "text/markdown") return "MD";
+  if (essence === "application/pdf") return "PDF";
+  if (essence.startsWith("image/")) return "IMG";
+  if (essence.startsWith("video/")) return "VID";
+  if (essence.startsWith("audio/")) return "AUD";
+  return "FILE";
+}
+
 /** Converts one action kind into compact action-history text. */
 export function actionLabel(value: ArtifactAction["action"]): string {
   switch (value) {

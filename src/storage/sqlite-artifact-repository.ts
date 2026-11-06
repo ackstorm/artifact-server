@@ -262,6 +262,7 @@ const artifactRowSchema = z.object({
 const artifactListRowSchema = artifactRowSchema.extend({
   catalogGroup: z.number().int(),
   commentCount: z.number().int().nonnegative(),
+  entryMediaType: z.string(),
   pinned: z.number().int(),
   versionCount: z.number().int().positive(),
 });
@@ -1220,6 +1221,13 @@ export class SqliteArtifactRepository implements
                 WHERE versions.project_id = artifacts.project_id
                   AND versions.artifact_id = artifacts.id
               ) AS versionCount,
+              (
+                SELECT manifest_entries.media_type FROM versions
+                JOIN manifest_entries
+                  ON manifest_entries.version_id = versions.id
+                  AND manifest_entries.path = versions.entry_path
+                WHERE versions.id = artifacts.current_version_id
+              ) AS entryMediaType,
               EXISTS (
                 SELECT 1 FROM artifact_pins p
                 WHERE p.artifact_id = artifacts.id AND p.principal_id = ?

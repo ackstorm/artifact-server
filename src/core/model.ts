@@ -150,6 +150,8 @@ export interface ArtifactActionRecord {
 /** One active artifact with exact aggregate data needed by list surfaces. */
 export interface ArtifactListItem extends ArtifactRecord {
   readonly commentCount: number;
+  /** The declared media type of the current version's entry file. */
+  readonly entryMediaType: string;
   readonly pinned: boolean;
   readonly versionCount: number;
 }
