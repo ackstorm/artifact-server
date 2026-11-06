@@ -33,9 +33,10 @@ test.describe("ART-014 catalog filters and pins", () => {
       await expect(cards).toHaveCount(3);
 
       await filters.click();
-      await page.getByRole("checkbox", {name: "Signed-in"}).check();
+      await page.getByRole("checkbox", {name: "Members"}).check();
       await expect(cards).toHaveCount(1);
       await expect(cards.first()).toContainText("Organization artifact");
+      await expect(cards.first().locator(".as-artifact-card__mark")).toHaveText("HTML");
       await expect(filters).toContainText("1 filter");
       await expect(filters).not.toContainText("1 filters");
       await page.getByRole("button", {name: "Clear filters"}).click();

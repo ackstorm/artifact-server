@@ -42,7 +42,7 @@ async function openShare(page: Page, fixture: TeamFixture, published: PublishRes
 }
 
 test.describe("AUTH-037 share levels", () => {
-  test("AUTH-037-B: the owner moves between Private, Signed-in and Public, confirming in place before Public", async ({browser}) => {
+  test("AUTH-037-B: the owner moves between Private, Members and Public, confirming in place before Public", async ({browser}) => {
     const fixture = await startTeamFixture(browser);
     try {
       const published = await publishAsAda(fixture, "Ada's plan", "private");
@@ -52,7 +52,7 @@ test.describe("AUTH-037 share levels", () => {
       await expect(access).toBeEnabled();
       await expect(access.locator("option")).toHaveText([
         "Private — Only you",
-        "Signed-in — Anyone signed in with the link",
+        "Members — Any member with the link",
         "Public — Anyone with the link, no sign-in",
       ]);
       await expect(share.getByText("Only you can open this link.", {exact: true}))
@@ -60,7 +60,7 @@ test.describe("AUTH-037 share levels", () => {
 
       await access.selectOption("account_required");
       await expect(share.getByText(
-        "Anyone signed in can open this link.",
+        "Any member can open this link.",
         {exact: true},
       )).toBeVisible();
       await expect(access).toBeEnabled();
@@ -111,7 +111,7 @@ test.describe("AUTH-037 share levels", () => {
 
       const reader = await openShare(fixture.bob, fixture, published);
       await expect(reader.access).toBeDisabled();
-      await expect(reader.access).toHaveText("Shared with anyone signed in");
+      await expect(reader.access).toHaveText("Shared with members");
       await expect(fixture.bob.getByRole("button", {name: "Edit tags"})).toHaveCount(0);
 
       const failure = "The access change could not be stored.";

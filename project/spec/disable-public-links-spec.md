@@ -15,7 +15,7 @@ An installation administrator can turn public links off, and back on, from
 - Nobody can make an artifact Public, on any surface.
 - Artifacts that are already Public keep their stored level (`public_link`) but
   no longer open without sign-in.
-- Signed-in readers open those artifacts exactly as if they were at the Signed-in level.
+- Members readers open those artifacts exactly as if they were at the Members level.
 
 Turning public links back on restores public reading of those artifacts
 unchanged. Public links are on by default, which is today's behavior.
@@ -42,8 +42,8 @@ The effective policy is one boolean, `publicLinksEnabled`:
 | Raise an artifact to Public | Owner, as in the sharing spec §4 | Refused: `409 PUBLIC_LINKS_DISABLED` |
 | Publish a new artifact as Public | Allowed | Refused: `409 PUBLIC_LINKS_DISABLED` |
 | Lower a level | Allowed | Allowed |
-| Anonymous read of a stored-Public artifact | Current version, through the public link | Same answer as a Signed-in artifact: sign-in required |
-| Signed-in read of a stored-Public artifact | Any principal with read authority | Same: rule 3 of the sharing spec §3 (Signed-in) |
+| Anonymous read of a stored-Public artifact | Current version, through the public link | Same answer as a Members artifact: sign-in required |
+| Members read of a stored-Public artifact | Any principal with read authority | Same: rule 3 of the sharing spec §3 (Members) |
 | Lists | Owner only | Owner only |
 
 Details:
@@ -68,13 +68,13 @@ Details:
   dropped since, the retry is a new raise and is refused. A new key, or a
   changed body, is a new request and is refused.
 - **Anonymous answer.** Anonymous requests receive exactly the response for an
-  Signed-in artifact (`401 CONTENT_NOT_PUBLIC`, `Cache-Control: private,
+  Members artifact (`401 CONTENT_NOT_PUBLIC`, `Cache-Control: private,
   no-store`). An anonymous reader learns nothing about the policy, and nothing
-  about the artifact beyond what a Signed-in link already reveals.
+  about the artifact beyond what a Members link already reveals.
 - **No cache of the setting.** Every decision reads the stored setting. The
   external-storage runtime and Kubernetes run several processes, so an in-process copy would keep serving public reads after an
   administrator turned them off. The setting is read only on the would-be-public
-  path, on a raise and on `GET /api/v1/session`, so Private and Signed-in
+  path, on a raise and on `GET /api/v1/session`, so Private and Members
   content reads pay nothing extra.
 - **Concurrent raise.** A raise checks the policy and then stores the level, with
   no transaction around both. A raise that lands while an administrator turns
@@ -146,15 +146,15 @@ No other surface is anonymous. Bootstraps, content sessions, Review preview
 leases, the live origin of linked artifacts, the API, MCP and Git all require a
 signed-in principal.
 
-### Signed-in reads while off
+### Members reads while off
 
-- A stored-Public artifact is read as a Signed-in artifact: the Review app,
+- A stored-Public artifact is read as a Members artifact: the Review app,
   API, MCP and content bootstraps work for every principal with read authority
   who has the link.
 - Content served under a content session is sent `private, no-store`, never
   `public`.
 - MCP `artifact_open` returns a content-bootstrap URL for a stored-Public
-  artifact, as it does for Signed-in, instead of the raw public URL.
+  artifact, as it does for Members, instead of the raw public URL.
 
 ### Grants that already exist when the switch turns off
 
@@ -210,7 +210,7 @@ used.
 - **With N ≥ 2 Public artifacts:** "{N} artifacts are Public now. They stop
   opening without sign-in as soon as you turn public links off. They keep their
   Public setting, and open without sign-in again if you turn public links back
-  on. Until then, people signed in with the link can still
+  on. Until then, members with the link can still
   open them."
 - **With N = 0:** "No artifact is Public now."
 - **Then, always:** "Nobody can make an artifact Public while public links are
@@ -254,7 +254,7 @@ When `setByConfiguration` is true:
 The inventory still lists stored-Public artifacts, so an administrator can lower
 them for good. A note above the table reads: "Public links are off. These
 artifacts keep their Public setting but do not open without sign-in. Stop public
-access lowers them to Signed-in."
+access lowers them to Members."
 
 ## 5. Share modal
 
@@ -271,9 +271,9 @@ While public links are off:
   - The selector shows Public, and still offers the levels below it to the owner
     and to administrators, so they can lower it.
   - The description reads "Public links are turned off by an administrator. Only
-    people signed in with the link can open it until they are
+    members with the link can open it until they are
     turned back on."
-  - The **Public link** row is hidden. The Review link note is the Signed-in
+  - The **Public link** row is hidden. The Review link note is the Members
     one.
 - **Stale page.** If an administrator turns public links off after the page
   loaded, the server refuses the raise. The selector returns to the saved level

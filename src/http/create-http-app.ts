@@ -3103,9 +3103,10 @@ function artifactPageResponse(
   principals: Readonly<Record<string, string>>,
 ) {
   return {
-    artifacts: page.items.map(({commentCount, pinned, versionCount, ...artifact}) => ({
+    artifacts: page.items.map(({commentCount, entryMediaType, pinned, versionCount, ...artifact}) => ({
       artifact,
       commentCount,
+      entryMediaType,
       links: {
         artifact: artifactBrowserUrl(requestUrl, artifact.id),
         management: new URL(

@@ -632,7 +632,7 @@ function makeAgentDispatchService(
       )) {
         yield* new ArtifactPrivate({
           message:
-            "This artifact is private. Make it Signed-in before sending its threads to an agent.",
+            "This artifact is private. Share it with Members before sending its threads to an agent.",
         });
       }
     },

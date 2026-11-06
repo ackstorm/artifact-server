@@ -49,7 +49,7 @@ async function openShare(page: Page, fixture: TeamFixture, published: PublishRes
 }
 
 test.describe("AUTH-038 Shared with me", () => {
-  test("AUTH-038-B: an owner lists a Signed-in artifact and a colleague finds it in Shared with me, next to what they opened by link", async ({browser}) => {
+  test("AUTH-038-B: an owner lists a Members artifact and a colleague finds it in Shared with me, next to what they opened by link", async ({browser}) => {
     const fixture = await startTeamFixture(browser, {withCarol: true});
     try {
       if (fixture.carolKey === null) throw new Error("The fixture did not add Carol.");
@@ -64,7 +64,7 @@ test.describe("AUTH-038 Shared with me", () => {
       await listing.click();
       await expect(listing).toBeChecked();
       await expect(share.getByText(
-        "Everyone signed in sees it in Shared with me.",
+        "Every member sees it in Shared with me.",
         {exact: true},
       )).toBeVisible();
 
@@ -80,7 +80,7 @@ test.describe("AUTH-038 Shared with me", () => {
       await access.selectOption("private");
       await expect(listing).not.toBeChecked();
       await expect(listing).toBeDisabled();
-      await expect(share.getByText("Make it Signed-in first.", {exact: true}))
+      await expect(share.getByText("Share it with Members first.", {exact: true}))
         .toBeVisible();
       await share.getByRole("button", {name: "Close Share"}).click();
       await page.getByRole("tab", {name: /Activity/u}).click();
