@@ -100,7 +100,7 @@ Annotate. Owners change an artifact back with its Review mode control or
 ## Upgrading to 0.5.1
 
 The chart no longer accepts `configuration.organizationName`: the Review
-application calls the `account_required` level Signed-in for every
+application calls the `account_required` level Members for every
 installation. Remove the value before upgrading, or the values fail schema
 validation.
 

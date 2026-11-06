@@ -110,7 +110,7 @@ describe("Shared with me", () => {
     await removeTestInstallation(installation);
   });
 
-  test("AUTH-038-F: Shared with me holds only listed or opened Signed-in and Public artifacts of others, only controllers list, listing changes are in Activity, and only browser reads record openings", async () => {
+  test("AUTH-038-F: Shared with me holds only listed or opened Members and Public artifacts of others, only controllers list, listing changes are in Activity, and only browser reads record openings", async () => {
     const administrator = await signIn(administratorEmail, "administrator");
     const adaId = await admitMember(server, administrator, "Ada", "ada@example.test");
     const bobId = await admitMember(server, administrator, "Bob", "bob@example.test");

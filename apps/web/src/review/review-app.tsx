@@ -197,7 +197,7 @@ interface ReviewLocation {
 
 const accessFilterLabels: readonly (readonly [AccessSetting, string])[] = [
   ["private", "Private"],
-  ["account_required", "Signed-in"],
+  ["account_required", "Members"],
   ["public_link", "Public"],
 ];
 
