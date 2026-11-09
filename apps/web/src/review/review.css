@@ -1150,7 +1150,7 @@ select:focus-visible {
 
 .as-artifact-card[data-selected="true"] .as-artifact-card__mark {
   border-color: color-mix(in oklab, var(--as-action) 55%, transparent);
-  color: var(--as-action);
+  color: var(--accent-foreground);
 }
 
 .as-artifact-card__body {
