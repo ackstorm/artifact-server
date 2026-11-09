@@ -428,7 +428,7 @@ export function ReviewShareControl({
                         void copyText(
                           details.links.review,
                           "latest-link",
-                          "The latest artifact link could not be copied.",
+                          "The latest Review link could not be copied.",
                         );
                       }
                     }}
@@ -671,7 +671,6 @@ export function exactReviewLink(
   selectedPath: string | null,
 ): string {
   const reviewUrl = new URL(selectedVersion.links.review);
-  reviewUrl.searchParams.set("view", "focus");
   if (
     selectedPath !== null
     && selectedVersion.manifest.entries.some((entry) => entry.path === selectedPath)

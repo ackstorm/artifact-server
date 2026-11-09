@@ -996,8 +996,12 @@ test.describe("Artifact Server frontend MVP", () => {
       })).toHaveAttribute("aria-current", "true");
       await expect(fixture.page.locator(".as-artifact-card").filter({hasText: "Catalog decoy"})).toBeVisible();
 
-      const unavailable = new URL(target.body.links.review);
-      unavailable.searchParams.set("version", "ver_missing-review-version");
+      const unavailable = new URL("/review", fixture.server.baseUrl);
+      unavailable.search = new URLSearchParams({
+        artifact: target.body.artifact.id,
+        project: target.body.artifact.projectId,
+        version: "ver_missing-review-version",
+      }).toString();
       await fixture.page.goto(unavailable.toString());
       await expect(fixture.page.getByRole("heading", {name: "Review target unavailable"}))
         .toBeVisible();

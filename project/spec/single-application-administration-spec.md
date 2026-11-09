@@ -190,7 +190,6 @@ remain so bookmarks do not strand users:
 | `/projects/:projectId/artifacts` | `/review?project=:projectId` |
 | `/projects/:projectId/artifacts/:artifactId` | `/review?project=:projectId&artifact=:artifactId` |
 | `/projects/:projectId/artifacts/:artifactId/versions/:versionId/review` | `/review?project=:projectId&artifact=:artifactId&version=:versionId&view=focus` |
-| `/a/:artifactCode[?v=:versionCode]` | `/review?artifact=:artifactId[&version=:versionId]&view=focus` |
 | `/administration/members` | `/review/settings/members` |
 | `/administration/api-keys` | `/review/settings/api-keys` |
 | `/administration/public-links` | `/review/settings/public-links` |

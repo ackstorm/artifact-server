@@ -119,8 +119,8 @@ describe("local storage migration", () => {
   });
 
   test("a populated pre-project database migrates once without changing identity or bytes", async () => {
-    const artifactId = "art_legacy_project_migration";
-    const versionId = "ver_legacy_project_migration";
+    const artifactId = "art_00000000-0000-4000-8000-00000000a001";
+    const versionId = "ver_00000000-0000-4000-8000-00000000b001";
     const actionId = "act_legacy_project_migration";
     const contentToken = "legacy-project-content-token";
     const createdAt = "2026-01-02T03:04:05.000Z";
