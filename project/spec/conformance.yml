@@ -3681,3 +3681,15 @@ requirements:
     status: implementing
     proof_gap: Local targeted runs pass; the CI iteration gate has not yet run these IDs.
     depends_on: [ART-001, MCP-015]
+  - id: SHL-002
+    kind: behavior
+    behavior: Review opened from a short link selects the artifact's own project, even when it is not the first project, and the latest or named version; an artifact the reader cannot see shows the unavailable state.
+    owner: web-application
+    source: {file: short-review-links-spec.md, anchor: conformance}
+    acceptance:
+      behavior: {id: SHL-002-B, description: "Open the latest short link of an artifact in a second project and see its current version with that project in the address, then open a pinned short link and see that exact version."}
+      failure: {id: SHL-002-F, description: "A short link to another member's private artifact shows Review target unavailable and renders none of its content."}
+    deployments: *all
+    status: implementing
+    proof_gap: The Playwright tests run only in the CI iteration gate, which has not yet run these IDs.
+    depends_on: [SHL-001]

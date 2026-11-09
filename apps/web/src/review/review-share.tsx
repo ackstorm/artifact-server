@@ -426,13 +426,13 @@ export function ReviewShareControl({
                     onCopy={() => {
                       if (details !== null) {
                         void copyText(
-                          details.links.artifact,
+                          details.links.review,
                           "latest-link",
                           "The latest artifact link could not be copied.",
                         );
                       }
                     }}
-                    value={details?.links.artifact ?? ""}
+                    value={details?.links.review ?? ""}
                   />
                   <ShareSecondaryLink
                     copied={copiedTarget === "raw-link"}
