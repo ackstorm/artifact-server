@@ -64,7 +64,7 @@ Every successful publication returns structured data and a short text summary.
 ```json
 {
   "links": {
-    "review": "https://artifacts.example.com/review?...&view=focus",
+    "review": "https://artifacts.example.com/a/6NzQ1bVtJ9wKpXe3rLm2hA?v=1xYb2Q4rT8mNcK0pLs7dEf",
     "artifact": "https://artifacts.example.com/artifacts/art_example",
     "version": "https://ver-example.content.example.com/"
   }
