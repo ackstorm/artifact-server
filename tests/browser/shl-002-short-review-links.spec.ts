@@ -3,6 +3,7 @@ import {z} from "zod";
 
 import {publishNew, publishVersion} from "../support/publishing.js";
 import {apiHeaders} from "../support/runtime-harness.js";
+import {localLogin, startBrowserFixture, stopBrowserFixture} from "./browser-fixture.js";
 import {startTeamFixture, stopTeamFixture} from "./team-fixture.js";
 
 const detailsSchema = z.object({links: z.object({review: z.url()})});
@@ -10,18 +11,18 @@ const projectResponseSchema = z.object({project: z.object({id: z.string()})});
 
 test.describe("SHL-002 short Review links in the browser", () => {
   test("SHL-002-B: a short link opens Review on the artifact's own project and latest version, and a pinned link on its exact version", async ({browser}) => {
-    const fixture = await startTeamFixture(browser);
+    const fixture = await startBrowserFixture(browser);
     try {
-      const ada = {...fixture.installation, apiToken: fixture.adaKey};
+      await localLogin(fixture);
       // A second project: Review's fallback picks the first project, so only real resolution passes.
       const projectResponse = await fetch(`${fixture.server.baseUrl}/api/v1/projects`, {
         body: JSON.stringify({name: "Launch"}),
-        headers: apiHeaders(ada, "shl-002-project-launch"),
+        headers: apiHeaders(fixture.installation, "shl-002-project-launch"),
         method: "POST",
       });
       expect(projectResponse.status).toBe(201);
       const projectId = projectResponseSchema.parse(await projectResponse.json()).project.id;
-      const first = await publishNew(fixture.server, ada, {
+      const first = await publishNew(fixture.server, fixture.installation, {
         accessSetting: "account_required",
         content: "<!doctype html><title>Plan</title><h1>First draft text</h1>",
         idempotencyKey: "shl-002-first-version",
@@ -29,7 +30,7 @@ test.describe("SHL-002 short Review links in the browser", () => {
         projectId,
       });
       expect(first.response.status).toBe(201);
-      const second = await publishVersion(fixture.server, ada, {
+      const second = await publishVersion(fixture.server, fixture.installation, {
         artifactId: first.body.artifact.id,
         content: "<!doctype html><title>Plan</title><h1>Second draft text</h1>",
         expectedCurrentVersionId: first.body.version.id,
@@ -39,11 +40,11 @@ test.describe("SHL-002 short Review links in the browser", () => {
       expect(second.response.status).toBe(201);
       const detailsResponse = await fetch(
         `${fixture.server.baseUrl}/api/v1/artifacts/${first.body.artifact.id}`,
-        {headers: {Authorization: `Bearer ${fixture.adaKey}`}},
+        {headers: {Authorization: `Bearer ${fixture.installation.apiToken}`}},
       );
       const latestLink = detailsSchema.parse(await detailsResponse.json()).links.review;
 
-      const page = fixture.ada;
+      const page = fixture.page;
       const preview = page.frameLocator(".as-artifact-frame").frameLocator("iframe");
       await page.goto(latestLink);
       await expect(page).toHaveURL(new RegExp(`[?&]project=${projectId}(?:&|$)`, "u"));
@@ -53,7 +54,7 @@ test.describe("SHL-002 short Review links in the browser", () => {
       await expect(page).toHaveURL(new RegExp(`[?&]version=${first.body.version.id}(?:&|$)`, "u"));
       await expect(preview.getByText("First draft text")).toBeVisible();
     } finally {
-      await stopTeamFixture(fixture);
+      await stopBrowserFixture(fixture);
     }
   });
 
