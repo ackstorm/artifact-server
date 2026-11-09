@@ -18,6 +18,7 @@ import {afterEach, describe, expect, test} from "vitest";
 import {z} from "zod";
 
 import {fetchLoopbackContent} from "../support/fetch-loopback-content.js";
+import {expectExactReviewLink} from "../support/review-links.js";
 
 const repositoryRoot = path.resolve(import.meta.dirname, "../..");
 const publicationTestTimeoutMilliseconds = 60_000;
@@ -222,13 +223,10 @@ describe("local Artifact Server CLI", () => {
         name: "report.pdf",
         tags: [],
       });
-      expect(Object.fromEntries(new URL(reportPublication.links.review).searchParams))
-        .toEqual({
-          artifact: reportPublication.artifact.id,
-          project: reportPublication.artifact.projectId,
-          version: reportPublication.version.id,
-          view: "focus",
-        });
+      await expectExactReviewLink(reportPublication.links.review, {
+        artifactId: reportPublication.artifact.id,
+        versionId: reportPublication.version.id,
+      });
       expect(openedReport.headers.get("content-type")).toBe("application/pdf");
       expect(Buffer.from(await openedReport.arrayBuffer())).toEqual(reportBytes);
 

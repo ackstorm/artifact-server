@@ -502,6 +502,7 @@ export function ReviewApp() {
         throw initialSession.cause;
       }
       const loadedProjects = await api.projects();
+      await completeReviewLocation();
       clearAutomaticSignIn();
       setSession(loadedSession);
       setProjects(loadedProjects);
@@ -3251,6 +3252,21 @@ function readInitialTheme(): ReviewTheme {
 
 function readInitialInspectorOpen(): boolean {
   return window.matchMedia("(min-width: 1181px)").matches;
+}
+
+/** Write the artifact's own project into a Review address that names only the artifact. */
+async function completeReviewLocation(): Promise<void> {
+  const search = new URLSearchParams(window.location.search);
+  const artifactId = search.get("artifact");
+  if (artifactId === null || search.has("project")) return;
+  try {
+    const details = await api.artifact(null, artifactId);
+    search.set("project", details.artifact.projectId);
+    window.history.replaceState(null, "", `${window.location.pathname}?${search}`);
+  } catch (caught) {
+    // An artifact the reader cannot open falls through to Review's own unavailable state.
+    if (!(caught instanceof ApiError)) throw caught;
+  }
 }
 
 function readReviewLocation(): ReviewLocation {

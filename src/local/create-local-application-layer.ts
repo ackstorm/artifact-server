@@ -469,6 +469,11 @@ export function createApplicationLayer(
           catch: (cause) =>
             repositoryFailure("findArtifactForAdministration", cause),
         }),
+      findCurrentVersion: (projectId, artifactId) =>
+        Effect.tryPromise({
+          try: () => adapters.repository.findCurrentVersion(projectId, artifactId),
+          catch: (cause) => repositoryFailure("findCurrentVersion", cause),
+        }),
       findVersionRecord: (projectId, artifactId, versionId) =>
         Effect.tryPromise({
           try: () =>
@@ -608,6 +613,10 @@ export function createApplicationLayer(
         "disconnectRegisteredAgent",
         () => dispatchStore.disconnectAgent(installationId, agentId),
       ),
+      enqueueVoiceMessage: (command) => dispatchEffect(
+        "enqueueVoiceMessage",
+        () => dispatchStore.enqueueVoiceMessage(command),
+      ),
       findAgent: (installationId, agentId) => dispatchEffect(
         "findRegisteredAgent",
         () => dispatchStore.findAgent(installationId, agentId),
@@ -651,6 +660,10 @@ export function createApplicationLayer(
       registerAgent: (command) => dispatchEffect(
         "registerAgent",
         () => dispatchStore.registerAgent(command),
+      ),
+      takeVoiceMessages: (command) => dispatchEffect(
+        "takeVoiceMessages",
+        () => dispatchStore.takeVoiceMessages(command),
       ),
     },
   };

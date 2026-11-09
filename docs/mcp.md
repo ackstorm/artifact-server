@@ -64,7 +64,7 @@ Every successful publication returns structured data and a short text summary.
 ```json
 {
   "links": {
-    "review": "https://artifacts.example.com/review?...&view=focus",
+    "review": "https://artifacts.example.com/a/6NzQ1bVtJ9wKpXe3rLm2hA?v=1xYb2Q4rT8mNcK0pLs7dEf",
     "artifact": "https://artifacts.example.com/artifacts/art_example",
     "version": "https://ver-example.content.example.com/"
   }
@@ -78,7 +78,9 @@ The server instructions tell the agent to share `links.review` first. This link 
 The agent must not place bootstrap URLs, access tokens, or credentials in chat.
 
 Read operations use the same link roles. `artifact_get.current.links.review`
-opens the current exact version in full-screen Review. `artifact_open.reviewUrl`
+opens the current exact version in full-screen Review, and
+`artifact_get.links.review` is the Review link that always opens the latest
+version. `artifact_open.reviewUrl`
 opens the selected exact version in Review, while `artifact_open.browserUrl`
 opens its raw immutable content. Agents should hand people the Review URL.
 
@@ -92,10 +94,13 @@ opens its raw immutable content. Agents should hand people the Review URL.
 | Publication | `artifact_create_upload`, `artifact_commit_upload` |
 | Management | `artifact_set_visibility`, `artifact_set_tags`, `artifact_set_review_mode`, `artifact_restore_version`, `artifact_delete` |
 | Comments | `comment_list`, `comment_get`, `comment_create`, `comment_reply`, `comment_update`, `comment_resolve`, `comment_delete` |
+| Voice | `voice_say` |
 
 A client connected through OAuth by a plain member can list projects but not create, rename, or archive them. Those tools need a key with `project:manage`, which an administrator's OAuth client carries.
 
 `artifact_set_visibility` sets an artifact's sharing level to `private`, `account_required` (Members) or `public_link`. New artifacts are `private`, and `artifact_capabilities` reports `sharing.default: "private"`. Only the owner raises the level; an administrator can lower it. A caller that cannot read an artifact receives `ARTIFACT_NOT_FOUND`, and `artifact_list` returns only the caller's own artifacts. While public links are off (set by an administrator or by `ARTIFACT_SERVER_PUBLIC_LINKS_ENABLED=false`), raising to `public_link` or publishing at `public_link` fails with `PUBLIC_LINKS_DISABLED`, and `artifact_capabilities` omits `public_link` from `sharing.modes`.
+
+`voice_say` speaks one sentence of 1 to 500 characters to the caller's own user through a connected habla listener (see [Voice listener](./agent-bridge-protocol.md#voice-listener)). It answers `queued: false` and stores nothing when no listener of the caller is connected. The listener's API key must be issued for the member, bound to their member id: a service key registers a `svc_…` principal, which that member's `voice_say` never matches.
 
 Linked-artifact tools appear only when the deployment enables linked artifacts.
 

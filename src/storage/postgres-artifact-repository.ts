@@ -96,6 +96,7 @@ import type {
   ListArtifactActions,
   ListArtifacts,
   ListCommentThreads,
+  EnqueueVoiceMessage,
   MarkDispatchDelivered,
   MarkDispatchFailed,
   PublicationSource,
@@ -110,8 +111,10 @@ import type {
   SetProjectArchive,
   StagedUploadGrantRecord,
   StagedUploadRepository,
+  TakeVoiceMessages,
   UpdateCommentReply,
   UpdateCommentThread,
+  VoiceMessageRecord,
 } from "../core/ports.js";
 import {
   localApiTokenPrincipalId,
@@ -122,7 +125,9 @@ import {normalizeArtifactSearchText} from "../application/artifact-tags.js";
 import {
   agentDispatchLeaseMilliseconds,
   agentUnavailableStalenessMilliseconds,
+  maximumVoiceMessagesPerTake,
   registeredAgentRetentionMilliseconds,
+  voiceListenerKind,
 } from "../core/publishing-limits.js";
 import {createManifest} from "../manifest/create-manifest.js";
 import type {PostgresDatabase} from "./postgres-database.js";
@@ -306,6 +311,11 @@ const stagedUploadCommitRowSchema = z.object({
   status: uploadStatusSchema,
 });
 const dispatchIdentityRowSchema = z.object({id: z.string()});
+const voiceMessageRowSchema = z.object({
+  createdAt: z.string(),
+  id: z.string(),
+  text: z.string(),
+});
 const resolvedCountRowSchema = z.object({
   resolvedCount: nonnegativeIntegerSchema,
 });
@@ -2474,6 +2484,75 @@ export class PostgresArtifactRepository implements
           dispatch: agentDispatchFromRow(yield* this.#readDispatchRow(command.id)),
           replayed: false,
         };
+      }));
+    }));
+  }
+
+  enqueueVoiceMessage(command: EnqueueVoiceMessage): Promise<boolean> {
+    this.#assertInstallationScope(command.installationId);
+    return this.#database.run(Effect.gen(function*() {
+      const sql = yield* SqlClient;
+      return yield* sql.withTransaction(Effect.gen(function*() {
+        const listener = yield* sql`SELECT 1 FROM registered_agents
+          WHERE installation_id = ${command.installationId}
+            AND principal_id = ${command.principalId}
+            AND kind = ${voiceListenerKind}
+            AND last_seen_at >= ${command.listenerSeenSince}
+          LIMIT 1`;
+        if (listener.length === 0) return false;
+        yield* sql`DELETE FROM voice_messages
+          WHERE installation_id = ${command.installationId}
+            AND principal_id = ${command.principalId}
+            AND created_at < ${command.expiredBefore}`;
+        yield* sql`INSERT INTO voice_messages
+            (installation_id, id, principal_id, text, created_at)
+          VALUES (${command.installationId}, ${command.id},
+            ${command.principalId}, ${command.text}, ${command.createdAt})`;
+        return true;
+      }));
+    }));
+  }
+
+  takeVoiceMessages(
+    command: TakeVoiceMessages,
+  ): Promise<readonly VoiceMessageRecord[]> {
+    this.#assertInstallationScope(command.installationId);
+    return this.#database.run(Effect.gen(function*() {
+      const sql = yield* SqlClient;
+      // A re-check inside one held poll is a pure read while nothing is
+      // pending; an expired row found here costs one write that returns none.
+      if (!command.bumpHeartbeat) {
+        const pending = yield* sql`SELECT 1 FROM voice_messages
+          WHERE installation_id = ${command.installationId}
+            AND principal_id = ${command.principalId}
+          LIMIT 1`;
+        if (pending.length === 0) return [];
+      }
+      return yield* sql.withTransaction(Effect.gen(function*() {
+        if (command.bumpHeartbeat) {
+          yield* sql`UPDATE registered_agents SET last_seen_at = ${command.now}
+            WHERE installation_id = ${command.installationId}
+              AND id = ${command.agentId}`;
+        }
+        yield* sql`DELETE FROM voice_messages
+          WHERE installation_id = ${command.installationId}
+            AND principal_id = ${command.principalId}
+            AND created_at < ${command.expiredBefore}`;
+        const rows = yield* sql`DELETE FROM voice_messages
+          WHERE installation_id = ${command.installationId}
+            AND id IN (
+              SELECT id FROM voice_messages
+              WHERE installation_id = ${command.installationId}
+                AND principal_id = ${command.principalId}
+                AND created_at >= ${command.expiredBefore}
+              ORDER BY created_at, id
+              LIMIT ${maximumVoiceMessagesPerTake}
+            )
+          RETURNING id, text, created_at AS "createdAt"`;
+        // RETURNING carries no order, so the taken messages are sorted here.
+        return z.array(voiceMessageRowSchema).parse(rows).toSorted((a, b) =>
+          a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id)
+        );
       }));
     }));
   }

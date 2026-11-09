@@ -45,3 +45,15 @@ export const agentActivityBeaconTtlMilliseconds = 60 * 1_000;
 
 /** Retention for registered-agent rows whose claim polling stopped. */
 export const registeredAgentRetentionMilliseconds = 7 * 24 * 60 * 60 * 1_000;
+
+/** A voice message not taken by a listener within this time is dropped unspoken. */
+export const voiceMessageLifetimeMilliseconds = 60 * 1_000;
+
+/** Longest sentence voice_say accepts, after trimming. */
+export const maximumVoiceTextCharacters = 500;
+
+/** The registered-agent kind that listens for voice messages. */
+export const voiceListenerKind = "habla";
+
+/** Most voice messages one listener poll takes, oldest first. */
+export const maximumVoiceMessagesPerTake = 20;

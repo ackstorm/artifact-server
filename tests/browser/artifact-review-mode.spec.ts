@@ -1,6 +1,6 @@
 import {expect, test} from "@playwright/test";
 
-import {publishNew, publishVersion, type PublishNewInput} from "../support/publishing.js";
+import {publishNew, publishVersion, type PublishNewInput, type PublishResponse} from "../support/publishing.js";
 import {
   localLogin,
   startBrowserFixture,
@@ -40,7 +40,7 @@ test.describe("Artifact review mode", () => {
           scenario.defaultMode === undefined ? input : {...input, reviewMode: scenario.defaultMode},
         );
         await localLogin(fixture);
-        const url = normalReviewUrl(published.body.links.review);
+        const url = normalReviewUrl(fixture.server.baseUrl, published.body);
         if (scenario.linkMode !== null) url.searchParams.set("mode", scenario.linkMode);
         await fixture.page.goto(url.href);
         const review = fixture.page.frameLocator(".as-artifact-frame");
@@ -80,7 +80,7 @@ test.describe("Artifact review mode", () => {
         idempotencyKey: "review-mode-navigation",
       });
       await localLogin(fixture);
-      const url = normalReviewUrl(published.body.links.review);
+      const url = normalReviewUrl(fixture.server.baseUrl, published.body);
       url.searchParams.set("mode", "interact");
       await fixture.page.goto(url.href);
       await expect(fixture.page.getByRole("button", {name: /^Interact mode/u})).toBeVisible();
@@ -115,7 +115,7 @@ test.describe("Artifact review mode", () => {
         idempotencyKey: "review-mode-refresh-second",
       });
       await localLogin(fixture);
-      await fixture.page.goto(normalReviewUrl(first.body.links.review).href);
+      await fixture.page.goto(normalReviewUrl(fixture.server.baseUrl, first.body).href);
       await expect(fixture.page.getByRole("button", {name: /^Annotate mode/u})).toBeVisible();
       await fixture.page.keyboard.press("Escape");
       await expect(fixture.page.getByRole("button", {name: /^Interact mode/u})).toBeVisible();
@@ -144,7 +144,7 @@ test.describe("Artifact review mode", () => {
         idempotencyKey: "review-mode-history-toggle",
       });
       await localLogin(fixture);
-      const url = normalReviewUrl(published.body.links.review);
+      const url = normalReviewUrl(fixture.server.baseUrl, published.body);
       url.searchParams.set("mode", "interact");
       await fixture.page.goto(url.href);
       await fixture.page.getByRole("button", {name: "Full screen", exact: true}).click();
@@ -169,7 +169,7 @@ test.describe("Artifact review mode", () => {
         reviewMode: "interact",
       });
       await localLogin(fixture);
-      const url = normalReviewUrl(published.body.links.review);
+      const url = normalReviewUrl(fixture.server.baseUrl, published.body);
       await fixture.page.goto(url.href);
       await expect(fixture.page.getByRole("button", {name: /^Interact mode/u})).toBeVisible();
       const annotate = new URL(url);
@@ -207,7 +207,7 @@ test.describe("Artifact review mode", () => {
         reviewMode: "interact",
       });
       await localLogin(fixture);
-      await fixture.page.goto(normalReviewUrl(first.body.links.review).href);
+      await fixture.page.goto(normalReviewUrl(fixture.server.baseUrl, first.body).href);
       await expect(fixture.page.getByRole("button", {name: /^Annotate mode/u})).toBeVisible();
       await fixture.page.locator(".as-artifact-card").filter({hasText: "Interact fixture"}).click();
       await expect(fixture.page.getByRole("button", {name: /^Interact mode/u})).toBeVisible();
@@ -235,7 +235,7 @@ test.describe("Artifact review mode", () => {
         await release.promise;
         await route.continue();
       });
-      await fixture.page.goto(normalReviewUrl(published.body.links.review).href);
+      await fixture.page.goto(normalReviewUrl(fixture.server.baseUrl, published.body).href);
       await requested.promise;
       await fixture.page.keyboard.press("Escape");
       release.resolve();
@@ -251,8 +251,12 @@ test.describe("Artifact review mode", () => {
   });
 });
 
-function normalReviewUrl(href: string): URL {
-  const url = new URL(href);
-  url.searchParams.delete("view");
+function normalReviewUrl(baseUrl: string, published: PublishResponse): URL {
+  const url = new URL("/review", baseUrl);
+  url.search = new URLSearchParams({
+    artifact: published.artifact.id,
+    project: published.artifact.projectId,
+    version: published.version.id,
+  }).toString();
   return url;
 }

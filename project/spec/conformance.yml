@@ -2324,6 +2324,30 @@ requirements:
     proof_gap: Slug widening is exercised through HTTP against SQLite; the Postgres migration that drops the kind CHECK constraint is covered by its runtime suite's registration path but no dedicated widening test runs against external storage.
     depends_on: [DSP-001]
 
+  - id: VOX-001
+    kind: behavior
+    behavior: voice_say queues a sentence for the caller's own principal only while that principal has a connected agent of kind habla, and answers whether it queued.
+    owner: agent-presence
+    source: {file: voice-inbox-spec.md, anchor: behavior}
+    acceptance:
+      behavior: {id: VOX-001-B, description: "With a connected habla agent of the caller, voice_say answers queued true and the listener receives the trimmed text."}
+      failure: {id: VOX-001-F, description: "With no habla agent, a stale one, or only another principal's, voice_say answers queued false and stores nothing; empty or over-long text is refused."}
+    deployments: *all
+    status: verified
+    depends_on: [PRS-007]
+
+  - id: VOX-002
+    kind: behavior
+    behavior: A habla listener's voice poll is its heartbeat, returns its principal's pending messages oldest first exactly once, and drops messages older than sixty seconds.
+    owner: agent-presence
+    source: {file: voice-inbox-spec.md, anchor: behavior}
+    acceptance:
+      behavior: {id: VOX-002-B, description: "Two queued sentences come back oldest first in one poll and never again; an empty poll answers 204 within its wait and keeps the listener connected."}
+      failure: {id: VOX-002-F, description: "A message older than sixty seconds is never returned, another principal's agent, a non-habla agent, and a caller without agent:connect are refused, a dispatch to a habla agent is refused, and voice messages never appear in artifact listings."}
+    deployments: *all
+    status: verified
+    depends_on: [VOX-001, PRS-007]
+
   - id: SND-001
     kind: behavior
     behavior: Review loads every comment page for the exact version, presents one exact open-undispatched count, and makes sending all open comments the primary human action while preserving sent-state inspection and recovery.
@@ -3657,3 +3681,27 @@ requirements:
     status: implementing
     proof_gap: Native Markdown tests are being qualified locally; team deployment and full iteration evidence remain incomplete.
     depends_on: [PRV-004, PRV-005]
+  - id: SHL-001
+    kind: behavior
+    behavior: Every Review link is a short /a/<artifact code> address, with v=<version code> for one exact version, where each code is the artifact or version UUID written as 22 base62 characters; the server decodes the code without storage and redirects to Review, and an artifact read that omits the project resolves the artifact's own project.
+    owner: web-application
+    source: {file: short-review-links-spec.md, anchor: conformance}
+    acceptance:
+      behavior: {id: SHL-001-B, description: "Publish two versions in a second project, follow each pinned short link to its exact version and the latest short link to Review without a version, keep path and mode parameters, and read the artifact by ID alone."}
+      failure: {id: SHL-001-F, description: "Short codes of the wrong length, outside base62, or beyond 128 bits, in the path or the v parameter, answer not found with no redirect, and an unknown artifact read without a project answers ARTIFACT_NOT_FOUND rather than a project choice."}
+    deployments: *all
+    status: implementing
+    proof_gap: Local targeted runs pass; the CI iteration gate has not yet run these IDs.
+    depends_on: [ART-001, MCP-015]
+  - id: SHL-002
+    kind: behavior
+    behavior: Review opened from a short link selects the artifact's own project, even when it is not the first project, and the latest or named version; an artifact the reader cannot see shows the unavailable state.
+    owner: web-application
+    source: {file: short-review-links-spec.md, anchor: conformance}
+    acceptance:
+      behavior: {id: SHL-002-B, description: "Open the latest short link of an artifact in a second project and see its current version with that project in the address, then open a pinned short link and see that exact version."}
+      failure: {id: SHL-002-F, description: "A short link to another member's private artifact shows Review target unavailable and renders none of its content."}
+    deployments: *all
+    status: implementing
+    proof_gap: The Playwright tests run only in the CI iteration gate, which has not yet run these IDs.
+    depends_on: [SHL-001]

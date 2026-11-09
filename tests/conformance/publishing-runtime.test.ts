@@ -26,6 +26,7 @@ import {
   type TestSiteFile,
   uploadEveryStagedFile,
 } from "../support/publishing.js";
+import {expectExactReviewLink} from "../support/review-links.js";
 
 describe("local publishing runtime", () => {
   let installation: TestInstallation;
@@ -52,16 +53,11 @@ describe("local publishing runtime", () => {
     expect(first.response.status).toBe(201);
     expect(first.body.version.number).toBe(1);
     expect(first.body.artifact.currentVersionId).toBe(first.body.version.id);
-    const firstReview = new URL(first.body.links.review);
-    expect(firstReview.origin).toBe(new URL(server.baseUrl).origin);
-    expect(firstReview.pathname).toBe("/review");
-    expect(Object.fromEntries(firstReview.searchParams)).toEqual({
-      artifact: first.body.artifact.id,
-      project: first.body.artifact.projectId,
-      version: first.body.version.id,
-      view: "focus",
+    expect(new URL(first.body.links.review).origin).toBe(new URL(server.baseUrl).origin);
+    await expectExactReviewLink(first.body.links.review, {
+      artifactId: first.body.artifact.id,
+      versionId: first.body.version.id,
     });
-    expect(first.body.links.review).not.toContain("__artifact_bootstrap=");
     expect(first.body.links.artifact).not.toBe(first.body.links.review);
     expect(first.body.links.version).not.toBe(first.body.links.review);
     const firstWhileCurrent = await fetchVersion(server, first.body.links.version);
@@ -78,8 +74,10 @@ describe("local publishing runtime", () => {
     expect(second.body.version.id).not.toBe(first.body.version.id);
     expect(second.body.version.number).toBe(2);
     expect(second.body.links.review).not.toBe(first.body.links.review);
-    expect(new URL(second.body.links.review).searchParams.get("version"))
-      .toBe(second.body.version.id);
+    await expectExactReviewLink(second.body.links.review, {
+      artifactId: second.body.artifact.id,
+      versionId: second.body.version.id,
+    });
     expect(new URL(second.body.links.version).origin).not.toBe(
       new URL(first.body.links.version).origin,
     );

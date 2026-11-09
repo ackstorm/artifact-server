@@ -996,8 +996,12 @@ test.describe("Artifact Server frontend MVP", () => {
       })).toHaveAttribute("aria-current", "true");
       await expect(fixture.page.locator(".as-artifact-card").filter({hasText: "Catalog decoy"})).toBeVisible();
 
-      const unavailable = new URL(target.body.links.review);
-      unavailable.searchParams.set("version", "ver_missing-review-version");
+      const unavailable = new URL("/review", fixture.server.baseUrl);
+      unavailable.search = new URLSearchParams({
+        artifact: target.body.artifact.id,
+        project: target.body.artifact.projectId,
+        version: "ver_missing-review-version",
+      }).toString();
       await fixture.page.goto(unavailable.toString());
       await expect(fixture.page.getByRole("heading", {name: "Review target unavailable"}))
         .toBeVisible();
@@ -1104,6 +1108,10 @@ test.describe("Artifact Server frontend MVP", () => {
       await localLogin(fixture);
       const exactReviewLink = new URL(published.body.links.review);
       exactReviewLink.searchParams.set("path", "index.html");
+      const latestReviewLink = z.object({links: z.object({review: z.url()})}).parse(await (await fetch(
+        `${fixture.server.baseUrl}/api/v1/artifacts/${published.body.artifact.id}?projectId=${published.body.artifact.projectId}`,
+        {headers: {Authorization: `Bearer ${fixture.installation.apiToken}`}},
+      )).json()).links.review;
       await fixture.page.goto(
         `${fixture.server.baseUrl}/review?${new URLSearchParams({
           artifact: published.body.artifact.id,
@@ -1133,7 +1141,7 @@ test.describe("Artifact Server frontend MVP", () => {
       await expect(share.getByRole("heading", {name: "Share fixture"})).toBeVisible();
       await expect(share.getByText("Exact version · Version 1", {exact: true})).toBeVisible();
       await expect(share.getByText(exactReviewLink.toString(), {exact: true})).toBeVisible();
-      await expect(share.getByText(published.body.links.artifact, {exact: true})).toBeVisible();
+      await expect(share.getByText(latestReviewLink, {exact: true})).toBeVisible();
       await expect(share.getByText(
         "Any member can open this link.",
         {exact: true},
@@ -1157,7 +1165,7 @@ test.describe("Artifact Server frontend MVP", () => {
         );
         await share.getByRole("button", {name: "Copy latest link"}).click();
         expect(await fixture.page.evaluate(() => navigator.clipboard.readText())).toBe(
-          published.body.links.artifact,
+          latestReviewLink,
         );
         await share.getByRole("button", {name: "Copy raw link"}).click();
         expect(await fixture.page.evaluate(() => navigator.clipboard.readText())).toBe(

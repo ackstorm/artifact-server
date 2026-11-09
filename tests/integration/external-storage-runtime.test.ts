@@ -358,6 +358,7 @@ describe.sequential("external-storage Postgres and S3 runtime", () => {
           yield* sql.unsafe("DROP TABLE oauth_grants");
           yield* sql.unsafe("DROP TABLE oauth_authorization_codes");
           yield* sql.unsafe("DROP TABLE oauth_clients");
+          yield* sql.unsafe("DROP TABLE voice_messages");
           yield* sql.unsafe("DELETE FROM artifact_server_postgres_migrations WHERE migration_id >= 12");
         }));
       }));
@@ -493,25 +494,29 @@ describe.sequential("external-storage Postgres and S3 runtime", () => {
       versionId: `ver_${artifactId}_1`,
     });
 
+    // Artifact details encode the artifact and current version ids into short Review links, which need UUID-form ids.
+    const memberArtifactId = "art_00000000-0000-4000-8000-00000000c001";
+    const memberFirstVersionId = `ver_${memberArtifactId}_1`;
+    const memberSecondVersionId = "ver_00000000-0000-4000-8000-00000000c002";
     let opened = await openRepository();
-    const memberCommand = await newArtifact(opened.repository, "art_member", "mem_a", "account_required");
+    const memberCommand = await newArtifact(opened.repository, memberArtifactId, "mem_a", "account_required");
     const serviceCommand = await newArtifact(opened.repository, "art_service", "service:key1", "public_link");
     try {
       await opened.repository.commitNewArtifact(memberCommand);
       await opened.repository.commitNewArtifact(serviceCommand);
       await opened.repository.commitVersion({
-        artifactId: "art_member",
+        artifactId: memberArtifactId,
         authorizedByPrincipalId: null,
         contentToken: "content_art_member_2",
         createdAt,
-        expectedCurrentVersionId: "ver_art_member_1",
+        expectedCurrentVersionId: memberFirstVersionId,
         idempotencyKey: "publish_art_member_2",
         inputDigest: "digest_art_member_2",
         manifest,
         principalId: "mem_other",
         projectId: defaultProjectId,
         source: await stage(opened.repository, "upl_art_member_2", "mem_other"),
-        versionId: "ver_art_member_2",
+        versionId: memberSecondVersionId,
       });
       await opened.database.run(Effect.gen(function*() {
         const sql = yield* SqlClient;
@@ -533,6 +538,7 @@ describe.sequential("external-storage Postgres and S3 runtime", () => {
             "DROP TABLE oauth_grants",
             "DROP TABLE oauth_authorization_codes",
             "DROP TABLE oauth_clients",
+            "DROP TABLE voice_messages",
             "DELETE FROM artifact_server_postgres_migrations WHERE migration_id >= 14",
           ];
           for (const statement of statements) {
@@ -549,9 +555,9 @@ describe.sequential("external-storage Postgres and S3 runtime", () => {
     try {
       const {repository} = opened;
       expect(await repository.readPublicLinksEnabled()).toBe(true);
-      expect(await repository.findArtifact(defaultProjectId, "art_member")).toMatchObject({
+      expect(await repository.findArtifact(defaultProjectId, memberArtifactId)).toMatchObject({
         accessSetting: "account_required",
-        currentVersionId: "ver_art_member_2",
+        currentVersionId: memberSecondVersionId,
         ownerPrincipalId: "mem_a",
       });
       expect(await repository.findArtifact(defaultProjectId, "art_service")).toMatchObject({
@@ -561,7 +567,7 @@ describe.sequential("external-storage Postgres and S3 runtime", () => {
       await expect(repository.commitNewArtifact(memberCommand)).resolves.toMatchObject({
         artifact: {accessSetting: "account_required", ownerPrincipalId: "mem_a"},
         replayed: true,
-        version: {id: "ver_art_member_1"},
+        version: {id: memberFirstVersionId},
       });
       await expect(repository.commitNewArtifact(serviceCommand)).resolves.toMatchObject({
         artifact: {accessSetting: "public_link", ownerPrincipalId: "service:key1"},
@@ -586,10 +592,10 @@ describe.sequential("external-storage Postgres and S3 runtime", () => {
           viewer: {includeServiceOwned, principalId},
         })).items.map((artifact) => artifact.id);
       expect(await listFor("mem_b")).toEqual([]);
-      expect(await listFor("mem_a")).toEqual(["art_member"]);
+      expect(await listFor("mem_a")).toEqual([memberArtifactId]);
       expect(await listFor("mem_admin", true)).toEqual(["art_service"]);
       expect(await listFor("mem_b", false, "comments")).toEqual([]);
-      expect(await listFor("mem_a", false, "comments")).toEqual(["art_member"]);
+      expect(await listFor("mem_a", false, "comments")).toEqual([memberArtifactId]);
       expect(await listFor("mem_admin", true, "comments")).toEqual(["art_service"]);
 
       const privateCommand = {
@@ -642,7 +648,7 @@ describe.sequential("external-storage Postgres and S3 runtime", () => {
       const [administratorList, memberList, byLink] = await Promise.all([
         listedIds(administrator),
         listedIds(member),
-        fetch(`${reader.baseUrl}/api/v1/artifacts/art_member?projectId=${defaultProjectId}`, {
+        fetch(`${reader.baseUrl}/api/v1/artifacts/${memberArtifactId}?projectId=${defaultProjectId}`, {
           headers: {Cookie: member.header},
         }),
       ]);
@@ -650,7 +656,7 @@ describe.sequential("external-storage Postgres and S3 runtime", () => {
       expect(memberList).toEqual([]);
       expect(byLink.status).toBe(200);
       expect(await byLink.json()).toMatchObject({
-        artifact: {accessSetting: "account_required", id: "art_member"},
+        artifact: {accessSetting: "account_required", id: memberArtifactId},
       });
     } finally {
       Object.assign(oidcProvider.claims, previousClaims);
@@ -1083,6 +1089,7 @@ describe.sequential("external-storage Postgres and S3 runtime", () => {
           "DROP TABLE oauth_grants",
           "DROP TABLE oauth_authorization_codes",
           "DROP TABLE oauth_clients",
+          "DROP TABLE voice_messages",
           "DELETE FROM artifact_server_postgres_migrations WHERE migration_id >= 2",
         ] as const;
         for (const statement of statements) {
@@ -3108,6 +3115,83 @@ describe.sequential("external-storage Postgres and S3 runtime", () => {
         state: "addressed",
       }]);
       expect(secondPage.nextCursor).toBeNull();
+    } finally {
+      await database.close();
+    }
+    await server.stop();
+  });
+
+  test("external-storage foundation: Postgres queues voice messages only for a connected habla listener and hands each over once", async () => {
+    expect.hasAssertions();
+    const identity = {
+      apiToken: managedTestKey("postgres-voice"),
+      installationId: `postgres-voice-${randomUUID()}`,
+    };
+    const server = await startInProcessExternalStorageServer(environment, identity);
+    const principalId = managedTestPrincipal(identity.apiToken).principalId;
+    const baseInstant = Date.now();
+    const at = (offsetMilliseconds: number): string =>
+      new Date(baseInstant + offsetMilliseconds).toISOString();
+    const database = await PostgresDatabase.open({
+      maxConnections: 2,
+      url: Redacted.make(environment.databaseUrl),
+    }, "validate");
+    try {
+      const repository = await PostgresArtifactRepository.open(
+        database,
+        identity.installationId,
+      );
+      const listener = await repository.registerAgent({
+        agentSessionId: null,
+        capabilities: {beacon: false, evidence: "native"},
+        connectionKey: `voice-${randomUUID()}`,
+        displayName: "habla",
+        id: `agt_${randomUUID()}`,
+        installationId: identity.installationId,
+        kind: "habla",
+        principalId,
+        registeredAt: at(0),
+        workingDirectory: "/home/user",
+      });
+      const say = (id: string, text: string, listenerSeenSince: string) =>
+        repository.enqueueVoiceMessage({
+          createdAt: at(1_000),
+          expiredBefore: at(-59_000),
+          id,
+          installationId: identity.installationId,
+          listenerSeenSince,
+          principalId,
+          text,
+        });
+      const take = (bumpHeartbeat: boolean) =>
+        repository.takeVoiceMessages({
+          agentId: listener.id,
+          bumpHeartbeat,
+          expiredBefore: at(-60_000),
+          installationId: identity.installationId,
+          now: at(2_000),
+          principalId,
+        });
+
+      expect(await say("vox_first", "Done", at(-90_000))).toBe(true);
+      expect(await take(true)).toEqual([
+        {createdAt: at(1_000), id: "vox_first", text: "Done"},
+      ]);
+      expect(await take(false)).toEqual([]);
+
+      // One take hands over at most twenty, oldest first; the rest wait.
+      const queued = Array.from(
+        {length: 21},
+        (_, index) => `vox_${String(index).padStart(2, "0")}`,
+      );
+      expect(await Promise.all(queued.map((id) => say(id, id, at(-90_000)))))
+        .toEqual(queued.map(() => true));
+      expect((await take(true)).map(({id}) => id)).toEqual(queued.slice(0, 20));
+      expect((await take(false)).map(({id}) => id)).toEqual(queued.slice(20));
+
+      // A listener last seen before the window queues nothing.
+      expect(await say("vox_unheard", "Unheard", at(10_000))).toBe(false);
+      expect(await take(true)).toEqual([]);
     } finally {
       await database.close();
     }

@@ -113,6 +113,14 @@ export const projectSchema = z.object({
   project: z.object({id: z.string()}).loose(),
 }).loose();
 
+export const voiceMessagesSchema = z.object({
+  messages: z.array(z.object({
+    createdAt: z.iso.datetime(),
+    id: z.string(),
+    text: z.string(),
+  }).strict()),
+}).strict();
+
 export type RegisteredAgent = z.infer<typeof registeredAgentSchema>;
 export type Dispatch = z.infer<typeof dispatchSchema>;
 
@@ -188,6 +196,13 @@ export class ApiClient {
   claim(agentId: string, waitSeconds?: number): Promise<Response> {
     const query = waitSeconds === undefined ? "" : `?wait=${waitSeconds}`;
     return this.fetch(`/api/v1/agents/${agentId}/claims${query}`, {
+      method: "POST",
+    });
+  }
+
+  /** Poll one habla agent's voice route, holding the request up to `wait`. */
+  voice(agentId: string, waitSeconds: number): Promise<Response> {
+    return this.fetch(`/api/v1/agents/${agentId}/voice?wait=${waitSeconds}`, {
       method: "POST",
     });
   }
