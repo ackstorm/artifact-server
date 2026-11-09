@@ -42,6 +42,7 @@ import {
   type ArtifactState,
   type ArtifactVersion,
   type PageCursor,
+  type PublishedVersion,
   type ReviewMode,
   type VersionRecord,
 } from "../core/model.js";
@@ -209,6 +210,10 @@ export interface ArtifactManagementRepository {
     projectId: string,
     artifactId: string,
   ) => Effect.Effect<ArtifactRecord | null, ArtifactRepositoryFailure>;
+  readonly findCurrentVersion: (
+    projectId: string | null,
+    artifactId: string,
+  ) => Effect.Effect<PublishedVersion | null, ArtifactRepositoryFailure>;
   readonly findVersionRecord: (
     projectId: string,
     artifactId: string,
@@ -359,6 +364,19 @@ function makeArtifactManagementService(
       : yield* projects.getProject({principal, projectId});
   });
 
+  /** A read that names no project uses the artifact's own project, so an artifact ID alone opens it. */
+  const resolveProjectForArtifactRead = Effect.fn(
+    "ArtifactManagementService.resolveProjectForArtifactRead",
+  )(function*(principal: Principal, projectId: string | null, artifactId: string) {
+    if (projectId !== null) return yield* projects.getProject({principal, projectId});
+    // ponytail: reads the whole current version to learn its project; add a project-only lookup if this read shows up in profiles.
+    const current = yield* dependencies.repository.findCurrentVersion(null, artifactId);
+    if (current === null) {
+      return yield* new ArtifactNotFound({message: "The artifact does not exist."});
+    }
+    return yield* projects.getProject({principal, projectId: current.artifact.projectId});
+  });
+
   const requireArtifact = Effect.fn("ArtifactManagementService.requireArtifact")(
     function*(projectId: string, artifactId: string): Effect.fn.Return<
       ArtifactRecord,
@@ -424,9 +442,10 @@ function makeArtifactManagementService(
 
   const getArtifact = Effect.fn("ArtifactManagementService.getArtifact")(
     function*(command: GetArtifactCommand) {
-      const project = yield* resolveProjectForRead(
+      const project = yield* resolveProjectForArtifactRead(
         command.principal,
         command.projectId,
+        command.artifactId,
       );
       const artifact = yield* requireArtifact(project.id, command.artifactId);
       yield* authorization.requireArtifactVisible(command.principal, artifact);

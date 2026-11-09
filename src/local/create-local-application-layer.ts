@@ -469,6 +469,11 @@ export function createApplicationLayer(
           catch: (cause) =>
             repositoryFailure("findArtifactForAdministration", cause),
         }),
+      findCurrentVersion: (projectId, artifactId) =>
+        Effect.tryPromise({
+          try: () => adapters.repository.findCurrentVersion(projectId, artifactId),
+          catch: (cause) => repositoryFailure("findCurrentVersion", cause),
+        }),
       findVersionRecord: (projectId, artifactId, versionId) =>
         Effect.tryPromise({
           try: () =>

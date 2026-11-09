@@ -132,6 +132,7 @@ import {createMcpHttpAdapter} from "../mcp/create-mcp-http-adapter.js";
 import {
   artifactBrowserUrl,
   artifactReviewUrl,
+  idFromShortCode,
   contentBootstrapBrowserUrl,
   previewLeaseBrowserUrl,
   versionBrowserUrl,
@@ -758,6 +759,22 @@ export function createHttpApp(
     (context) =>
       serveWebAsset(context, dependencies, "/review.html", "application-shell"),
   );
+
+  app.on(["GET", "HEAD"], "/a/:code", (context) => {
+    const requestUrl = new URL(context.req.url);
+    const artifactId = idFromShortCode("art", context.req.param("code"));
+    const versionCode = requestUrl.searchParams.get("v");
+    const versionId = versionCode === null ? null : idFromShortCode("ver", versionCode);
+    if (artifactId === null || (versionCode !== null && versionId === null)) {
+      return context.notFound();
+    }
+    const search = new URLSearchParams(requestUrl.search);
+    search.delete("v");
+    search.set("artifact", artifactId);
+    if (versionId !== null) search.set("version", versionId);
+    search.set("view", "focus");
+    return context.redirect(`/review?${search}`, 308);
+  });
 
   app.on(["GET", "HEAD"], "/workbench", (context) => {
     const requestUrl = new URL(context.req.url);
@@ -2990,7 +3007,6 @@ function publishResponse(
   const artifactUrl = artifactBrowserUrl(requestUrl, published.artifact.id);
   const reviewUrl = artifactReviewUrl(
     requestUrl,
-    published.artifact.projectId,
     published.artifact.id,
     published.version.id,
   );
@@ -3085,6 +3101,7 @@ function artifactDetailsResponse(
         `/api/v1/artifacts/${details.artifact.id}`,
         requestUrl,
       ).toString(),
+      review: artifactReviewUrl(requestUrl, details.artifact.id, null),
     },
     principals,
   };
@@ -3458,12 +3475,7 @@ function versionResponse(
 ) {
   return {
     links: {
-      review: artifactReviewUrl(
-        requestUrl,
-        version.projectId,
-        version.artifactId,
-        version.id,
-      ),
+      review: artifactReviewUrl(requestUrl, version.artifactId, version.id),
       version: versionBrowserUrl(
         requestUrl,
         contentDomain,

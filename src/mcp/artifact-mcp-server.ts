@@ -785,7 +785,7 @@ export function createArtifactMcpServer(
           manifest: manifestProjectionSchema,
           version: versionRecordSchema,
         }).strict(),
-        links: z.object({artifact: z.url()}).strict(),
+        links: z.object({artifact: z.url(), review: z.url()}).strict(),
       }).strict(),
       annotations: readOnlyAnnotations,
     },
@@ -810,6 +810,7 @@ export function createArtifactMcpServer(
         ),
         links: {
           artifact: artifactBrowserUrl(applicationUrl, details.artifact.id),
+          review: artifactReviewUrl(applicationUrl, details.artifact.id, null),
         },
       };
     }),
@@ -871,12 +872,7 @@ export function createArtifactMcpServer(
         artifactId,
         browserUrl,
         exactVersion: versionId !== null,
-        reviewUrl: artifactReviewUrl(
-          applicationUrl,
-          saved.version.projectId,
-          artifactId,
-          saved.version.id,
-        ),
+        reviewUrl: artifactReviewUrl(applicationUrl, artifactId, saved.version.id),
         versionId: saved.version.id,
       };
     }),
@@ -2429,7 +2425,6 @@ function publishedVersionProjection(
       artifact: artifactBrowserUrl(applicationUrl, published.artifact.id),
       review: artifactReviewUrl(
         applicationUrl,
-        published.version.projectId,
         published.artifact.id,
         published.version.id,
       ),
@@ -2559,12 +2554,7 @@ function versionProjection(
 ) {
   return {
     links: {
-      review: artifactReviewUrl(
-        applicationUrl,
-        saved.version.projectId,
-        artifactId,
-        saved.version.id,
-      ),
+      review: artifactReviewUrl(applicationUrl, artifactId, saved.version.id),
       version: versionBrowserUrl(
         applicationUrl,
         contentDomain,
