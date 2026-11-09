@@ -371,6 +371,18 @@ requirements:
     status: behavior_verified
     depends_on: [ART-001, PUB-006, AUTH-033]
 
+  - id: ART-016
+    kind: behavior
+    behavior: Each Review catalog card names its artifact's type from the media type of the current version's entry file.
+    owner: artifact-core
+    source: {file: review-catalog-spec.md, anchor: type-badge}
+    acceptance:
+      behavior: {id: ART-016-B, description: "Each catalog item reports the media type of its current version's entry file, and the report follows a new version."}
+      failure: {id: ART-016-F, description: "A multi-file artifact reports its entry file, never another file in the manifest."}
+    deployments: *all
+    status: behavior_verified
+    depends_on: [ART-011]
+
   - id: MAN-001
     kind: behavior
     behavior: A canonical manifest contains a sorted list of normalized paths, fingerprints, sizes, media types, disposition, entry file, routing mode, and serving metadata.
@@ -860,7 +872,7 @@ requirements:
 
   - id: AUTH-002
     kind: behavior
-    behavior: Account required (Signed-in) permits every admitted standalone installation member to read the artifact by link.
+    behavior: Account required (Members) permits every admitted standalone installation member to read the artifact by link.
     owner: authorization
     source: {file: artifact-server-product-spec.html, anchor: sharing}
     acceptance:
@@ -1239,19 +1251,19 @@ requirements:
 
   - id: AUTH-033
     kind: security
-    behavior: A principal reads an artifact only as its owner, as a human administrator of a service-owned artifact, with read authority when the level is Signed-in or Public, or anonymously through the public link when the level is Public; every other read on every surface returns 404 ARTIFACT_NOT_FOUND.
+    behavior: A principal reads an artifact only as its owner, as a human administrator of a service-owned artifact, with read authority when the level is Members or Public, or anonymously through the public link when the level is Public; every other read on every surface returns 404 ARTIFACT_NOT_FOUND.
     owner: authorization
     source: {file: artifact-sharing-levels-spec.md, anchor: conformance}
     acceptance:
-      behavior: {id: AUTH-033-B, description: "The owner reads a Private artifact on every read surface. Any member, member-bound key or read-capable service key reads a Signed-in artifact by id."}
-      failure: {id: AUTH-033-F, description: "Another member, a member-bound key of another member, a service key and an administrator each receive 404 on every read surface of a Private artifact, including content bootstrap, comments and comparisons. An anonymous request receives the same sign-in requirement for a Private artifact as for a Signed-in one."}
+      behavior: {id: AUTH-033-B, description: "The owner reads a Private artifact on every read surface. Any member, member-bound key or read-capable service key reads a Members artifact by id."}
+      failure: {id: AUTH-033-F, description: "Another member, a member-bound key of another member, a service key and an administrator each receive 404 on every read surface of a Private artifact, including content bootstrap, comments and comparisons. An anonymous request receives the same sign-in requirement for a Private artifact as for a Members one."}
     deployments: *all
     status: behavior_verified
     depends_on: [AUTH-032]
 
   - id: AUTH-034
     kind: security
-    behavior: Artifact lists and search return only the artifacts the reader owns, plus service-owned artifacts for a human administrator; a Signed-in or Public artifact owned by someone else appears only in the reader's Shared with me list, when its owner listed it or the reader opened it.
+    behavior: Artifact lists and search return only the artifacts the reader owns, plus service-owned artifacts for a human administrator; a Members or Public artifact owned by someone else appears only in the reader's Shared with me list, when its owner listed it or the reader opened it.
     owner: authorization
     source: {file: artifact-sharing-levels-spec.md, anchor: conformance}
     acceptance:
@@ -1268,7 +1280,7 @@ requirements:
     source: {file: artifact-sharing-levels-spec.md, anchor: conformance}
     acceptance:
       behavior: {id: AUTH-035-B, description: "The owner publishes, tags, restores, changes review mode and raises the level. An administrator lowers any level and manages service-owned artifacts."}
-      failure: {id: AUTH-035-F, description: "Another member, and a non-owning key with manage:any or publish:any, receive 403 on Signed-in or Public artifacts and 404 on Private ones. An administrator cannot raise a member's level or publish to it."}
+      failure: {id: AUTH-035-F, description: "Another member, and a non-owning key with manage:any or publish:any, receive 403 on Members or Public artifacts and 404 on Private ones. An administrator cannot raise a member's level or publish to it."}
     deployments: *all
     status: behavior_verified
     depends_on: [AUTH-033]
@@ -1280,14 +1292,14 @@ requirements:
     source: {file: artifact-sharing-levels-spec.md, anchor: conformance}
     acceptance:
       behavior: {id: AUTH-036-B, description: "The migration fills the owner from version 1 on SQLite and Postgres and keeps every level and idempotency replay unchanged."}
-      failure: {id: AUTH-036-F, description: "A migrated artifact whose version 1 publisher is another member is unlisted for the reader but readable by link at Signed-in."}
+      failure: {id: AUTH-036-F, description: "A migrated artifact whose version 1 publisher is another member is unlisted for the reader but readable by link at Members."}
     deployments: *all
     status: behavior_verified
     depends_on: [AUTH-032]
 
   - id: AUTH-037
     kind: behavior
-    behavior: The Share modal's General access selector offers Private, Signed-in and Public, saves the chosen level immediately, confirms in place before Public, and offers each reader only the levels it may set.
+    behavior: The Share modal's General access selector offers Private, Members and Public, saves the chosen level immediately, confirms in place before Public, and offers each reader only the levels it may set.
     owner: web-application
     source: {file: artifact-sharing-levels-spec.md, anchor: conformance}
     acceptance:
@@ -1299,11 +1311,11 @@ requirements:
 
   - id: AUTH-038
     kind: security
-    behavior: Shared with me lists another principal's Signed-in or Public artifact only when its controller listed it or the reader opened it in the Review web app with a browser session; listing follows the raise rule, each listing change is an action record, and lowering to Private unlists with its own record.
+    behavior: Shared with me lists another principal's Members or Public artifact only when its controller listed it or the reader opened it in the Review web app with a browser session; listing follows the raise rule, each listing change is an action record, and lowering to Private unlists with its own record.
     owner: authorization
     source: {file: review-catalog-spec.md, anchor: 4-shared-with-me}
     acceptance:
-      behavior: {id: AUTH-038-B, description: "An owner lists a Signed-in artifact from the Share modal and a colleague finds it under Listed for everyone, next to an artifact the colleague opened by link."}
+      behavior: {id: AUTH-038-B, description: "An owner lists a Members artifact from the Share modal and a colleague finds it under Listed for everyone, next to an artifact the colleague opened by link."}
       failure: {id: AUTH-038-F, description: "Shared with me never holds Private artifacts, service-owned ones for an administrator, or another reader's openings; non-controllers cannot change the listing and a Private artifact cannot be listed; each listing change and the unlisting by a lowering to Private writes one action record and a repeat writes none; API-key, member-bound-key and MCP OAuth-bearer reads record no openings, and a browser-session read does."}
     deployments: *all
     status: behavior_verified
@@ -2006,11 +2018,11 @@ requirements:
 
   - id: ADM-005
     kind: security
-    behavior: Canonical public-link settings let an installation administrator page across projects, inspect active public destinations, and lower a bounded selection to Signed-in (account-required) through its Stop public access action, with explicit partial-success retry and cache-recall copy; public-link creation remains on the artifact Share surface.
+    behavior: Canonical public-link settings let an installation administrator page across projects, inspect active public destinations, and lower a bounded selection to Members (account-required) through its Stop public access action, with explicit partial-success retry and cache-recall copy; public-link creation remains on the artifact Share surface.
     owner: web-application
     source: {file: single-application-administration-spec.md, anchor: public-links}
     acceptance:
-      behavior: {id: ADM-005-B, description: "Page through active public links from multiple projects, open their public and Review destinations, lower one and a bounded selection to Signed-in, and retry a stale failed item without rolling back successful items."}
+      behavior: {id: ADM-005-B, description: "Page through active public links from multiple projects, open their public and Review destinations, lower one and a bounded selection to Members, and retry a stale failed item without rolling back successful items."}
       failure: {id: ADM-005-F, description: "A non-administrator, oversized or duplicate selection, stale version, or cross-installation item is refused per item; the interface does not create links here or promise recall of downloaded or externally cached copies."}
     deployments: *all
     status: behavior_verified
@@ -2202,11 +2214,11 @@ requirements:
 
   - id: DSP-014
     kind: behavior
-    behavior: Sending threads of a Private artifact to an agent another principal registered is refused with 409 ARTIFACT_PRIVATE, because that agent cannot read it; the owner's own agent receives them, and Signed-in and Public artifacts dispatch as before.
+    behavior: Sending threads of a Private artifact to an agent another principal registered is refused with 409 ARTIFACT_PRIVATE, because that agent cannot read it; the owner's own agent receives them, and Members and Public artifacts dispatch as before.
     owner: agent-dispatch
     source: {file: artifact-sharing-levels-spec.md, anchor: conformance}
     acceptance:
-      behavior: {id: DSP-014-B, description: "Dispatching threads of a Signed-in artifact works as before, and a Private artifact's threads dispatch to an agent its owner registered."}
+      behavior: {id: DSP-014-B, description: "Dispatching threads of a Members artifact works as before, and a Private artifact's threads dispatch to an agent its owner registered."}
       failure: {id: DSP-014-F, description: "Dispatching threads of a Private artifact to another principal's agent returns 409 ARTIFACT_PRIVATE and creates no dispatch."}
     deployments: *all
     status: behavior_verified
@@ -3181,7 +3193,7 @@ requirements:
     owner: authorization
     source: {file: artifact-server-product-spec.html, anchor: scope}
     acceptance:
-      behavior: {id: SCP-008-B, description: "Confirm that admitted human members manage the artifacts they own in every project and read others' Signed-in and Public artifacts by link, while service mutations require explicit capabilities."}
+      behavior: {id: SCP-008-B, description: "Confirm that admitted human members manage the artifacts they own in every project and read others' Members and Public artifacts by link, while service mutations require explicit capabilities."}
       failure: {id: SCP-008-F, description: "A project or artifact cannot create a per-project or per-person reader list or inherit Plannotator workspace membership."}
     deployments: *all
     status: specified

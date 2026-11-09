@@ -421,7 +421,7 @@ describe.sequential("external-storage Postgres and S3 runtime", () => {
       .actions.map(({action}) => action).toSorted()).toEqual(["change_review_mode", "change_review_mode", "publish"]);
   });
 
-  test("AUTH-036-B AUTH-036-F: a populated Postgres schema records each owner from version 1, keeps levels and replays, and leaves another member's Signed-in artifact readable by link", async () => {
+  test("AUTH-036-B AUTH-036-F: a populated Postgres schema records each owner from version 1, keeps levels and replays, and leaves another member's Members artifact readable by link", async () => {
     const databaseName = `artifactserver_owner_migration_${randomUUID().replaceAll("-", "")}`;
     await createPostgresDatabase(environment, databaseName);
     const ownerEnvironment = {

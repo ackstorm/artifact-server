@@ -87,7 +87,7 @@ export interface ArtifactRecord {
   readonly currentVersionId: string;
   readonly deletedAt: string | null;
   readonly id: string;
-  /** The owner listed it in Shared with me; only Signed-in and Public artifacts are listed. */
+  /** The owner listed it in Shared with me; only Members and Public artifacts are listed. */
   readonly listed: boolean;
   readonly name: string;
   readonly ownerPrincipalId: string;
@@ -150,6 +150,8 @@ export interface ArtifactActionRecord {
 /** One active artifact with exact aggregate data needed by list surfaces. */
 export interface ArtifactListItem extends ArtifactRecord {
   readonly commentCount: number;
+  /** The declared media type of the current version's entry file. */
+  readonly entryMediaType: string;
   readonly pinned: boolean;
   readonly versionCount: number;
 }

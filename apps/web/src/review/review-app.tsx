@@ -64,6 +64,7 @@ import {
 import {
   accessSettingLabel,
   actionLabel,
+  artifactTypeLabel,
   formatBytes,
   formatTimestamp,
   sourceDriftDescription,
@@ -197,7 +198,7 @@ interface ReviewLocation {
 
 const accessFilterLabels: readonly (readonly [AccessSetting, string])[] = [
   ["private", "Private"],
-  ["account_required", "Signed-in"],
+  ["account_required", "Members"],
   ["public_link", "Public"],
 ];
 
@@ -822,6 +823,8 @@ function ArtifactReview({
     return [{
       artifact: details.artifact,
       commentCount: comments.threads.length,
+      entryMediaType: details.current.manifest.entries
+        .find((entry) => entry.path === details.current.manifest.entryPath)?.mediaType ?? "",
       links: details.links,
       pinned: false,
       versionCount: versions.length,
@@ -1843,7 +1846,7 @@ function ArtifactReview({
               {group.label === null ? null : (
                 <h2 className="as-catalog-group__label" title={group.note}>{group.label}</h2>
               )}
-              {group.items.map(({artifact, commentCount, pinned, versionCount}) => {
+              {group.items.map(({artifact, commentCount, entryMediaType, pinned, versionCount}) => {
                 const displayedCommentCount = artifact.id === selectedArtifactId && !comments.loading
                   ? comments.threads.length
                   : commentCount;
@@ -1856,8 +1859,8 @@ function ArtifactReview({
                       onClick={() => selectArtifact(artifact.id, artifact.currentVersionId)}
                       type="button"
                     >
-                      <span aria-hidden="true" className="as-artifact-card__mark">
-                        <ArtifactMark />
+                      <span className="as-artifact-card__mark" title={entryMediaType}>
+                        {artifactTypeLabel(entryMediaType)}
                       </span>
                       <span className="as-artifact-card__body">
                       <span className="as-artifact-card__title-row">

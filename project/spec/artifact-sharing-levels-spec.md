@@ -13,7 +13,7 @@ Every artifact has an owner and one of three sharing levels:
 | Level | Wire value | Who opens it with the link | Who sees it in lists |
 | --- | --- | --- | --- |
 | Private | `private` | The owner | The owner |
-| Signed-in | `account_required` | Any principal of the installation with read authority | The owner; other readers in Shared with me when listed or opened |
+| Members | `account_required` | Any principal of the installation with read authority | The owner; other readers in Shared with me when listed or opened |
 | Public | `public_link` | Anyone who can reach the server, signed in or not | The owner; other readers in Shared with me when listed or opened |
 
 New artifacts are Private. The owner shares an artifact by raising its level and
@@ -46,7 +46,7 @@ A principal reads an artifact when any of these holds:
 
 1. It is the owner.
 2. The artifact is service-owned and the principal is a human administrator.
-3. The level is Signed-in or Public and the principal holds read authority
+3. The level is Members or Public and the principal holds read authority
    today (`requireArtifactRead`: direct human, `artifact:read` or
    `artifact:manage:any`).
 4. The level is Public and the request is anonymous. This reaches only the current
@@ -55,7 +55,7 @@ A principal reads an artifact when any of these holds:
 A principal that cannot read an artifact receives `404 ARTIFACT_NOT_FOUND`, never
 `403`, on every surface, so a private artifact's existence does not leak. An
 anonymous request for a Private artifact gets the same sign-in requirement as for
-a Signed-in one, so a signed-out owner is asked to sign in. The rule applies
+a Members one, so a signed-out owner is asked to sign in. The rule applies
 to:
 
 - artifact get, versions, a single version, files, download archive and media
@@ -73,7 +73,7 @@ thread is read through the comment surfaces above.
 
 `listArtifacts` returns only artifacts the principal owns. For a human
 administrator it also returns service-owned ones. Search and tag filters apply on
-top. A Signed-in or Public artifact owned by someone else is opened by link.
+top. A Members or Public artifact owned by someone else is opened by link.
 It appears only in the reader's Shared with me list, when its owner listed it or
 the reader opened it
 ([decision 0035](./decisions/0035-owner-listed-and-opened-artifacts.md),
@@ -92,7 +92,7 @@ service principal act on artifacts it owns, not on other people's.
 
 Human administrators moderate without reading:
 
-- They may **lower** the level of any artifact: Public → Signed-in →
+- They may **lower** the level of any artifact: Public → Members →
   Private.
 - They may delete any artifact (AUTH-030).
 - They cannot read a member's Private artifact, publish to it, tag it or restore it.
@@ -139,7 +139,7 @@ Lowering the level does not end existing grants early:
 The UI warns about both. Revoking sessions early is out of scope.
 
 The admin Public links screen (ADM-005) keeps its inventory. Its bulk action
-lowers the selected artifacts to Signed-in and is labelled "Stop public
+lowers the selected artifacts to Members and is labelled "Stop public
 access".
 
 ## 5. Defaults
@@ -162,7 +162,7 @@ A **General access** selector at the top of the Share modal replaces
 GENERAL ACCESS
 [🔒 Private               ▾]  Only you can open it.
    🔒 Private        Only you
-   🏢 Signed-in      Anyone signed in with the link
+   🏢 Members        Any member with the link
    🌐 Public         Anyone with the link, no sign-in
 ```
 
@@ -172,7 +172,7 @@ GENERAL ACCESS
   including people who are not signed in, can open the latest version." The
   reader confirms in place, not with a browser dialog.
 - **When the reader may not raise the level:**
-  - A non-owner sees the selector disabled, with "Shared with anyone signed in" or
+  - A non-owner sees the selector disabled, with "Shared with members" or
     "Public".
   - A human administrator sees only the levels below the current one.
 - **The note under the Review link follows the level:**
@@ -180,7 +180,7 @@ GENERAL ACCESS
   | Level | Note |
   | --- | --- |
   | Private | "Only you can open this link." |
-  | Signed-in | "Anyone signed in can open this link." |
+  | Members | "Any member can open this link." |
   | Public | Adds a **Public link** row first: the raw latest URL, which needs no sign-in. The Review link follows it, marked "for signed-in members". |
 
 - **Other links** and **Review with an AI agent** are unchanged.
@@ -188,8 +188,8 @@ GENERAL ACCESS
 ### Elsewhere
 
 - The project list shows only what the reader may list.
-- A Review deep link to a Signed-in or Public artifact opens normally.
-- The details inspector shows the level as Private, Signed-in or Public.
+- A Review deep link to a Members or Public artifact opens normally.
+- The details inspector shows the level as Private, Members or Public.
 - The danger zone and other management controls appear only for principals that
   hold that authority.
 
@@ -223,12 +223,12 @@ These requirements are new:
 | ID | Acceptance (B = behavior, F = failure) |
 | --- | --- |
 | AUTH-032 | **B:** New artifacts from HTTP, MCP and CLI are Private and record the version 1 publisher as owner; a member-bound key's artifact belongs to its member. **F:** No surface creates an artifact without an owner, and later publishers never change the owner. |
-| AUTH-033 | **B:** The owner reads a Private artifact on every surface in §3. Any member, member-bound key or read-capable service key reads a Signed-in artifact by id. **F:** Another member, a member-bound key of another member, a service key and an administrator each receive 404 on every read surface of a Private artifact, including content bootstrap, comments, and comparisons. An anonymous request receives the same sign-in requirement for a Private artifact as for a Signed-in one. |
-| AUTH-034 | **B:** Lists return the reader's own artifacts; an administrator's lists also contain service-owned ones. **F:** Another member's Signed-in and Public artifacts never appear in lists or search results. |
-| AUTH-035 | **B:** The owner publishes, tags, restores, changes review mode and raises the level. An administrator lowers any level and manages service-owned artifacts. **F:** Another member, and a non-owning key with `manage:any` or `publish:any`, receive 403 on Signed-in or Public artifacts and 404 on Private ones. An administrator cannot raise a member's level or publish to it. |
-| AUTH-036 | **B:** The migration fills the owner from version 1 on SQLite and Postgres and keeps every level and idempotency replay unchanged. **F:** A migrated artifact whose version 1 publisher is another member is unlisted for the reader but readable by link at Signed-in. |
+| AUTH-033 | **B:** The owner reads a Private artifact on every surface in §3. Any member, member-bound key or read-capable service key reads a Members artifact by id. **F:** Another member, a member-bound key of another member, a service key and an administrator each receive 404 on every read surface of a Private artifact, including content bootstrap, comments, and comparisons. An anonymous request receives the same sign-in requirement for a Private artifact as for a Members one. |
+| AUTH-034 | **B:** Lists return the reader's own artifacts; an administrator's lists also contain service-owned ones. **F:** Another member's Members and Public artifacts never appear in lists or search results. |
+| AUTH-035 | **B:** The owner publishes, tags, restores, changes review mode and raises the level. An administrator lowers any level and manages service-owned artifacts. **F:** Another member, and a non-owning key with `manage:any` or `publish:any`, receive 403 on Members or Public artifacts and 404 on Private ones. An administrator cannot raise a member's level or publish to it. |
+| AUTH-036 | **B:** The migration fills the owner from version 1 on SQLite and Postgres and keeps every level and idempotency replay unchanged. **F:** A migrated artifact whose version 1 publisher is another member is unlisted for the reader but readable by link at Members. |
 | AUTH-037 | **B:** In the Share modal the owner moves between the three levels, confirming in place before Public, and the note and links follow. **F:** A non-owner sees the selector disabled; a failed save returns to the saved level with the message. |
-| DSP-014 | **B:** Dispatching threads of a Signed-in artifact works as before, and a Private artifact's threads dispatch to an agent its owner registered. **F:** Dispatching threads of a Private artifact to another principal's agent returns 409 `ARTIFACT_PRIVATE` and creates no dispatch. |
+| DSP-014 | **B:** Dispatching threads of a Members artifact works as before, and a Private artifact's threads dispatch to an agent its owner registered. **F:** Dispatching threads of a Private artifact to another principal's agent returns 409 `ARTIFACT_PRIVATE` and creates no dispatch. |
 
 These existing requirements are reworded:
 
@@ -241,7 +241,7 @@ These existing requirements are reworded:
 | PRS-005 | Bulk clearing is for the artifact's controller or a human administrator. |
 | AUTH-030 | An administrator deletes a Private artifact it cannot read; non-readers receive not found. |
 | AUTH-002 | Account required is no longer the default. |
-| ADM-005 | The bulk action lowers to Signed-in. |
+| ADM-005 | The bulk action lowers to Members. |
 
 AUTH-003 to AUTH-006 keep their wording; their tests run against the
 new levels.

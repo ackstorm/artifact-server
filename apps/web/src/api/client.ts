@@ -222,6 +222,7 @@ export interface ArtifactPage {
   readonly artifacts: readonly {
     readonly artifact: Artifact;
     readonly commentCount: number;
+    readonly entryMediaType: string;
     readonly links: {
       readonly artifact: string;
       readonly management: string;
@@ -318,6 +319,7 @@ const artifactPageSchema: z.ZodType<ArtifactPage> = z.object({
   artifacts: z.array(z.object({
     artifact: artifactSchema,
     commentCount: z.number().int().nonnegative(),
+    entryMediaType: z.string(),
     links: z.object({ artifact: z.url(), management: z.url() }),
     pinned: z.boolean(),
     versionCount: z.number().int().positive(),

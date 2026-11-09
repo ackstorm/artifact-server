@@ -337,7 +337,7 @@ export function PublicLinksScreen() {
                 <Alert>
                   <AlertDescription>
                     Public links are off. These artifacts keep their Public setting but do not
-                    open without sign-in. Stop public access lowers them to Signed-in.
+                    open without sign-in. Stop public access lowers them to Members.
                   </AlertDescription>
                 </Alert>
               )
@@ -701,8 +701,8 @@ function disableCopy(count: number): readonly string[] {
   const reach = count === 0
     ? "No artifact is Public now."
     : count === 1
-      ? `1 artifact is Public now. It stops opening without sign-in as soon as you turn public links off. It keeps its Public setting, and opens without sign-in again if you turn public links back on. Until then, people signed in with the link can still open it.`
-      : `${count} artifacts are Public now. They stop opening without sign-in as soon as you turn public links off. They keep their Public setting, and open without sign-in again if you turn public links back on. Until then, people signed in with the link can still open them.`;
+      ? `1 artifact is Public now. It stops opening without sign-in as soon as you turn public links off. It keeps its Public setting, and opens without sign-in again if you turn public links back on. Until then, members with the link can still open it.`
+      : `${count} artifacts are Public now. They stop opening without sign-in as soon as you turn public links off. They keep their Public setting, and open without sign-in again if you turn public links back on. Until then, members with the link can still open them.`;
   return [
     reach,
     "Nobody can make an artifact Public while public links are off. Pages already open or downloaded, and copies cached outside Artifact Server, cannot be recalled.",

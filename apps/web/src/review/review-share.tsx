@@ -161,7 +161,7 @@ export function ReviewShareControl({
   const listingReason = !canRaise
     ? `Only ${ownerName ?? "the owner"} can change this.`
     : savedAccess === "private"
-      ? "Make it Signed-in first."
+      ? "Share it with Members first."
       : null;
 
   const saveListing = async (next: boolean): Promise<void> => {
@@ -193,7 +193,7 @@ export function ReviewShareControl({
   };
 
   const publicLinksOff = !publicLinksEnabled;
-  // A stored-Public artifact reads as Signed-in while public links are off.
+  // A stored-Public artifact reads as Members while public links are off.
   const effectiveAccess = savedAccess === "public_link" && publicLinksOff
     ? "account_required"
     : savedAccess;
@@ -300,14 +300,14 @@ export function ReviewShareControl({
                             ? "Public — Turned off by an administrator"
                             : canRaise || canLower
                               ? accessOptionLabel(level)
-                              : level === "public_link" ? "Public" : "Shared with anyone signed in"}
+                              : level === "public_link" ? "Public" : "Shared with members"}
                         </option>
                       ))}
                     </select>
                   </div>
                   <p>
                     {publicLinksOff && shownAccess === "public_link"
-                      ? "Public links are turned off by an administrator. Only people signed in with the link can open it until they are turned back on."
+                      ? "Public links are turned off by an administrator. Only members with the link can open it until they are turned back on."
                       : accessDescription(shownAccess)}
                   </p>
                   {canRaise && publicLinksOff && savedAccess !== "public_link"
@@ -362,7 +362,7 @@ export function ReviewShareControl({
                   {listingError === null ? (
                     <p id="as-share-listing-note">
                       {listingReason ?? (listed
-                        ? "Everyone signed in sees it in Shared with me."
+                        ? "Every member sees it in Shared with me."
                         : "Only people who have the link find it.")}
                     </p>
                   ) : (
@@ -725,7 +725,7 @@ Never paste credentials into chat, source files, or the review. If access fails,
 
 function accessOptionLabel(level: AccessSetting): string {
   return {
-    account_required: "Signed-in — Anyone signed in with the link",
+    account_required: "Members — Any member with the link",
     private: "Private — Only you",
     public_link: "Public — Anyone with the link, no sign-in",
   }[level];
@@ -733,7 +733,7 @@ function accessOptionLabel(level: AccessSetting): string {
 
 function accessDescription(level: AccessSetting): string {
   return {
-    account_required: "Anyone signed in with the link can open it.",
+    account_required: "Any member with the link can open it.",
     private: "Only you can open it.",
     public_link: "Anyone with the link can open the latest version, no sign-in.",
   }[level];
@@ -741,7 +741,7 @@ function accessDescription(level: AccessSetting): string {
 
 function reviewLinkNote(level: AccessSetting): string {
   return {
-    account_required: "Anyone signed in can open this link.",
+    account_required: "Any member can open this link.",
     private: "Only you can open this link.",
     public_link: "For signed-in members.",
   }[level];
