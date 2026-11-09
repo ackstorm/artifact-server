@@ -29,6 +29,7 @@ import {
   startTestServer,
   type TestInstallation,
 } from "../support/runtime-harness.js";
+import {expectExactReviewLink} from "../support/review-links.js";
 
 const protocolVersion = "2026-07-28";
 const jsonRpcResultSchema = z.object({
@@ -439,13 +440,10 @@ describe("modern MCP HTTP", () => {
       `Review and comment: ${committed.links.review}`,
       `Raw artifact: ${committed.links.version}`,
     ].join("\n"));
-    expect(Object.fromEntries(new URL(committed.links.review).searchParams)).toEqual({
-      artifact: committed.artifact.id,
-      project: "prj_default",
-      version: committed.version.id,
-      view: "focus",
+    await expectExactReviewLink(committed.links.review, {
+      artifactId: committed.artifact.id,
+      versionId: committed.version.id,
     });
-    expect(committed.links.review).not.toContain("__artifact_bootstrap=");
     const replay = publicationCommitResultSchema.parse(
       (await callTool(server, installation.apiToken, {
         arguments: commitArguments,
@@ -502,9 +500,8 @@ describe("modern MCP HTTP", () => {
     expect(details.current.manifest.entries).toContainEqual(
       expect.objectContaining({path: "proof.txt", sha256: declaredFile.sha256}),
     );
-    expectExactReviewUrl(details.current.links.review, {
+    await expectExactReviewLink(details.current.links.review, {
       artifactId: committed.artifact.id,
-      projectId: committed.artifact.projectId,
       versionId: committed.version.id,
     });
 
@@ -534,9 +531,8 @@ describe("modern MCP HTTP", () => {
     expect(opened.versionId).toBe(committed.version.id);
     expect(opened.exactVersion).toBe(false);
     expect(opened.browserUrl).toContain("__artifact_bootstrap=");
-    expectExactReviewUrl(opened.reviewUrl, {
+    await expectExactReviewLink(opened.reviewUrl, {
       artifactId: committed.artifact.id,
-      projectId: committed.artifact.projectId,
       versionId: committed.version.id,
     });
 
@@ -621,9 +617,8 @@ describe("modern MCP HTTP", () => {
     expect(openedHistorical.artifactId).toBe(committed.artifact.id);
     expect(openedHistorical.versionId).toBe(committed.version.id);
     expect(openedHistorical.browserUrl).toContain("__artifact_bootstrap=");
-    expectExactReviewUrl(openedHistorical.reviewUrl, {
+    await expectExactReviewLink(openedHistorical.reviewUrl, {
       artifactId: committed.artifact.id,
-      projectId: committed.artifact.projectId,
       versionId: committed.version.id,
     });
 
@@ -1054,25 +1049,6 @@ type McpParameterValue =
   | null
   | readonly McpParameterValue[]
   | McpParameters;
-
-function expectExactReviewUrl(
-  reviewUrl: string,
-  expected: {
-    readonly artifactId: string;
-    readonly projectId: string;
-    readonly versionId: string;
-  },
-): void {
-  const parsed = new URL(reviewUrl);
-  expect(parsed.pathname).toBe("/review");
-  expect(Object.fromEntries(parsed.searchParams)).toEqual({
-    artifact: expected.artifactId,
-    project: expected.projectId,
-    version: expected.versionId,
-    view: "focus",
-  });
-  expect(reviewUrl).not.toContain("__artifact_bootstrap=");
-}
 
 function declaredMcpFile(
   manifestPath: string,

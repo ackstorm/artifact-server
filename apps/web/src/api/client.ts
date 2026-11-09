@@ -241,6 +241,7 @@ export interface ArtifactDetails {
     /** The artifact's own live origin; present only for a linked artifact. */
     readonly live?: string | undefined;
     readonly management: string;
+    readonly review: string;
   };
   /** Present only on a local deployment that linked this artifact to a file. */
   readonly sourceBinding?: SourceBinding | undefined;
@@ -332,6 +333,7 @@ const artifactDetailsSchema: z.ZodType<ArtifactDetails> = z.object({
     artifact: z.url(),
     live: z.url().optional(),
     management: z.url(),
+    review: z.url(),
   }),
   sourceBinding: sourceBindingSchema.optional(),
   principals: z.record(z.string(), z.string()),
@@ -927,9 +929,11 @@ export const api = {
     if (search.trim() !== "") query.set("search", search.trim());
     return request(artifactPageSchema, `/api/v1/artifacts?${query}`);
   },
-  artifact: (projectId: string, artifactId: string) => request(
+  artifact: (projectId: string | null, artifactId: string) => request(
     artifactDetailsSchema,
-    `/api/v1/artifacts/${encodeURIComponent(artifactId)}?${projectQuery(projectId)}`,
+    projectId === null
+      ? `/api/v1/artifacts/${encodeURIComponent(artifactId)}`
+      : `/api/v1/artifacts/${encodeURIComponent(artifactId)}?${projectQuery(projectId)}`,
   ),
   versions: (projectId: string, artifactId: string) => request(
     z.object({

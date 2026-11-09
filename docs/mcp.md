@@ -64,7 +64,7 @@ Every successful publication returns structured data and a short text summary.
 ```json
 {
   "links": {
-    "review": "https://artifacts.example.com/review?...&view=focus",
+    "review": "https://artifacts.example.com/a/6NzQ1bVtJ9wKpXe3rLm2hA?v=1xYb2Q4rT8mNcK0pLs7dEf",
     "artifact": "https://artifacts.example.com/artifacts/art_example",
     "version": "https://ver-example.content.example.com/"
   }
@@ -78,7 +78,9 @@ The server instructions tell the agent to share `links.review` first. This link 
 The agent must not place bootstrap URLs, access tokens, or credentials in chat.
 
 Read operations use the same link roles. `artifact_get.current.links.review`
-opens the current exact version in full-screen Review. `artifact_open.reviewUrl`
+opens the current exact version in full-screen Review, and
+`artifact_get.links.review` is the Review link that always opens the latest
+version. `artifact_open.reviewUrl`
 opens the selected exact version in Review, while `artifact_open.browserUrl`
 opens its raw immutable content. Agents should hand people the Review URL.
 

@@ -3669,3 +3669,27 @@ requirements:
     status: implementing
     proof_gap: Native Markdown tests are being qualified locally; team deployment and full iteration evidence remain incomplete.
     depends_on: [PRV-004, PRV-005]
+  - id: SHL-001
+    kind: behavior
+    behavior: Every Review link is a short /a/<artifact code> address, with v=<version code> for one exact version, where each code is the artifact or version UUID written as 22 base62 characters; the server decodes the code without storage and redirects to Review, and an artifact read that omits the project resolves the artifact's own project.
+    owner: web-application
+    source: {file: short-review-links-spec.md, anchor: conformance}
+    acceptance:
+      behavior: {id: SHL-001-B, description: "Publish two versions in a second project, follow each pinned short link to its exact version and the latest short link to Review without a version, keep path and mode parameters, and read the artifact by ID alone."}
+      failure: {id: SHL-001-F, description: "Short codes of the wrong length, outside base62, or beyond 128 bits, in the path or the v parameter, answer not found with no redirect, and an unknown artifact read without a project answers ARTIFACT_NOT_FOUND rather than a project choice."}
+    deployments: *all
+    status: implementing
+    proof_gap: Local targeted runs pass; the CI iteration gate has not yet run these IDs.
+    depends_on: [ART-001, MCP-015]
+  - id: SHL-002
+    kind: behavior
+    behavior: Review opened from a short link selects the artifact's own project, even when it is not the first project, and the latest or named version; an artifact the reader cannot see shows the unavailable state.
+    owner: web-application
+    source: {file: short-review-links-spec.md, anchor: conformance}
+    acceptance:
+      behavior: {id: SHL-002-B, description: "Open the latest short link of an artifact in a second project and see its current version with that project in the address, then open a pinned short link and see that exact version."}
+      failure: {id: SHL-002-F, description: "A short link to another member's private artifact shows Review target unavailable and renders none of its content."}
+    deployments: *all
+    status: implementing
+    proof_gap: The Playwright tests run only in the CI iteration gate, which has not yet run these IDs.
+    depends_on: [SHL-001]
