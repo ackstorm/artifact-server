@@ -114,8 +114,6 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- define "artifact-server.secretItems" -}}
 - key: {{ .Values.secret.keys.apiToken | quote }}
   path: api-token
-- key: {{ .Values.secret.keys.databaseUrl | quote }}
-  path: database-url
 {{- if .Values.secret.keys.s3AccessKeyId }}
 - key: {{ .Values.secret.keys.s3AccessKeyId | quote }}
   path: s3-access-key-id
@@ -126,6 +124,22 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 - key: {{ .Values.secret.keys.oidcClientSecret | quote }}
   path: oidc-client-secret
 {{- end }}
+{{- end -}}
+
+{{- define "artifact-server.databaseUrlSource" -}}
+- secret:
+    name: {{ default .Values.secret.name .Values.secret.databaseUrlSecretName | quote }}
+    items:
+      - key: {{ .Values.secret.keys.databaseUrl | quote }}
+        path: database-url
+{{- end -}}
+
+{{- define "artifact-server.runtimeSecretSources" -}}
+- secret:
+    name: {{ .Values.secret.name | quote }}
+    items:
+      {{- include "artifact-server.secretItems" . | nindent 6 }}
+{{ include "artifact-server.databaseUrlSource" . }}
 {{- end -}}
 
 {{- define "artifact-server.runtimeEnvironment" -}}

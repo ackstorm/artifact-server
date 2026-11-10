@@ -91,6 +91,35 @@ helm template artifact-server "$artifactserver_chart" \
   --set ingress.applicationTlsSecretName=artifact-server-application-tls \
   --set ingress.contentTlsSecretName=artifact-server-content-tls >/dev/null
 
+assert_database_url_source() {
+  node --input-type=module -e '
+    import assert from "node:assert/strict";
+    import {readFileSync} from "node:fs";
+    import {createRequire} from "node:module";
+    const require = createRequire(`${process.argv[3]}/package.json`);
+    const {parseAllDocuments} = require("yaml");
+    const documents = parseAllDocuments(readFileSync(0, "utf8")).map((document) => document.toJS());
+    const workloads = documents.filter((document) => ["Deployment", "Job", "CronJob"].includes(document?.kind));
+    assert.equal(workloads.length, 3);
+    for (const workload of workloads) {
+      const pod = workload.kind === "CronJob" ? workload.spec.jobTemplate.spec.template.spec : workload.spec.template.spec;
+      const sources = pod.volumes.flatMap((volume) => volume.projected?.sources ?? []);
+      const database = sources.filter((source) => source.secret.items.some((item) => item.path === "database-url"));
+      assert.deepEqual(database, [{secret: {name: process.argv[1], items: [{key: process.argv[2], path: "database-url"}]}}], workload.kind);
+    }
+  ' "$1" "$2" "$artifactserver_repository"
+}
+
+helm template artifact-server "$artifactserver_chart" \
+  --kube-version 1.36.0 \
+  "${artifactserver_values[@]}" | assert_database_url_source artifact-server-runtime database-url
+
+helm template artifact-server "$artifactserver_chart" \
+  --kube-version 1.36.0 \
+  "${artifactserver_values[@]}" \
+  --set secret.databaseUrlSecretName=artifact-server-pg-app \
+  --set secret.keys.databaseUrl=uri | assert_database_url_source artifact-server-pg-app uri
+
 # The Service named artifact-server makes Kubernetes inject
 # ARTIFACT_SERVER_PORT=tcp://<ip>:80 into every pod that keeps service links,
 # and the server reads that variable as its listening port.

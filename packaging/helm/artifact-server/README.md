@@ -26,6 +26,10 @@ kubectl --namespace artifact-server create secret generic artifact-server-runtim
 ```
 
 Keep credentials out of Helm values. Set `secret.name` and the key names instead.
+When the database URL lives in a different Secret, such as the `<cluster>-app`
+Secret CloudNativePG generates, set `secret.databaseUrlSecretName` to it and
+`secret.keys.databaseUrl` to its key (`uri`); the other keys still come from
+`secret.name`.
 If an external secret manager changes the Secret, update
 `secret.rolloutChecksum` to its non-secret version or checksum so the Deployment
 restarts in a controlled rollout.
