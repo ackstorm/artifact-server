@@ -103,6 +103,7 @@
       "required": ["name", "rolloutChecksum", "keys"],
       "properties": {
         "name": {"type": "string", "minLength": 1},
+        "databaseUrlSecretName": {"type": "string"},
         "rolloutChecksum": {"type": "string"},
         "keys": {
           "type": "object",

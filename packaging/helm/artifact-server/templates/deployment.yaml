@@ -116,11 +116,10 @@ spec:
               mountPath: /tmp
       volumes:
         - name: runtime-secrets
-          secret:
-            secretName: {{ .Values.secret.name | quote }}
+          projected:
             defaultMode: 288
-            items:
-              {{- include "artifact-server.secretItems" . | nindent 14 }}
+            sources:
+              {{- include "artifact-server.runtimeSecretSources" . | nindent 14 }}
         - name: temporary
           emptyDir:
             medium: Memory

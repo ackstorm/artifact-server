@@ -53,12 +53,10 @@ spec:
               mountPath: /tmp
       volumes:
         - name: database-secret
-          secret:
-            secretName: {{ .Values.secret.name | quote }}
+          projected:
             defaultMode: 288
-            items:
-              - key: {{ .Values.secret.keys.databaseUrl | quote }}
-                path: database-url
+            sources:
+              {{- include "artifact-server.databaseUrlSource" . | nindent 14 }}
         - name: temporary
           emptyDir:
             medium: Memory

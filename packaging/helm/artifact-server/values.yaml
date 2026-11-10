@@ -33,6 +33,9 @@ configuration:
 
 secret:
   name: ""
+  # Secret holding keys.databaseUrl when it is not secret.name, e.g. the
+  # <cluster>-app Secret CloudNativePG generates (key `uri`).
+  databaseUrlSecretName: ""
   rolloutChecksum: ""
   keys:
     apiToken: api-token
