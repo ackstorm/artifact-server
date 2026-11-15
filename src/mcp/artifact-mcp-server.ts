@@ -2207,7 +2207,7 @@ export function createArtifactMcpServer(
     {
       title: "Say it out loud",
       description:
-        "Say one short sentence out loud to the user through their habla listener. Queues it only while that listener is connected and answers queued false otherwise; then carry on without retrying.",
+        "Say one short sentence out loud to the user through their habla listener. Write it to be heard: plain words, no identifiers, versions, paths or code names. Queues it only while that listener is connected and answers queued false otherwise; then carry on without retrying.",
       inputSchema: z.object({
         // The service checks the trimmed length; this only bounds the payload.
         text: z.string().max(4_096),
