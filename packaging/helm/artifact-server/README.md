@@ -72,7 +72,7 @@ Each `vX.Y.Z` release tag publishes chart version `X.Y.Z` to
 
 ```sh
 helm upgrade --install artifact-server oci://ghcr.io/ackstorm/charts/artifact-server \
-  --version 0.5.9 \
+  --version 0.5.10 \
   --namespace artifact-server \
   --create-namespace \
   --values artifact-server-values.yaml \
