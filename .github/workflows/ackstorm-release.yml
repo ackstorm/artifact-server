@@ -67,7 +67,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Install pnpm
-        uses: pnpm/action-setup@v6.1.0 # zizmor: ignore[unpinned-uses] Fork policy pins actions to version tags.
+        uses: pnpm/action-setup@v6.1.1 # zizmor: ignore[unpinned-uses] Fork policy pins actions to version tags.
         with:
           version: 10.34.3
       - name: Install Node.js
