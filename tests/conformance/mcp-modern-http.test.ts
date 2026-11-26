@@ -226,6 +226,14 @@ describe("modern MCP HTTP", () => {
     expect(tools.some((tool) => tool.name.includes("inline"))).toBe(false);
     expect(tools.find((tool) => tool.name === "artifact_delete")?.annotations)
       .toMatchObject({destructiveHint: true, readOnlyHint: false});
+    // Gemini on Vertex answers 400 to a request whose tool input root is a union.
+    const unionRootTools = tools.filter((tool) => {
+      const root = z.object({inputSchema: z.record(z.string(), z.unknown())})
+        .loose().parse(tool).inputSchema;
+      return root["type"] !== "object" ||
+        ["allOf", "anyOf", "oneOf"].some((keyword) => keyword in root);
+    }).map((tool) => tool.name);
+    expect(unionRootTools).toEqual([]);
 
     const capabilities = z.object({
       deployment: z.object({mode: z.literal("local")}),

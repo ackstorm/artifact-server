@@ -268,6 +268,26 @@ async function collectCursorPages<T>(
 }
 const mailboxAgentNameSchema = z.string().trim().min(1).max(120);
 const mailboxDispatchIdSchema = z.string().min(1).max(200);
+const dispatchInboxRequestSchema = z.discriminatedUnion("operation", [
+  z.object({
+    agentName: mailboxAgentNameSchema.nullable().default(null),
+    operation: z.literal("list"),
+  }).strict(),
+  z.object({
+    agentName: mailboxAgentNameSchema.nullable().default(null),
+    operation: z.literal("claim"),
+  }).strict(),
+  z.object({
+    dispatchId: mailboxDispatchIdSchema,
+    operation: z.literal("delivered"),
+  }).strict(),
+  z.object({
+    dispatchId: mailboxDispatchIdSchema,
+    operation: z.literal("failed"),
+    reason: z.string().trim().min(1)
+      .max(maximumDispatchFailureReasonCharacters),
+  }).strict(),
+]);
 const mailboxAnchorSchema = z.object({originalText: z.string()}).loose();
 const mailboxAgentSchema = z.object({
   capabilities: z.object({
@@ -2072,27 +2092,17 @@ export function createArtifactMcpServer(
     {
       title: "Agent dispatch inbox",
       description:
-        "This caller's mailbox for annotation bundles a reviewer dispatched to it. list registers the caller as a passive mailbox-tier agent and shows its queued dispatches; claim takes the oldest queued dispatch and returns the rendered bundle message; delivered and failed report the outcome of a claimed dispatch. After reporting delivered, address every thread in the bundle: comment_reply with what you did, then comment_resolve.",
-      inputSchema: z.discriminatedUnion("operation", [
-        z.object({
-          agentName: mailboxAgentNameSchema.nullable().default(null),
-          operation: z.literal("list"),
-        }).strict(),
-        z.object({
-          agentName: mailboxAgentNameSchema.nullable().default(null),
-          operation: z.literal("claim"),
-        }).strict(),
-        z.object({
-          dispatchId: mailboxDispatchIdSchema,
-          operation: z.literal("delivered"),
-        }).strict(),
-        z.object({
-          dispatchId: mailboxDispatchIdSchema,
-          operation: z.literal("failed"),
-          reason: z.string().trim().min(1)
-            .max(maximumDispatchFailureReasonCharacters),
-        }).strict(),
-      ]),
+        "This caller's mailbox for annotation bundles a reviewer dispatched to it. list registers the caller as a passive mailbox-tier agent and shows its queued dispatches; claim takes the oldest queued dispatch and returns the rendered bundle message; delivered and failed report the outcome of a claimed dispatch. list and claim take an optional agentName; delivered takes dispatchId; failed takes dispatchId and reason. After reporting delivered, address every thread in the bundle: comment_reply with what you did, then comment_resolve.",
+      // One flat object, not a union: Gemini on Vertex answers 400 to a request
+      // whose tool input root is oneOf/anyOf. dispatchInboxRequestSchema holds
+      // the per-operation rule.
+      inputSchema: z.object({
+        agentName: mailboxAgentNameSchema.nullable().optional(),
+        dispatchId: mailboxDispatchIdSchema.optional(),
+        operation: z.enum(["claim", "delivered", "failed", "list"]),
+        reason: z.string().trim().min(1)
+          .max(maximumDispatchFailureReasonCharacters).optional(),
+      }).strict(),
       outputSchema: z.object({
         agent: mailboxAgentSchema,
         claimed: mailboxClaimSchema.nullable(),
@@ -2102,7 +2112,12 @@ export function createArtifactMcpServer(
       }).strict(),
       annotations: additiveWriteAnnotations,
     },
-    async (input) => toolResult(async (): Promise<MailboxAnswer> => {
+    async (arguments_) => toolResult(async (): Promise<MailboxAnswer> => {
+      const parsed = dispatchInboxRequestSchema.safeParse(arguments_);
+      if (!parsed.success) {
+        throw new InvalidDispatch({message: z.prettifyError(parsed.error)});
+      }
+      const input = parsed.data;
       switch (input.operation) {
         case "list": {
           const agent = await registerMailboxAgent(input.agentName);

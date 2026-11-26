@@ -395,6 +395,10 @@ describe("mailbox-tier dispatch inbox over MCP", () => {
     expect(refused.code).toBe("DISPATCH_STATE_CONFLICT");
     expect(refused.message).toContain("does not hold");
     expect(await dispatchState(dispatch.id)).toBe("queued");
+
+    // A report without the dispatch it is about is refused the same way.
+    await callToolExpectingFailure(secondToken, {operation: "delivered"});
+    expect(await dispatchState(dispatch.id)).toBe("queued");
   });
 
   test("a service-key agent claims a member's dispatch with every thread in the bundle", async () => {
