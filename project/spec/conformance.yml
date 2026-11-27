@@ -1,6 +1,6 @@
 version: 1
 product: Artifact Server
-updated: "2026-11-05"
+updated: "2026-11-27"
 
 source:
   product_spec: artifact-server-product-spec.html
@@ -472,7 +472,7 @@ requirements:
 
   - id: PUB-002
     kind: behavior
-    behavior: Public clients publish one actual file or finished directory through a file-upload transport. JSON and MCP schemas do not accept raw source strings or base64-wrapped file contents.
+    behavior: Public clients publish one actual file or finished directory through a file-upload transport. JSON and MCP schemas do not accept raw source strings or base64-wrapped file contents for publication; the one inline content accepted is an edit commit's bounded text (EDT-003).
     owner: publishing
     source: {file: artifact-server-product-spec.html, anchor: architecture}
     acceptance:
@@ -627,6 +627,29 @@ requirements:
     status: implementing
     proof_gap: PUB-014-B and PUB-014-F run against the local SQLite server; Postgres runtime tests cover grant storage. No deployment-specific evidence is recorded.
     depends_on: [PUB-001, PUB-002, MCP-013]
+  - id: PUB-015
+    kind: behavior
+    behavior: An upload plan created against a base artifact the caller may publish to reports each declared file whose SHA-256 and size match an entry in any version of that artifact as already stored, asks for no upload of it, and commits it; a match never comes from another artifact or project. The CLI passes the artifact it publishes a new version of as the base and sends no file PUT for files the artifact already stores.
+    owner: publishing
+    source: {file: artifact-server-mcp-baseline.md, anchor: direct-upload-flow}
+    acceptance:
+      behavior: {id: PUB-015-B, description: "Create an upload over MCP and HTTP against a base artifact whose versions hold some declared files, upload only the rest, commit, and read back every digest; re-publish unchanged files through the CLI client with the artifact as target and send no file PUT."}
+      failure: {id: PUB-015-F, description: "A file whose hash exists only in another artifact still needs its upload and blocks commit until uploaded, a size mismatch is not reused, and an unknown or other-project base artifact is refused as not found without revealing its files."}
+    deployments: *all
+    status: implementing
+    proof_gap: PUB-015-B and PUB-015-F run against the local SQLite server. The Postgres blob query is covered only by typecheck, and refusal of a readable base artifact the caller does not control is enforced by the shared artifact-control check but not exercised by these tests.
+    depends_on: [PUB-001, PUB-003, PUB-004]
+  - id: PUB-016
+    kind: behavior
+    behavior: Upload commits and edit commits return non-fatal publication warnings for relative HTML and Markdown references that name no manifest path and for absolute script or stylesheet URLs the Review frame policy blocks; analysis is bounded in warnings and bytes read and never fails a publication.
+    owner: publishing
+    source: {file: artifact-server-mcp-baseline.md, anchor: publication-warnings}
+    acceptance:
+      behavior: {id: PUB-016-B, description: "Publish a site with a missing script, a missing Markdown image, and blocked script and stylesheet hosts beside allowed CDN, fragment, query, absolute, data, and mailto references, and receive exactly the missing and blocked warnings from the commit and from an edit."}
+      failure: {id: PUB-016-F, description: "A publication with more broken references than the cap, invalid UTF-8, and malformed URLs still commits and an edit still commits, each with at most the capped warnings; a megabyte of unclosed tags and a megabyte of unclosed brackets are analyzed in linear time and commit within seconds."}
+    deployments: *all
+    status: verified
+    depends_on: [PUB-005, EDT-001]
   - id: CLI-001
     kind: security
     behavior: The Artifact Server CLI keeps profiles by exact server origin and account; remote interactive login uses browser authorization and operating-system credential storage, local mode uses private user-only state without visible secrets, and CI uses scoped service credentials from its secret manager.
@@ -1469,7 +1492,7 @@ requirements:
 
   - id: MCP-006
     kind: behavior
-    behavior: The initial MCP surface supports capabilities, list, get, open, upload creation, upload commit, visibility, tags, version list, diff, restore, and delete. It has no local-path, raw-text, base64, or inline-content publishing tool.
+    behavior: The initial MCP surface supports capabilities, list, get, open, upload creation, upload commit, edit, visibility, tags, version list, diff, restore, and delete. No tool accepts a local path, base64, or whole-file inline publication; artifact_edit carries only bounded text edits of existing text entries (EDT-003).
     owner: mcp
     source: {file: artifact-server-product-spec.html, anchor: mcp}
     acceptance:
@@ -1615,6 +1638,18 @@ requirements:
     deployments: *all
     status: specified
     depends_on: [AUTH-033, MCP-018]
+
+  - id: MCP-022
+    kind: behavior
+    behavior: comment_list and comment_get give each thread a target derived from its anchor, the quoted text and the element context when the anchor carries them, and dispatch_inbox renders the same element as sanitized lines in each bundle item; unrecognized anchors yield no target and stay opaque to the server.
+    owner: mcp
+    source: {file: artifact-server-mcp-baseline.md, anchor: mcp-tools-and-resources}
+    acceptance:
+      behavior: {id: MCP-022-B, description: "List and get a thread whose anchor carries quoted text, a selector, and element context and receive that target; claim a dispatch of it and read the element, selector, path, and nearby lines in the rendered bundle."}
+      failure: {id: MCP-022-F, description: "Whole-file, malformed, missing, and hostile anchors produce a null element or quote, bidirectional and invisible characters are stripped from rendered element lines, and every thread still lists and dispatches."}
+    deployments: *all
+    status: verified
+    depends_on: [CMT-003, BRP-002]
 
   - id: SKL-001
     kind: behavior
@@ -1963,6 +1998,19 @@ requirements:
     status: behavior_verified
     proof_gap: Local Chromium production-build evidence proves fragment scrolling, cancellation, annotation ownership, and retained sandbox isolation. Equivalent Firefox, WebKit, and team-deployment evidence remains unrecorded; URL hash and history emulation are outside this contract.
     depends_on: [CMT-014, CMT-018]
+
+  - id: CMT-023
+    kind: behavior
+    behavior: A pinpoint comment on an HTML element stores the review bridge's bounded element context (tag, id, classes, path, role, name, outline, box) inside its opaque anchor through the package's persisted-anchor helper, within the 16 KiB anchor cap; the server does not interpret it.
+    owner: artifact-comments
+    source: {file: artifact-comments-spec.md, anchor: 3-model}
+    acceptance:
+      behavior: {id: CMT-023-B, description: "Pinpoint an element in Comment mode and read back an anchor carrying its tag, id, classes, path, and selector."}
+      failure: {id: CMT-023-F, description: "An element with oversized page-controlled attributes and text saves a comment whose anchor stays within 16 KiB and whose context fields stay within their caps."}
+    deployments: *all
+    status: verified
+    proof_gap: Local Chromium production-build evidence only; Firefox, WebKit, and team-deployment evidence is unrecorded.
+    depends_on: [CMT-003, CMT-014]
 
   - id: ADM-001
     kind: behavior
@@ -2384,7 +2432,7 @@ requirements:
       failure: {id: BRP-002-F, description: "A second principal never sees the first principal's dispatches, a claim with an empty inbox answers cleanly, and a delivered report for a dispatch the caller does not hold is refused without state change."}
     deployments: [local]
     status: behavior_verified
-    proof_gap: The render mirror in src/mcp is pinned byte-for-byte against the package render by the acceptance test rather than shared as one module; drift fails the test but the duplication itself is accepted and documented.
+    proof_gap: The render mirror in src/mcp is pinned byte-for-byte against the package render for items without element context; element lines (MCP-022) are rendered only by the server mirror, because the package renders none. Drift in the shared part fails the test; the duplication itself is accepted and documented.
     depends_on: [BRP-001, DSP-004, CMT-012]
 
   - id: NDG-001
@@ -3512,39 +3560,40 @@ requirements:
 
   - id: EDT-001
     kind: behavior
-    behavior: An edit commit publishes a new immutable version that copies the base version's manifest with exactly one text entry replaced by verified uploaded bytes, with an idempotency key, current-version compare-and-swap, and an action record marked as an edit.
+    behavior: An edit commit creates a new immutable version from the artifact's current version by applying ordered replace, write, delete, and rename operations all or nothing; untouched entries keep their stored blobs, and the commit carries an idempotency key, a current-version compare-and-swap, and a publish action record.
     owner: publishing
     source: {file: local-workspace-spec.md, anchor: conformance-requirements-to-add}
     acceptance:
-      behavior: {id: EDT-001-B, description: "Edit one text entry of a multi-file version and receive a new version identical to the base except that entry, with its action record and replayable idempotency result."}
-      failure: {id: EDT-001-F, description: "An edit naming a path absent from the base manifest, a missing upload, or an aborted transaction creates no version, and no stored version's bytes ever change."}
+      behavior: {id: EDT-001-B, description: "Apply replace, write, rename, and delete operations to a multi-file version through MCP and HTTP and receive a new version whose untouched entries keep their digests, a per-file change list, a publish action record, and the original result on an exact retry."}
+      failure: {id: EDT-001-F, description: "An operation naming an absent path, an oldText occurring zero or several times, a rename onto an existing path, an unsafe path, a deleted entry file, a reused idempotency key with different operations, or a failing later operation creates no version, and no stored version's bytes change."}
     deployments: *all
-    status: specified
-    depends_on: [PUB-001, PUB-006, VER-001]
+    status: implementing
+    proof_gap: EDT-001-B and EDT-001-F run against the local SQLite server. The Postgres commit of an already-stored source is covered only by typecheck until the external-storage runtime suite exercises an edit.
+    depends_on: [PUB-005, PUB-006, PUB-008, VER-001]
 
   - id: EDT-002
     kind: behavior
-    behavior: The editor preserves the file's byte order mark and line-ending convention on save and resolves stale saves as explicit conflicts that return the actual current version.
+    behavior: An edit commit preserves the byte order mark and line endings of every byte it does not replace and resolves a stale expected current version as an explicit conflict that returns the actual current version.
     owner: publishing
     source: {file: local-workspace-spec.md, anchor: conformance-requirements-to-add}
     acceptance:
-      behavior: {id: EDT-002-B, description: "Round-trip files with and without a byte order mark and with CRLF and LF endings, changing one line, and verify untouched lines are byte-identical."}
-      failure: {id: EDT-002-F, description: "A save whose expected current version is stale returns the publish conflict shape with the actual current version and writes nothing; it never silently overwrites newer work."}
+      behavior: {id: EDT-002-B, description: "Replace one line in files with and without a byte order mark and with CRLF and LF endings and verify every untouched byte is identical."}
+      failure: {id: EDT-002-F, description: "An edit whose expected current version is stale returns the publish conflict shape naming the actual current version over MCP and HTTP and writes nothing; it never silently overwrites newer work."}
     deployments: *all
-    status: specified
+    status: verified
     depends_on: [EDT-001]
 
   - id: EDT-003
     kind: constraint
-    behavior: Editing is limited to text media types within the documented size bound, is verified like any publish, and has no MCP tool because MCP arguments never carry file contents.
+    behavior: Editing changes only UTF-8 entries with inline text media types, each at most 1 MiB, carries at most 256 KiB of inline text per call through the artifact_edit MCP tool or its HTTP route, and validates paths with the manifest path rules; whole-file and base64 publication stay on the upload plan.
     owner: publishing
     source: {file: local-workspace-spec.md, anchor: conformance-requirements-to-add}
     acceptance:
-      behavior: {id: EDT-003-B, description: "Edit a markdown, plain-text, and JSON entry within the size bound through the staging-upload flow and verify the committed bytes hash-match the upload."}
-      failure: {id: EDT-003-F, description: "An edit of a binary media type or an oversize text entry is rejected, and no MCP tool accepts edited file contents as an argument."}
+      behavior: {id: EDT-003-B, description: "Edit markdown, plain-text, and JSON entries and write a new markdown file through artifact_edit within the bounds and verify each committed entry's digest and inferred media type."}
+      failure: {id: EDT-003-F, description: "A replace on a binary or invalid UTF-8 entry, an edited file over 1 MiB, more than 256 KiB of text in one call, more than 200 operations, more than 100 edits in one replace, an edit that leaves more than 10,000 files, and a write carrying an extra base64 field are rejected without creating a version."}
     deployments: *all
-    status: specified
-    depends_on: [EDT-001, MAN-001]
+    status: verified
+    depends_on: [EDT-001, MAN-002]
 
   - id: OPN-001
     kind: behavior

@@ -1,4 +1,5 @@
 import {
+  buildPersistedHtmlAnchor,
   HtmlViewer,
   type Annotation,
   type ViewerHandle,
@@ -46,6 +47,9 @@ function toAnnotation(review: ReviewAnnotation): Annotation {
   }
   return annotation;
 }
+
+/** The server's 16 KiB anchor cap, less room for the `htmlAnchor: null` a stored anchor carries. */
+const storedAnchorBytes = 16_384 - 32;
 
 function sessionFrom(init: ReviewInit): ReviewSession {
   return {
@@ -175,9 +179,7 @@ export function ReviewFrame(): React.ReactNode {
     );
     send({
       anchor: reviewAnchorFrom(
-        annotation.originalText,
-        annotation.htmlAnchor,
-        annotation.htmlAdditionalTargets,
+        buildPersistedHtmlAnchor(annotation, {maxBytes: storedAnchorBytes}).anchor,
       ),
       body: annotation.text ?? "",
       originalText: annotation.originalText,

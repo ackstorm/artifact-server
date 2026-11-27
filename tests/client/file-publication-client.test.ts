@@ -21,9 +21,9 @@ import {
   type FilePublicationCommand,
   type FilePublicationFailure,
   type FilePublicationResult,
-  mediaTypeForPath,
   publishPath,
 } from "../../src/client/file-publication-client.js";
+import {mediaTypeForPath} from "../../src/manifest/media-types.js";
 import {
   createTestInstallation,
   type RunningTestServer,
@@ -357,6 +357,7 @@ async function startUnsafeUploadPlanServer(): Promise<{
   readonly server: Server;
 }> {
   return startResponseServer(() => JSON.stringify({
+      alreadyStored: [],
       commitUrl: "https://elsewhere.example.test/commit",
       expiresAt: "2099-01-01T00:00:00.000Z",
       files: [{

@@ -7,8 +7,11 @@
  * conformance gate (BRP-001-F) forbids its module graph from reaching out
  * of the published `@plannotator/agent-bridge` package. So the mailbox tier carries this exact
  * mirror, and BRP-002-B pins the two renders byte-for-byte against the
- * same bundle — any drift between the copies fails that test.
+ * same bundle. Items whose anchor carries element context add element lines
+ * the package does not render.
  */
+
+import type {CommentElement} from "./comment-target.js";
 
 /**
  * Bidirectional controls (U+202A–202E, U+2066–2069) and zero-width or
@@ -38,6 +41,8 @@ export const maximumQuotedSelectionCharacters = 300;
 export interface BundleItem {
   readonly artifactName: string;
   readonly body: string;
+  /** The element the thread's anchor names, rendered as indented element lines. */
+  readonly element: CommentElement | null;
   readonly path: string | null;
   readonly quotedSelection: string | null;
   readonly threadId: string;
@@ -68,12 +73,31 @@ const completionInstructions = {
   readonly [string, string]
 >;
 
-function quotedSelectionFragment(selection: string): string {
-  const collapsed = sanitizeBundleText(selection).replace(/\s+/gu, " ").trim();
-  const bounded = collapsed.length <= maximumQuotedSelectionCharacters
+function boundedText(text: string): string {
+  const collapsed = sanitizeBundleText(text).replace(/\s+/gu, " ").trim();
+  return collapsed.length <= maximumQuotedSelectionCharacters
     ? collapsed
     : `${collapsed.slice(0, maximumQuotedSelectionCharacters - 1)}…`;
-  return `"${bounded}"`;
+}
+
+function quotedSelectionFragment(selection: string): string {
+  return `"${boundedText(selection)}"`;
+}
+
+/** Identity and location lines for an element, each sanitized and bounded. */
+function elementLines(element: CommentElement): readonly string[] {
+  const id = element.id === undefined ? "" : `#${element.id}`;
+  const classes = (element.classes ?? []).map((name) => `.${name}`).join("");
+  const name = element.name === undefined ? "" : ` ${quotedSelectionFragment(element.name)}`;
+  const lines = [`Element: ${boundedText(`<${element.tag}${id}${classes}>`)}${name}`];
+  if (element.selector !== undefined) lines.push(`Selector: ${boundedText(element.selector)}`);
+  if (element.path !== undefined) lines.push(`Path: ${boundedText(element.path)}`);
+  const near = [
+    element.landmark,
+    element.heading === undefined ? undefined : `heading ${element.heading}`,
+  ].filter((part) => part !== undefined);
+  if (near.length > 0) lines.push(`Near: ${boundedText(near.join(" · "))}`);
+  return lines;
 }
 
 /**
@@ -107,6 +131,9 @@ export function renderBundleMessage(
       ? ""
       : ` ${quotedSelectionFragment(item.quotedSelection)}`;
     lines.push(`${index + 1}. ${place}${quoted}`);
+    for (const elementLine of item.element === null ? [] : elementLines(item.element)) {
+      lines.push(`   ${elementLine}`);
+    }
     for (const bodyLine of sanitizeBundleText(item.body).split("\n")) {
       lines.push(`   ${bodyLine}`);
     }

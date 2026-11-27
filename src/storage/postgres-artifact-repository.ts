@@ -109,6 +109,7 @@ import type {
   SetProjectArchive,
   StagedUploadGrantRecord,
   StagedUploadRepository,
+  StoredBlob,
   TakeVoiceMessages,
   UpdateCommentReply,
   UpdateCommentThread,
@@ -542,11 +543,13 @@ export class PostgresArtifactRepository implements
         );
         if (replayed !== null) return replayed;
         yield* this.#assertProjectActive(command.projectId);
-        yield* this.#assertStagedUploadReady(
-          command.source,
-          command.manifest.digest,
-          command.createdAt,
-        );
+        if (command.source.kind === "staged_upload") {
+          yield* this.#assertStagedUploadReady(
+            command.source,
+            command.manifest.digest,
+            command.createdAt,
+          );
+        }
         const currentRows = yield* sql.unsafe<{currentVersionId: string}>(
           `SELECT current_version_id AS "currentVersionId"
            FROM artifacts
@@ -608,7 +611,9 @@ export class PostgresArtifactRepository implements
           tagsJson: null,
           versionId: command.versionId,
         });
-        yield* this.#sealStagedUpload(command.source, command.versionId);
+        if (command.source.kind === "staged_upload") {
+          yield* this.#sealStagedUpload(command.source, command.versionId);
+        }
         return yield* this.#readPublishedVersion(
           command.projectId,
           command.versionId,
@@ -2153,6 +2158,28 @@ export class PostgresArtifactRepository implements
           thread.versionId,
         );
       }));
+    }));
+  }
+
+  async listArtifactBlobs(
+    projectId: string,
+    artifactId: string,
+  ): Promise<readonly StoredBlob[]> {
+    const installationId = this.#installationId;
+    return this.#database.run(Effect.gen(function*() {
+      const sql = yield* SqlClient;
+      const rows = yield* sql`SELECT DISTINCT entry.sha256 AS sha256, entry.size AS size
+        FROM manifest_entries entry
+        INNER JOIN versions version
+          ON version.installation_id = entry.installation_id
+          AND version.id = entry.version_id
+        WHERE version.installation_id = ${installationId}
+          AND version.project_id = ${projectId}
+          AND version.artifact_id = ${artifactId}`;
+      return z.array(z.object({
+        sha256: z.string(),
+        size: nonnegativeIntegerSchema,
+      })).parse(rows);
     }));
   }
 

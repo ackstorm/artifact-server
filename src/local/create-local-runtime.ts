@@ -41,7 +41,7 @@ import {
   openVerifiedSource,
   refreshFreshness,
 } from "./linked-source-engine.js";
-import { mediaTypeForPath } from "../client/file-publication-client.js";
+import { mediaTypeForPath } from "../manifest/media-types.js";
 import type {RuntimeLifecycle} from "../lifecycle/runtime-readiness.js";
 import {
   defaultStagingCleanupPolicy,

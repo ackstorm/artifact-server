@@ -44,7 +44,7 @@ The access token is valid for that exact `/mcp` resource. A token for another in
 
 ## Publish from an agent
 
-MCP sends metadata and small results. Artifact files use the staged upload API.
+MCP sends metadata, small results, and bounded text edits. Artifact files use the staged upload API.
 
 An agent uses this sequence:
 
@@ -54,6 +54,8 @@ An agent uses this sequence:
 4. Call `artifact_commit_upload` with the publication target and idempotency key.
 
 When the agent publishes a new version, it first reads the current version ID. It sends that ID as `expectedCurrentVersionId`.
+
+Pass `baseArtifactId` to `artifact_create_upload` when publishing a new version. Declared files whose SHA-256 and size match a file in any version of that artifact come back in `alreadyStored` and need no upload; `files` lists only the uploads still needed. The caller must be allowed to publish to the base artifact.
 
 Review opens every artifact in View mode, the page exactly as published. To send a reviewer straight to Comment mode, add `&mode=comment` to `links.review`. See [Review mode](./review-mode.md).
 
@@ -84,6 +86,25 @@ version. `artifact_open.reviewUrl`
 opens the selected exact version in Review, while `artifact_open.browserUrl`
 opens its raw immutable content. Agents should hand people the Review URL.
 
+## Publication warnings
+
+Upload commits and edits return `warnings`, which never fail a publication. `missing_reference` names a relative link or image in an HTML or Markdown file that matches no file in the version. `blocked_host` names a script or stylesheet URL whose host the Review frame does not allow. At most 50 warnings are returned, from at most 4 MiB of HTML and Markdown.
+
+## Edit text files of an artifact
+
+`artifact_edit` creates a new version from the artifact's current version without uploading anything. It applies operations in order, all or nothing:
+
+| Operation | Effect |
+| --- | --- |
+| `replace` `{path, edits: [{oldText, newText}]}` | Each `oldText` must occur exactly once in the file at that point. |
+| `write` `{path, text, mediaType?}` | Creates or overwrites a text file. The media type defaults from the extension. |
+| `delete` `{path}` | Removes a file. |
+| `rename` `{from, to}` | Moves a file and keeps its bytes and media type. |
+
+Only UTF-8 files with text media types are edited, each at most 1 MiB, with at most 256 KiB of text in one call. Untouched files keep their stored bytes, including byte order marks and line endings. Pass the current version ID as `expectedCurrentVersionId`; a stale ID fails with `PUBLISH_CONFLICT` naming the current version. The result carries the new version, its links, and `changes` (`path`, `change`, `size`).
+
+HTTP clients call `POST /api/v1/artifacts/:artifactId/edits?projectId=…` with an `Idempotency-Key` header and `{expectedCurrentVersionId, operations}`.
+
 ## Tool groups
 
 | Group | Tools |
@@ -91,7 +112,7 @@ opens its raw immutable content. Agents should hand people the Review URL.
 | Discovery | `artifact_capabilities` |
 | Projects | `project_list`, `project_create`, `project_rename`, `project_archive`, `project_unarchive` |
 | Artifacts | `artifact_list`, `artifact_get`, `artifact_open`, `artifact_read_file`, `artifact_version_list`, `artifact_diff` |
-| Publication | `artifact_create_upload`, `artifact_commit_upload` |
+| Publication | `artifact_create_upload`, `artifact_commit_upload`, `artifact_edit` |
 | Management | `artifact_set_visibility`, `artifact_set_tags`, `artifact_restore_version`, `artifact_delete` |
 | Comments | `comment_list`, `comment_get`, `comment_create`, `comment_reply`, `comment_update`, `comment_resolve`, `comment_delete` |
 | Voice | `voice_say` |
@@ -101,6 +122,8 @@ A client connected through OAuth by a plain member can list projects but not cre
 `artifact_set_visibility` sets an artifact's sharing level to `private`, `account_required` (Members) or `public_link`. New artifacts are `private`, and `artifact_capabilities` reports `sharing.default: "private"`. Only the owner raises the level; an administrator can lower it. A caller that cannot read an artifact receives `ARTIFACT_NOT_FOUND`, and `artifact_list` returns only the caller's own artifacts. While public links are off (set by an administrator or by `ARTIFACT_SERVER_PUBLIC_LINKS_ENABLED=false`), raising to `public_link` or publishing at `public_link` fails with `PUBLIC_LINKS_DISABLED`, and `artifact_capabilities` omits `public_link` from `sharing.modes`.
 
 `voice_say` speaks one sentence of 1 to 500 characters to the caller's own user through a connected habla listener (see [Voice listener](./agent-bridge-protocol.md#voice-listener)). Its description asks the agent to write for the ear: plain words, no identifiers, versions, paths or code names. It answers `queued: false` and stores nothing when no listener of the caller is connected. The listener's API key must be issued for the member, bound to their member id: a service key registers a `svc_…` principal, which that member's `voice_say` never matches.
+
+Each `comment_list` and `comment_get` thread carries `target`: `quote`, the text the reviewer selected, and `element`, the page element a pinpoint comment names (tag, id, classes, selector, path, and nearby landmark and heading), when the anchor has them. `dispatch_inbox` prints the same element lines in each bundle item.
 
 Linked-artifact tools appear only when the deployment enables linked artifacts.
 

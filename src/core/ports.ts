@@ -101,7 +101,7 @@ export interface StagedUploadSource {
   readonly uploadId: string;
 }
 
-/** A version 1 whose manifest comes from an existing saved version; its blobs are already stored. */
+/** A publication whose every blob is already stored: a duplicated version or an edit commit. */
 export interface SavedVersionSource {
   readonly kind: "saved_version";
 }
@@ -137,7 +137,7 @@ export interface CommitArtifactVersion {
   readonly principalId: string;
   readonly projectId: string;
   readonly authorizedByPrincipalId: string | null;
-  readonly source: StagedUploadSource;
+  readonly source: PublicationSource;
   readonly versionId: string;
 }
 
@@ -801,6 +801,11 @@ export interface StagedUploadRepository {
     storageToken: string,
     uploadedAt: string,
   ): Promise<StagedUpload>;
+  /** Every distinct stored blob any version of one artifact references. */
+  listArtifactBlobs(
+    projectId: string,
+    artifactId: string,
+  ): Promise<readonly StoredBlob[]>;
   listExpiredStagedUploads(
     expiredBefore: string,
     limit: number,

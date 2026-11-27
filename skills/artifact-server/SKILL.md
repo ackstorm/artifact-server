@@ -32,6 +32,8 @@ steps separate and state which installation is affected before changing it.
   the connected Artifact Server MCP for work that needs only server data.
 - Never replace a real file with inline HTML, base64, invented bytes, or a local
   path sent to a remote MCP server.
+- Use `artifact_edit` only for text changes to an artifact already on the server;
+  files on the user's machine are published with the CLI.
 - Never read, print, request in chat, or write bearer tokens, API keys, cookies,
   or refresh tokens. The one exception is the `as_upg_` upload grant that
   `artifact_create_upload` returns: use it only in the `Authorization` header of

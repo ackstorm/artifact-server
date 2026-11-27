@@ -1,6 +1,6 @@
 # Local workspace features
 
-**Status:** Accepted; implementation underway — `LNK-001` through `LNK-008` are implemented across the local application, SQLite/Postgres storage, HTTP, MCP, CLI, and web surfaces and have normal and hostile acceptance-ID tests, but remain `implementing` for the explicit proof gaps recorded in the ledger. `PRV-001` through `PRV-005` are implemented with local HTTP and browser proof. `KAN-001` through `KAN-007`, `EDT-001` through `EDT-003`, and `OPN-001`/`OPN-002` remain specified and unimplemented (August 23, 2026)
+**Status:** Accepted; implementation underway — `LNK-001` through `LNK-008` are implemented across the local application, SQLite/Postgres storage, HTTP, MCP, CLI, and web surfaces and have normal and hostile acceptance-ID tests, but remain `implementing` for the explicit proof gaps recorded in the ledger. `PRV-001` through `PRV-005` are implemented with local HTTP and browser proof. `EDT-001` through `EDT-003` are implemented over MCP and HTTP. `KAN-001` through `KAN-007` and `OPN-001`/`OPN-002` remain specified and unimplemented (August 23, 2026)
 **Date:** August 19, 2026
 **Owner:** Artifact Server product engineering
 **Companion documents:** [Product specification](./artifact-server-product-spec.html), [Artifact comments](./artifact-comments-spec.md) (the storage and parity precedent this spec follows), [Image and video previews](./media-preview-spec.md), [Conformance ledger](./conformance.yml), [ADR 0023](./decisions/0023-linked-artifacts-are-captured-snapshots.md), [ADR 0024](./decisions/0024-kanban-is-first-class-records.md)
@@ -35,7 +35,7 @@ Two of the five require real architectural decisions, recorded as ADRs:
 | Link root | An administrator-configured directory subtree inside which source paths must resolve. |
 | Board | One Kanban board per project: four fixed columns and its cards. |
 | Card | One work item: title, description, column, position, labels, assignee, paused flag, artifact attachments, revision. |
-| Edit commit | A publish that creates a new version by copying the base version's manifest with exactly one text entry replaced by newly uploaded bytes. |
+| Edit commit | A publish that creates a new version from the artifact's current version by applying ordered text operations (replace, write, delete, rename) to its manifest. |
 
 ## 3. Deployment gating
 
@@ -171,13 +171,15 @@ Deployments: all six. The board is ordinary database state and works identically
 
 ## 6. In-place text editing
 
-An edit **is** a publish. There is no mutable write path; the editor produces a new immutable version.
+An edit **is** a publish. There is no mutable write path; an edit commit produces a new immutable version from the artifact's current version.
 
-- **Scope:** manifest entries whose media type is `text/*` or `application/json`, at most 2 MiB. Everything else is not editable in v1.
-- **Flow:** the web application uploads the edited bytes through the existing staging-upload mechanism, then calls the edit commit: `POST /api/v1/projects/:projectId/artifacts/:artifactId/edits` with `{ baseVersionId, path, uploadId, idempotencyKey, expectedCurrentVersionId }`. The server copies the base version's canonical manifest, replaces exactly the named entry with the verified uploaded bytes, and commits a new version through the normal one-transaction publish path with a publish action record marked as an edit.
-- **Conflict:** if the current version moved after the editor loaded, the commit conflicts and returns the actual current version; the editor offers reload-and-reapply or copy-my-changes. It never silently overwrites.
-- **Byte fidelity:** the editor preserves the file's UTF-8 BOM and its CRLF/LF line-ending convention on save (v0's `decodeTextDocument`/`encodeEditedMarkdown` behavior is the reference); a file with mixed or CR-only endings prompts before normalizing. Untouched lines round-trip byte-identically.
-- **MCP:** none in v1. MCP arguments never carry file contents (product rule); agents edit by publishing through the CLI.
+- **Operations:** `replace` `{path, edits: [{oldText, newText}]}` (each `oldText` must occur exactly once in the file at that point; zero or several occurrences are refused with the count), `write` `{path, text, mediaType?}` (create or overwrite a text file; the media type defaults from the extension), `delete` `{path}`, and `rename` `{from, to}` (bytes and media type kept; the entry file follows a rename). They apply in order, all or nothing.
+- **Scope and bounds:** only UTF-8 entries with inline text media types (the `artifact_read_file` rule) are replaced or written; an edited file holds at most 1 MiB; one call carries at most 256 KiB of text. Paths follow the manifest path rules.
+- **Surfaces:** the MCP tool `artifact_edit`, and `POST /api/v1/artifacts/:artifactId/edits?projectId=…` with an `Idempotency-Key` header and `{expectedCurrentVersionId, operations}`. Bounded edit text is the one inline content MCP and HTTP accept; whole files and base64 stay on the upload plan.
+- **Commit:** untouched entries keep their stored blobs; new bytes are stored as content-addressed blobs; the version, manifest, idempotency result, `publish` action record, and conditional current-version update commit in one transaction. An exact retry replays; the same key with different operations conflicts.
+- **Conflict:** if the current version moved, the commit conflicts and returns the actual current version. It never silently overwrites.
+- **Byte fidelity:** every byte outside the replaced text, including a UTF-8 byte order mark and CRLF or LF line endings, is preserved.
+- **Result:** the new version, its review links, and the changed files (path, change, size).
 
 Deployments: all six.
 
@@ -242,7 +244,7 @@ CREATE TABLE kanban_cards (
 ) STRICT;
 ```
 
-Edits reuse existing tables entirely (staging uploads, versions, manifest entries, actions); open-in and previews add no storage.
+Edits reuse existing tables entirely (versions, manifest entries, blobs, actions) and stage no uploads; open-in and previews add no storage.
 
 ## 11. Non-goals
 
@@ -250,9 +252,8 @@ Edits reuse existing tables entirely (staging uploads, versions, manifest entrie
 - **Linking directories.** v1 links single regular files only.
 - **Linked artifacts anywhere but the local deployment** — including bind-mounted directories under compact Compose. If demand appears, that is a separate gate with its own container-boundary analysis.
 - **Column management, swimlanes, board-level webhooks, or cross-project boards.** Four fixed columns.
-- **A WYSIWYG or multi-file editor.** One text entry per edit commit.
+- **A WYSIWYG editor.**
 - **Custom media viewers, transcoding, thumbnails, or annotations positioned inside video/PDF content.** Browser-native rendering only; comments on non-HTML media anchor to the file.
-- **An MCP editing tool** (MCP arguments never carry file contents).
 
 ## 12. Conformance requirements to add
 
@@ -275,9 +276,9 @@ New ledger modules `local-workspace` (LNK, OPN) and `kanban` (KAN); EDT belongs 
 | `KAN-005` | Attachments reference same-project artifacts by ID and survive artifact deletion as explicit missing attachments. |
 | `KAN-006` | Board reads require artifact-read authority; mutations require a human member or board-write capability; everything is project-scoped and action-recorded. |
 | `KAN-007` | HTTP, MCP, and the web application expose the same board operations with idempotent creates and since-polling. |
-| `EDT-001` | An edit commit publishes a new immutable version replacing exactly one text entry, with idempotency, current-version compare-and-swap, and an action record. |
-| `EDT-002` | The editor preserves BOM and line endings and resolves stale saves as explicit conflicts, never silent overwrites. |
-| `EDT-003` | Editing is bounded to text media types and sizes, verified like any publish, and absent from MCP. |
+| `EDT-001` | An edit commit applies ordered text operations to the current version as a new immutable version, with idempotency, compare-and-swap, and a publish action record. |
+| `EDT-002` | Untouched bytes, byte order marks, and line endings are preserved; stale edits conflict with the actual current version. |
+| `EDT-003` | Editing is bounded to text media types, 1 MiB per file and 256 KiB of text per call, through artifact_edit and its HTTP route. |
 | `OPN-001` | Open-in launches only catalog applications on verified linked sources, argv-only, on the local deployment over loopback. |
 | `OPN-002` | Client-supplied paths, non-linked artifacts, unavailable sources, non-local deployments, and non-loopback origins are all refused. |
 | `PRV-001` | The review interface presents an exact-version image with browser-native decoding, contained layout, focus viewing, and no DOM insertion for SVG. |
@@ -291,7 +292,7 @@ New ledger modules `local-workspace` (LNK, OPN) and `kanban` (KAN); EDT belongs 
 Recommended build order, matching dependency direction:
 
 1. **Previews** (`PRV`) — days; web-only over existing routes.
-2. **Editing** (`EDT`) — under a week; reuses staging uploads and the publish transaction.
+2. **Editing** (`EDT`): under a week; reuses the publish transaction and content-addressed blobs.
 3. **Kanban** (`KAN`) — one to two weeks; the pattern is a copy of comments (port, three backends, HTTP+MCP, action records) plus the board UI, for which the v0 interaction design is the reference.
 4. **Linked artifacts** (`LNK`) — one and a half to two and a half weeks; the deepest slice: binding storage, capture path, drift refresh, CLI/MCP/HTTP surfaces, and the section 4.3 security ladder with hostile tests.
 5. **Open-in** (`OPN`) — days, strictly after `LNK`.

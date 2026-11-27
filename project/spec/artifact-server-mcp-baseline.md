@@ -297,6 +297,7 @@ Start with a small, explicit tool surface:
 | `artifact_open` | Return the exact full-screen Review link and raw content link for the selected artifact and exact version when requested. The client opens them on the user's computer and prefers Review for human handoff. |
 | `artifact_create_upload` | Create an expiring upload handle, a direct-upload plan, and an upload grant for its file uploads. |
 | `artifact_commit_upload` | Verify the manifest and publish an immutable version. Return the exact-version review URL as the primary human handoff, plus stable and raw links. |
+| `artifact_edit` | Create a new immutable version from the current version by applying ordered replace, write, delete, and rename operations to text files, bounded to 256 KiB of text per call and 1 MiB per file. Return the exact-version review URL and the changed files. |
 | `artifact_set_visibility` | Change between account-required and public-link access when permitted. A public link opens only the current version. Warn that public copies cannot be recalled and perform the configured CDN purge when returning to account-required. |
 | `artifact_set_tags` | Replace the artifact's normalized tag set without changing its saved files. |
 | `artifact_read_file` | Return one file of the current or an exact version: UTF-8 text up to 1 MiB inline after a digest check, anything else as a 15-minute preview-lease URL that fetches the raw bytes with no credential. Same read check as `artifact_get`. |
@@ -304,7 +305,7 @@ Start with a small, explicit tool surface:
 | `artifact_diff` | Return a bounded comparison summary and a link to the full comparison. |
 | `artifact_restore_version` | Make an existing immutable version current again. |
 | `artifact_delete` | Delete one artifact after an optimistic current-version check. |
-| `comment_list` | List one artifact's comment threads, filtered by exact version or state and polled with `since` on last activity. A `dispatched` filter (`exclude`, `include`, or `only`; default `exclude`) matches the HTTP `GET …/comments` parameter exactly, so a thread an agent dispatch currently holds stays out of ordinary listings until it is addressed, fails, or is canceled, and is findable on demand with `dispatched: "only"`. |
+| `comment_list` | List one artifact's comment threads, filtered by exact version or state and polled with `since` on last activity. A `dispatched` filter (`exclude`, `include`, or `only`; default `exclude`) matches the HTTP `GET …/comments` parameter exactly, so a thread an agent dispatch currently holds stays out of ordinary listings until it is addressed, fails, or is canceled, and is findable on demand with `dispatched: "only"`. Each listed thread carries `target` (`quote` and `element`) derived from its anchor when recognizable. |
 | `comment_get` | Read one comment thread with every reply it carries. |
 | `comment_create` | Open one comment thread on one exact saved version, optionally on one manifest path with a client-owned anchor. |
 | `comment_reply` | Add one reply to an open comment thread. A resolved thread rejects replies until it is reopened. |
@@ -341,7 +342,8 @@ upload plan, then calls the corresponding commit operation. An MCP client whose
 own runtime already has the bytes may use `artifact_create_upload` and
 `artifact_commit_upload` directly. These transport steps remain one "publish
 this file or directory" operation to the user. No MCP tool accepts a client
-filesystem path.
+filesystem path. The one inline content MCP accepts is an `artifact_edit` call's
+bounded text, which changes text files of a version already on the server.
 
 MCP and the CLI intentionally overlap for server-only artifact operations.
 Both adapt the same application services and authorization rules. The
@@ -353,7 +355,7 @@ Do not add prompts in the first release. Do not build new dependencies on deprec
 
 ## Direct upload flow
 
-1. `artifact_create_upload`, or the corresponding CLI and HTTP operation, creates a principal- and installation-bound staging record and returns an `uploadId`, expiry, request limits, and upload instructions for each declared file.
+1. `artifact_create_upload`, or the corresponding CLI and HTTP operation, creates a principal- and installation-bound staging record and returns an `uploadId`, expiry, request limits, and upload instructions for each declared file. With `baseArtifactId`, declared files whose SHA-256 and size match an entry in any version of that artifact are copied from its stored blobs and reported in `alreadyStored`; the caller must be allowed to publish to that artifact, and no other artifact's files are matched. The CLI sets `baseArtifactId` when it publishes a new version and uploads only the files in `files`.
 2. The authenticated CLI sends each file according to those instructions. It uses its own server profile; it never copies an MCP credential. A temporary upload address, when returned, is bound to one principal, project, upload, storage token, declared size, fingerprint, and expiry and is limited to that upload slot. An exact retry after a lost response returns success; different bytes fail. Artifact Server writes those bytes through the deployment's local-disk, S3, R2, or compatible storage adapter. The first release does not promise multipart or storage-provider URLs.
 3. The client submits a manifest containing normalized portable relative paths, media type, byte length, SHA-256 fingerprint, entry file, and routing mode. The server rejects traversal, absolute paths, `.git` components, encoded separators, symlinks, special files, and case or Unicode collisions.
 4. `artifact_commit_upload` verifies every size and fingerprint, writes missing final blobs without overwriting an existing object, computes the canonical manifest digest, and seals the upload.
@@ -364,6 +366,10 @@ The user and agent see one CLI action even when the upload plan uses several
 HTTP requests. Upload identifiers, temporary addresses, bearer credentials,
 fingerprints, and retry state stay inside the client and never enter model
 context or project configuration.
+
+### Publication warnings
+
+`artifact_commit_upload`, `artifact_edit`, and their HTTP routes return `warnings` computed over the resulting version, never failures. `missing_reference` names a relative `src` or `href` (script, link, img, source, video, audio, iframe, a) in an HTML file, or a Markdown link or image, that resolves to no manifest path; fragments, queries, absolute URLs, `data:`, and `mailto:` are ignored. `blocked_host` names an absolute script or stylesheet URL whose host the Review frame CSP does not allow; fonts load from any host. At most 50 warnings are returned and at most 4 MiB of HTML and Markdown is read.
 
 Every durable mutation requires an application idempotency key. A mutation of
 an existing artifact also requires the current version the caller started

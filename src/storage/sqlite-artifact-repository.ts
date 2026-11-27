@@ -123,6 +123,7 @@ import type {
   SourceBindingWrite,
   StagedUploadGrantRecord,
   StagedUploadRepository,
+  StoredBlob,
   TakeVoiceMessages,
   VoiceMessageRecord,
 } from "../core/ports.js";
@@ -646,11 +647,13 @@ export class SqliteArtifactRepository implements
     );
     if (replayed !== null) return replayed;
     this.#assertProjectActive(command.projectId);
-    this.#assertStagedUploadReady(
-      command.source,
-      command.manifest.digest,
-      command.createdAt,
-    );
+    if (command.source.kind === "staged_upload") {
+      this.#assertStagedUploadReady(
+        command.source,
+        command.manifest.digest,
+        command.createdAt,
+      );
+    }
 
     const currentRow = this.#database
       .prepare(
@@ -738,7 +741,9 @@ export class SqliteArtifactRepository implements
       command.versionId,
       command.createdAt,
     );
-    this.#sealStagedUpload(command.source, command.versionId);
+    if (command.source.kind === "staged_upload") {
+      this.#sealStagedUpload(command.source, command.versionId);
+    }
 
     return this.#readPublishedVersion(command.projectId, command.versionId, false);
   }
@@ -3011,6 +3016,27 @@ export class SqliteArtifactRepository implements
           commentAction.actionId,
         );
       }),
+    );
+  }
+
+  listArtifactBlobs(
+    projectId: string,
+    artifactId: string,
+  ): Promise<readonly StoredBlob[]> {
+    return Promise.resolve().then(() =>
+      z.array(z.object({
+        sha256: z.string(),
+        size: z.number().int().nonnegative(),
+      })).parse(
+        this.#database
+          .prepare(
+            `SELECT DISTINCT entry.sha256 AS sha256, entry.size AS size
+             FROM manifest_entries entry
+             INNER JOIN versions version ON version.id = entry.version_id
+             WHERE version.project_id = ? AND version.artifact_id = ?`,
+          )
+          .all(projectId, artifactId),
+      )
     );
   }
 

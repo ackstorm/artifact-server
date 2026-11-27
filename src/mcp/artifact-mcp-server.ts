@@ -35,6 +35,7 @@ import {
 } from "../application/linked-artifacts.js";
 import {ProjectManagementService} from "../application/project-management.js";
 import {PublicLinkPolicyService} from "../application/public-link-policy.js";
+import {PublishArtifactService} from "../application/publish-artifact.js";
 import {StagedUploadService} from "../application/staged-upload.js";
 import {
   accessSettings,
@@ -63,6 +64,8 @@ import {
   maximumDispatchBundleSize,
   maximumDispatchFailureReasonCharacters,
   maximumDispatchNoteCharacters,
+  maximumEditTextBytes,
+  maximumInlineTextFileBytes,
   maximumUploadPlanRequestBytes,
 } from "../core/publishing-limits.js";
 import {
@@ -83,7 +86,10 @@ import {
   versionBrowserUrl,
   versionFileBrowserUrl,
 } from "../http/artifact-http-links.js";
+import {editOperationsSchema} from "../http/artifact-edit-request.js";
 import {artifactServerFailureResponse} from "../http/artifact-http-failure.js";
+import {isInlineTextMediaType} from "../manifest/media-types.js";
+import {commentTarget, commentTargetSchema} from "./comment-target.js";
 import {
   renderBundleMessage,
   type BundleItem,
@@ -99,10 +105,6 @@ import {
 const serverVersion = "0.5.10";
 const maximumListedArtifacts = 100;
 const maximumTextDiffBytes = 256 * 1_024;
-const maximumInlineFileBytes = 1_024 * 1_024;
-/** Media types whose UTF-8 bytes artifact_read_file may return inline. */
-const inlineTextMediaType =
-  /^(text\/|application\/(json|xml|javascript|ecmascript)$|image\/svg\+xml$)|\+(json|xml)$/u;
 /** Every level an artifact can hold. */
 const artifactAccessLevelSchema = z.enum([
   accessSettings.private,
@@ -170,8 +172,20 @@ const artifactStateSchema = z.object({
   replayed: z.boolean(),
   version: versionRecordSchema,
 }).strict();
+const publicationWarningSchema = z.object({
+  code: z.enum(["blocked_host", "missing_reference"]),
+  path: z.string(),
+  reference: z.string(),
+}).strict();
+
 const publishedVersionSchema = artifactStateSchema.extend({
   links: z.object({artifact: z.url(), review: z.url(), version: z.url()}).strict(),
+}).strict();
+const editedFileChangeSchema = z.object({
+  change: z.enum(["added", "modified", "removed", "renamed"]),
+  from: z.string().nullable(),
+  path: z.string(),
+  size: z.number().int().nonnegative(),
 }).strict();
 const linkPathSchema = z.string().min(1).max(4_096);
 const sha256Schema = z.string().regex(/^[a-f0-9]{64}$/u);
@@ -267,7 +281,6 @@ async function collectCursorPages<T>(
 }
 const mailboxAgentNameSchema = z.string().trim().min(1).max(120);
 const mailboxDispatchIdSchema = z.string().min(1).max(200);
-const mailboxAnchorSchema = z.object({originalText: z.string()}).loose();
 const mailboxAgentSchema = z.object({
   capabilities: z.object({
     beacon: z.boolean(),
@@ -561,6 +574,7 @@ export function createArtifactMcpServer(
           maximumBodyCharacters: z.number(),
         }),
         comparison: z.object({maximumTextFileBytes: z.number()}),
+        edit: z.object({maximumFileBytes: z.number(), maximumTextBytes: z.number()}),
         deployment: z.object({mode: z.enum(["local", "remote"])}),
         publishing: z.object({
           acceptsInlineContent: z.literal(false),
@@ -590,7 +604,7 @@ export function createArtifactMcpServer(
           PublicLinkPolicyService.use((policy) => policy.enabled),
         ),
       ),
-      () => "Artifact Server publishes actual files through an upload plan. It does not accept inline HTML, CSS, JavaScript, or base64 content."),
+      () => "Artifact Server publishes actual files through an upload plan and edits existing text files with bounded text. It does not accept whole files or base64 content inline."),
   );
 
   registerNudgedTool(
@@ -1129,14 +1143,16 @@ export function createArtifactMcpServer(
     {
       title: "Begin a file upload",
       description:
-        "Begin publishing actual files. Supply relative paths, byte sizes, SHA-256 fingerprints, media types, and the entry file. PUT each file's exact bytes to its returned uploadUrl with the header Authorization: Bearer <uploadGrant.token>, then call artifact_commit_upload. The upload grant works only for this upload's files and expires with it; never print it or repeat it in chat. Do not send file bytes through MCP.",
+        "Begin publishing actual files. Supply relative paths, byte sizes, SHA-256 fingerprints, media types, and the entry file. PUT each file's exact bytes to its returned uploadUrl with the header Authorization: Bearer <uploadGrant.token>, then call artifact_commit_upload. The upload grant works only for this upload's files and expires with it; never print it or repeat it in chat. Do not send file bytes through MCP. When publishing a new version of an artifact you may publish to, pass it as baseArtifactId: declared files whose SHA-256 and size match a file in any of its versions come back in alreadyStored and need no PUT.",
       inputSchema: z.object({
+        baseArtifactId: artifactIdSchema.nullable().default(null),
         entryPath: z.string().min(1).max(1_024),
         files: z.array(declaredFileSchema).min(1).max(maximumDeclaredFiles),
         projectId: optionalProjectIdSchema,
         routingMode: z.enum(["static", "spa"]).default("static"),
       }).strict(),
       outputSchema: z.object({
+        alreadyStored: z.array(z.object({path: z.string(), size: z.number().int().nonnegative()}).strict()),
         commit: z.object({
           mcpTool: z.literal("artifact_commit_upload"),
           uploadId: z.string(),
@@ -1163,11 +1179,12 @@ export function createArtifactMcpServer(
       }).strict(),
       annotations: additiveWriteAnnotations,
     },
-    async ({entryPath, files, projectId, routingMode}) => toolResult(async () => {
+    async ({baseArtifactId, entryPath, files, projectId, routingMode}) => toolResult(async () => {
       const created = await runMcpApplicationEffect(
         dependencies,
         StagedUploadService.use((uploads) =>
           uploads.createUploadWithGrant({
+            baseArtifactId,
             entryPath,
             files,
             principal: identity.principal,
@@ -1206,7 +1223,9 @@ export function createArtifactMcpServer(
         ]),
         uploadId: z.string().min(1).max(200),
       }).strict(),
-      outputSchema: publishedVersionSchema,
+      outputSchema: publishedVersionSchema.extend({
+        warnings: z.array(publicationWarningSchema),
+      }).strict(),
       annotations: idempotentWriteAnnotations,
     },
     async ({idempotencyKey, projectId, target, uploadId}) => toolResult(async () => {
@@ -1222,12 +1241,61 @@ export function createArtifactMcpServer(
           })
         ),
       );
-      return publishedVersionProjection(
-        applicationUrl,
-        dependencies.contentDomain,
-        published,
-      );
-    }, publicationSummary),
+      return {
+        ...publishedVersionProjection(
+          applicationUrl,
+          dependencies.contentDomain,
+          published,
+        ),
+        warnings: published.warnings,
+      };
+    }, (published) => publicationSummary(published) + warningSummary(published.warnings)),
+  );
+
+  registerNudgedTool(
+    "artifact_edit",
+    {
+      title: "Edit artifact text files",
+      description:
+        "Create a new immutable version from the artifact's current version by applying operations in order, all or nothing: replace (each oldText must occur exactly once in the file at that point), write (create or overwrite a text file; mediaType defaults from the extension), delete, and rename. Only UTF-8 files with text media types are edited, each at most 1 MiB, with at most 256 KiB of text per call; untouched files keep their stored bytes. Read files first with artifact_read_file and pass artifact_get's current version ID as expectedCurrentVersionId; a stale ID fails with PUBLISH_CONFLICT naming the current version. Publish new sites and binary files through artifact_create_upload. Returns links.review for the new version; give that URL to the user first.",
+      inputSchema: z.object({
+        artifactId: artifactIdSchema,
+        expectedCurrentVersionId: expectedVersionSchema,
+        idempotencyKey: idempotencyKeySchema,
+        operations: editOperationsSchema,
+        projectId: optionalProjectIdSchema,
+      }).strict(),
+      outputSchema: publishedVersionSchema.extend({
+        changes: z.array(editedFileChangeSchema),
+        warnings: z.array(publicationWarningSchema),
+      }).strict(),
+      annotations: idempotentWriteAnnotations,
+    },
+    async ({artifactId, expectedCurrentVersionId, idempotencyKey, operations, projectId}) =>
+      toolResult(async () => {
+        const edit = await runMcpApplicationEffect(
+          dependencies,
+          PublishArtifactService.use((publication) =>
+            publication.editArtifact({
+              artifactId,
+              expectedCurrentVersionId,
+              idempotencyKey,
+              operations,
+              principal: identity.principal,
+              projectId,
+            })
+          ),
+        );
+        return {
+          ...publishedVersionProjection(
+            applicationUrl,
+            dependencies.contentDomain,
+            edit.published,
+          ),
+          changes: edit.changes,
+          warnings: edit.warnings,
+        };
+      }, (edit) => editSummary(edit) + warningSummary(edit.warnings)),
   );
 
   registerNudgedTool(
@@ -1497,7 +1565,7 @@ export function createArtifactMcpServer(
     {
       title: "List comment threads",
       description:
-        "List one artifact's comment threads across its saved versions, newest activity first. Filter by exact version or state, pass since to poll for new, edited, and resolved threads, continue a large result set with nextCursor, and pass dispatched to include or show only threads an agent dispatch currently holds (default excludes them, since a sent bundle disappears from ordinary listings until it is addressed, fails, or is canceled).",
+        "List one artifact's comment threads across its saved versions, newest activity first. Filter by exact version or state, pass since to poll for new, edited, and resolved threads, continue a large result set with nextCursor, and pass dispatched to include or show only threads an agent dispatch currently holds (default excludes them, since a sent bundle disappears from ordinary listings until it is addressed, fails, or is canceled). Each thread carries target: the quoted text and, for a comment on a page element, that element's tag, id, classes, selector, and path, when its anchor has them.",
       inputSchema: z.object({
         artifactId: artifactIdSchema,
         cursor: z.string().max(1_024).nullable().default(null),
@@ -1509,7 +1577,7 @@ export function createArtifactMcpServer(
         versionId: versionIdSchema.nullable().default(null),
       }).strict(),
       outputSchema: z.object({
-        items: z.array(commentThreadSchema),
+        items: z.array(commentThreadSchema.extend({target: commentTargetSchema}).strict()),
         nextCursor: z.string().nullable(),
       }).strict(),
       annotations: readOnlyAnnotations,
@@ -1535,7 +1603,7 @@ export function createArtifactMcpServer(
           ),
         );
         return {
-          items: page.items.map(commentThreadProjection),
+          items: page.items.map((thread) => ({...commentThreadProjection(thread), target: commentTarget(thread)})),
           nextCursor: encodePageCursor(page.nextCursor),
         };
       }),
@@ -1554,7 +1622,7 @@ export function createArtifactMcpServer(
       }).strict(),
       outputSchema: z.object({
         replies: z.array(commentReplySchema),
-        thread: commentThreadSchema,
+        thread: commentThreadSchema.extend({target: commentTargetSchema}).strict(),
       }).strict(),
       annotations: readOnlyAnnotations,
     },
@@ -1572,7 +1640,7 @@ export function createArtifactMcpServer(
       );
       return {
         replies: [...details.replies],
-        thread: commentThreadProjection(details.thread),
+        thread: {...commentThreadProjection(details.thread), target: commentTarget(details.thread)},
       };
     }),
   );
@@ -1979,12 +2047,13 @@ export function createArtifactMcpServer(
     ));
     const items: BundleItem[] = readable.map((thread) => {
       const view = artifactViews.get(thread.artifactId);
-      const anchor = mailboxAnchorSchema.safeParse(thread.anchor);
+      const target = commentTarget(thread);
       return {
         artifactName: view?.name ?? thread.artifactId,
         body: thread.body,
+        element: target.element,
         path: thread.path,
-        quotedSelection: anchor.success ? anchor.data.originalText : null,
+        quotedSelection: target.quote,
         threadId: thread.id,
         versionNumber: view?.versionNumbers.get(thread.versionId) ?? 0,
       };
@@ -2266,15 +2335,18 @@ const destructiveWriteAnnotations = {
 
 function agentInstructions(mode: "local" | "remote"): string {
   return [
-    "Artifact Server stores actual files as immutable versions. It does not accept inline HTML, CSS, JavaScript, base64, or invented file contents through MCP.",
+    "Artifact Server stores actual files as immutable versions. MCP never carries whole files or base64; artifact_edit changes text files of a version already on the server with bounded text edits.",
     "Start with artifact_capabilities when you do not know this installation's limits.",
     "Artifacts belong to projects. Omit projectId only when the installation has one active project; otherwise call project_list and choose explicitly.",
-    "For publishing, inspect the selected file or finished directory on the client, compute each relative path, byte length, media type, and SHA-256 fingerprint, call artifact_create_upload, PUT the exact bytes to every returned uploadUrl with Authorization: Bearer <uploadGrant.token>, then call artifact_commit_upload. The upload grant works only for that upload; never print it or repeat it in chat.",
+    "For publishing, inspect the selected file or finished directory on the client, compute each relative path, byte length, media type, and SHA-256 fingerprint, call artifact_create_upload, PUT the exact bytes to every returned uploadUrl with Authorization: Bearer <uploadGrant.token>, then call artifact_commit_upload. The upload grant works only for that upload; never print it or repeat it in chat. When publishing a new version, pass baseArtifactId so files the artifact already stores need no upload.",
+    "To change text files of an artifact already on the server, read them with artifact_read_file, then call artifact_edit with artifact_get's current version ID: replace needs each oldText to occur exactly once; write, delete, and rename cover the rest. Publish binaries and new sites through artifact_create_upload.",
+    "Commit and edit results may carry warnings: missing_reference is a relative link or image that names no file in the version, and blocked_host is a script or stylesheet host the Review frame blocks. They never fail a publication; fix them in a new version when they matter.",
     "After publishing, always give the user links.review first so they can see the exact version full screen and comment. Mention links.version second when the raw artifact is useful. Do not put content bootstrap URLs or credentials in chat.",
     "When publishing a new version, first call artifact_get and pass its current version ID as expectedCurrentVersionId. On conflict, inspect the new current version before retrying.",
     "Use a stable application idempotency key when retrying the same mutation. Use a new key only for an intentional new operation.",
     "Reviewers leave comment threads on an artifact version. Use comment_list and comment_get to read them, comment_create, comment_reply, and comment_update to write, comment_resolve to close or reopen a thread, and comment_delete to remove one you own; deleting a thread also deletes its replies. Sent comments cannot be deleted while their dispatch is queued, claimed, or delivered. comment_clear removes every resolved thread — or all threads — on one artifact at once and reports how many sent comments it skipped.",
     "comment_list hides threads an agent dispatch currently holds unless you pass dispatched: \"include\" or \"only\"; comment_get still reads a dispatched thread directly by id.",
+    "comment_list and comment_get give each thread a target: quote is the text the reviewer selected and element names the page element (tag, id, classes, selector, path, nearby landmark and heading) a pinpoint comment is about; dispatch_inbox bundles print the same element lines. Use them to find what to change.",
     "dispatch_inbox is this caller's mailbox for annotation bundles a reviewer dispatched to it: list registers the caller as a mailbox-tier agent and shows its queued dispatches, claim takes the oldest one as a rendered message, and delivered or failed reports the outcome. Address a delivered bundle's threads with comment_reply, then comment_resolve.",
     "voice_say speaks one short sentence to the user through their connected habla listener; a false answer means nobody listens, so carry on silently.",
     "artifact_get returns the current complete manifest, current.links.review for exact full-screen Review, links.review for the Review link that always opens the latest version, and links.artifact for the moving latest version. artifact_open returns reviewUrl for exact full-screen Review and browserUrl for raw immutable content. Prefer the Review URL for human handoff, and never describe browserUrl as a Review link. A remote server never opens a browser on the server machine.",
@@ -2303,6 +2375,7 @@ function capabilities(
       maximumBodyCharacters: maximumCommentBodyCharacters,
     },
     comparison: {maximumTextFileBytes: maximumTextDiffBytes},
+    edit: {maximumFileBytes: maximumInlineTextFileBytes, maximumTextBytes: maximumEditTextBytes},
     deployment: {mode},
     publishing: {
       acceptsInlineContent: false as const,
@@ -2339,12 +2412,15 @@ function uploadPlan(
   grant: Redacted.Redacted,
 ) {
   return {
+    alreadyStored: upload.files
+      .filter((file) => file.uploadedAt !== null)
+      .map((file) => ({path: file.entry.path, size: file.entry.size})),
     commit: {
       mcpTool: "artifact_commit_upload",
       uploadId: upload.id,
     },
     expiresAt: upload.expiresAt,
-    files: upload.files.map((file) => ({
+    files: upload.files.filter((file) => file.uploadedAt === null).map((file) => ({
       authorization: {
         credential: "upload_grant" as const,
         scheme: "Bearer" as const,
@@ -2622,8 +2698,7 @@ async function inlineText(
   blobs: BlobStore,
   entry: {readonly mediaType: string; readonly sha256: string; readonly size: number},
 ): Promise<string | null> {
-  const essence = entry.mediaType.split(";", 1)[0]?.trim().toLowerCase() ?? "";
-  if (entry.size > maximumInlineFileBytes || !inlineTextMediaType.test(essence)) {
+  if (entry.size > maximumInlineTextFileBytes || !isInlineTextMediaType(entry.mediaType)) {
     return null;
   }
   const blob = await blobs.open(entry.sha256);
@@ -2693,6 +2768,33 @@ function successResult<Value extends object>(value: Value, summary?: string) {
     }],
     structuredContent: value,
   };
+}
+
+function editSummary(edit: {
+  readonly artifact: {readonly name: string};
+  readonly changes: readonly {readonly change: string; readonly path: string}[];
+  readonly links: {readonly review: string};
+}): string {
+  return [
+    `Edited ${JSON.stringify(edit.artifact.name)}: ${edit.changes.map((change) => `${change.change} ${change.path}`).join(", ")}.`,
+    `Review and comment: ${edit.links.review}`,
+  ].join("\n");
+}
+
+function warningSummary(
+  warnings: readonly {
+    readonly code: string;
+    readonly path: string;
+    readonly reference: string;
+  }[],
+): string {
+  return warnings.length === 0
+    ? ""
+    : [
+      "",
+      `Warnings (${warnings.length}):`,
+      ...warnings.map((warning) => `- ${warning.code} in ${warning.path}: ${warning.reference}`),
+    ].join("\n");
 }
 
 function publicationSummary(published: {

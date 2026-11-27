@@ -34,6 +34,7 @@ The CLI owns local file inspection, symlink policy, media types, SHA-256 hashing
 
 ## MCP reads
 
+- `comment_list`, `comment_get`: each thread's `target` gives the quoted text and the page element (selector, path, tag, id, classes) to change.
 - `artifact_capabilities`: inspect limits, sharing modes, project rules, and deployment mode.
 - `project_list`: resolve a project when more than one exists.
 - `artifact_list`: list artifacts; use `projectId`, exact `tag`, cursor, and bounded limit when relevant.
@@ -52,6 +53,7 @@ Call `artifact_get` immediately before a write to obtain the current version ID.
 - `artifact_set_visibility`: set `private`, `account_required` or `public_link` without changing file bytes; `public_link` fails with `PUBLIC_LINKS_DISABLED` while public links are off.
 - `artifact_set_tags`: replace the complete tag set. Preserve existing tags the user did not ask to remove.
 - `artifact_restore_version`: make an existing saved version current. This restores an artifact version; it does not restore a server backup. When the user identifies the target relatively, such as "the older of the latest two," run `artifact_version_list` again immediately before the restore and confirm that the chosen version still has that relationship to the current version. An optimistic current-version guard alone does not preserve a relative description.
+- `artifact_edit`: change text files of an artifact already on the server without re-uploading it. Read each file with `artifact_read_file`, then send ordered `replace` (each `oldText` exactly once in the file), `write`, `delete`, and `rename` operations with the current version ID. At most 1 MiB per file and 256 KiB of text per call; publish binaries and new sites through the CLI or the upload tools. Give the user the returned `links.review`.
 - `artifact_delete`: use only for an explicit request to delete one artifact. Repeat the artifact name, server, and project before the destructive call. This does not delete the installation.
 
 Project creation, rename, archive, or unarchive are ordinary product actions but must be explicit. Use `project_create`, `project_rename`, `project_archive`, or `project_unarchive`. Archiving a project preserves readable history and stops new publication until it is unarchived.
@@ -60,7 +62,7 @@ Project creation, rename, archive, or unarchive are ordinary product actions but
 
 Do not use MCP upload tools when the files exist on the user's machine and the CLI is available. The CLI provides the one-step authenticated experience.
 
-Use `artifact_create_upload` and `artifact_commit_upload` only when the current agent environment can actually read the file bytes and execute the returned HTTP uploads. Call `artifact_capabilities` first. Upload each file with `Authorization: Bearer <uploadGrant.token>` from the upload plan; the grant works only for that upload and expires with it. Never place file bytes, base64, or a local path in MCP arguments, and never expose the MCP bearer credential to the model or output.
+Use `artifact_create_upload` and `artifact_commit_upload` only when the current agent environment can actually read the file bytes and execute the returned HTTP uploads. Call `artifact_capabilities` first. Upload each file with `Authorization: Bearer <uploadGrant.token>` from the upload plan; the grant works only for that upload and expires with it. Never place file bytes, base64, or a local path in MCP arguments, and never expose the MCP bearer credential to the model or output. When publishing a new version, pass the artifact as `baseArtifactId`; upload only the entries in `files`, because the ones in `alreadyStored` are already on the server.
 
 ## Final result
 
@@ -72,6 +74,8 @@ For publication, collect these fields from the structured result:
 - exact version ID;
 - full-screen review link (the only link handed to people);
 - access setting.
+
+Report any `warnings` from the result in one line each; offer to fix them with a new version.
 
 Present only the full-screen review link: it is the human link for viewing and
 commenting on the exact published version. Give the stable or raw link only when

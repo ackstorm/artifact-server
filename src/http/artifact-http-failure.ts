@@ -60,6 +60,7 @@ export function artifactServerFailureResponse(failure: ArtifactServerFailure) {
     case "MissingManifestEntry":
     case "InvalidManifestFile":
     case "UploadedFileMismatch":
+    case "InvalidEdit":
       return {code: errorCodes.invalidInput, message: failure.message, status: 422};
     case "InvalidManifestPath":
       return {code: errorCodes.invalidManifestPath, message: failure.message, status: 422};

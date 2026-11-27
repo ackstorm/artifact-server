@@ -270,6 +270,12 @@ export class InvalidManifestPath extends Schema.TaggedError<InvalidManifestPath>
   messageField,
 ) {}
 
+/** An edit commit's operations cannot apply to its base version. */
+export class InvalidEdit extends Schema.TaggedError<InvalidEdit>()(
+  "InvalidEdit",
+  messageField,
+) {}
+
 /** Uploaded bytes do not match their declared length or fingerprint. */
 export class UploadedFileMismatch extends Schema.TaggedError<UploadedFileMismatch>()(
   "UploadedFileMismatch",
@@ -415,6 +421,7 @@ export class ArtifactRepositoryFailure extends Schema.TaggedError<ArtifactReposi
       "deleteArtifact",
       "listAgentDispatches",
       "listArtifactActions",
+      "listArtifactBlobs",
       "listArtifacts",
       "listCommentReplies",
       "listCommentThreads",
@@ -530,6 +537,7 @@ const artifactServerFailureSchema = Schema.Union([
   MissingManifestEntry,
   InvalidManifestFile,
   InvalidManifestPath,
+  InvalidEdit,
   UploadedFileMismatch,
   IdempotencyConflict,
   PublishConflict,
