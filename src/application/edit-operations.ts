@@ -6,6 +6,7 @@ import {type BlobStorageFailure, InvalidEdit} from "../core/errors.js";
 import type {CanonicalManifest, ManifestEntry} from "../core/model.js";
 import type {StoredBlob} from "../core/ports.js";
 import {
+  maximumDeclaredFiles,
   maximumEditTextBytes,
   maximumInlineTextFileBytes,
 } from "../core/publishing-limits.js";
@@ -131,6 +132,11 @@ export const applyEditOperations = Effect.fnUntraced(function*(
       }
     }
   }
+  if (files.size > maximumDeclaredFiles) {
+    return yield* new InvalidEdit({
+      message: `The edit leaves ${files.size} files; a version holds at most ${maximumDeclaredFiles}.`,
+    });
+  }
   const working = [...files.values()];
   return {
     blobs: working.flatMap(({bytes, file}) =>
@@ -214,9 +220,10 @@ const textFile = Effect.fnUntraced(function*(
   };
 });
 
+// Counts up to 2: one match is enough to apply and a second to refuse.
 function occurrences(text: string, needle: string): number {
   let count = 0;
-  for (let at = text.indexOf(needle); at !== -1; at = text.indexOf(needle, at + 1)) {
+  for (let at = text.indexOf(needle); at !== -1 && count < 2; at = text.indexOf(needle, at + 1)) {
     count += 1;
   }
   return count;

@@ -153,5 +153,13 @@ describe("publication warnings", () => {
       path: "extra.html",
       reference: "https://scripts.example/x.js",
     });
+
+    const started = performance.now();
+    const pathological = await commitSite([
+      textFile("index.html", "<a ".repeat(349_525), "text/html"),
+      textFile("notes.md", "[".repeat(1_048_576), "text/markdown"),
+    ], "pub-016-f-commit-pathological");
+    expect(pathological.warnings).toEqual([]);
+    expect(performance.now() - started).toBeLessThan(2_000);
   });
 });

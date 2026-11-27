@@ -292,5 +292,45 @@ describe("edit commits", () => {
     await Promise.all(siteFiles.map(async (file) => {
       expect((await fileDigest(artifactId, base, file.path)).sha256).toBe(sha256(file.bytes));
     }));
-  });
+
+    const tooManyOperations = await callTool("artifact_edit", {
+      artifactId,
+      expectedCurrentVersionId: moved.version.id,
+      idempotencyKey: "edt-f-operations-cap",
+      operations: [...Array(201).keys()].map((index) => ({kind: "write", path: `n${index}.txt`, text: ""})),
+    });
+    expect(mcpFailed(tooManyOperations)).toBe(true);
+    expect(JSON.stringify(tooManyOperations)).toMatch(/200/u);
+    const tooManyEdits = await callTool("artifact_edit", {
+      artifactId,
+      expectedCurrentVersionId: moved.version.id,
+      idempotencyKey: "edt-f-edits-cap-0001",
+      operations: [{
+        edits: [...Array(101).keys()].map(() => ({newText: "x", oldText: "one"})),
+        kind: "replace",
+        path: "plain.txt",
+      }],
+    });
+    expect(mcpFailed(tooManyEdits)).toBe(true);
+    expect(JSON.stringify(tooManyEdits)).toMatch(/100/u);
+
+    const crowded = await publishSite("edt-f-crowded-publish");
+    const current = await [...Array(49).keys()].reduce(async (previous, batch) => {
+      const expectedCurrentVersionId = await previous;
+      return editResult(await callTool("artifact_edit", {
+        artifactId: crowded.artifact.id,
+        expectedCurrentVersionId,
+        idempotencyKey: `edt-f-crowd-batch-${String(batch).padStart(4, "0")}`,
+        operations: [...Array(200).keys()].map((index) => ({kind: "write", path: `f${batch}/${index}.txt`, text: ""})),
+      })).version.id;
+    }, Promise.resolve(crowded.version.id));
+    const overCount = await callTool("artifact_edit", {
+      artifactId: crowded.artifact.id,
+      expectedCurrentVersionId: current,
+      idempotencyKey: "edt-f-crowd-overflow1",
+      operations: [...Array(200).keys()].map((index) => ({kind: "write", path: `over/${index}.txt`, text: ""})),
+    });
+    expect(mcpToolErrorCode(overCount)).toBe("INVALID_INPUT");
+    expect(JSON.stringify(overCount.result?.structuredContent)).toMatch(/at most 10000/u);
+  }, 120_000);
 });

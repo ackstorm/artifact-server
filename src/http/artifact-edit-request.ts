@@ -1,5 +1,10 @@
 import {z} from "zod";
 
+import {
+  maximumEditOperations,
+  maximumEditsPerReplace,
+} from "../core/publishing-limits.js";
+
 const editPathSchema = z.string().min(1).max(1_024);
 
 /** The ordered operations of one edit commit, as HTTP and MCP accept them. */
@@ -8,7 +13,7 @@ export const editOperationsSchema = z.array(z.discriminatedUnion("kind", [
     edits: z.array(z.object({
       newText: z.string(),
       oldText: z.string().min(1),
-    }).strict()).min(1),
+    }).strict()).min(1).max(maximumEditsPerReplace),
     kind: z.literal("replace"),
     path: editPathSchema,
   }).strict(),
@@ -24,4 +29,4 @@ export const editOperationsSchema = z.array(z.discriminatedUnion("kind", [
     kind: z.literal("rename"),
     to: editPathSchema,
   }).strict(),
-])).min(1);
+])).min(1).max(maximumEditOperations);

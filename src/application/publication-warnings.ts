@@ -32,14 +32,14 @@ interface FoundReference {
   readonly url: string;
 }
 
-// ponytail: regex attribute scanner, not an HTML parser. It also reads references in comments, <template>, and script text, stops an attribute list at the first ">", and skips srcset, CSS url(), and URLs built by JavaScript; adopt a parser if false or missed warnings matter.
-const htmlTagPattern = /<(a|audio|iframe|img|link|script|source|video)\b([^>]*)>/giu;
+// ponytail: regex attribute scanner, not an HTML parser. It also reads references in comments, <template>, and script text, stops a tag at the first "<" or ">", and skips srcset, CSS url(), and URLs built by JavaScript; adopt a parser if false or missed warnings matter. Every pattern excludes the characters that open its next match, so scanning is linear in the text.
+const htmlTagPattern = /<(a|audio|iframe|img|link|script|source|video)\b([^<>]*)>/giu;
 const urlAttributePattern =
   /\s(href|src)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/giu;
 const stylesheetRelPattern =
   /\srel\s*=\s*(?:"[^"]*\bstylesheet\b[^"]*"|'[^']*\bstylesheet\b[^']*'|stylesheet\b)/iu;
 // ponytail: inline Markdown links and images only; reference-style definitions, raw HTML, and code spans are not told apart.
-const markdownLinkPattern = /!?\[[^\]]*\]\(\s*<?([^\s<>)]+)>?/gu;
+const markdownLinkPattern = /!?\[[^[\]\n]*\]\(\s*<?([^\s<>)]+)>?/gu;
 // ponytail: the content domain is unknown here, so an absolute script or stylesheet URL on a version host warns as blocked_host.
 const artifactBase = new URL("https://artifact.invalid/");
 
@@ -82,9 +82,10 @@ function scannedFormat(mediaType: string): "html" | "markdown" | null {
 function htmlReferences(text: string): readonly FoundReference[] {
   return [...text.matchAll(htmlTagPattern)].flatMap(([, tagName = "", attributes = ""]) => {
     const tag = tagName.toLowerCase();
+    const stylesheet = tag === "link" && stylesheetRelPattern.test(attributes);
     return [...attributes.matchAll(urlAttributePattern)].map(
       ([, attribute = "", doubleQuoted, singleQuoted, bare]) => ({
-        loads: loadKind(tag, attribute.toLowerCase(), attributes),
+        loads: loadKind(tag, attribute.toLowerCase(), stylesheet),
         navigation: tag === "a",
         url: (doubleQuoted ?? singleQuoted ?? bare ?? "").trim(),
       }),
@@ -95,12 +96,10 @@ function htmlReferences(text: string): readonly FoundReference[] {
 function loadKind(
   tag: string,
   attribute: string,
-  attributes: string,
+  stylesheet: boolean,
 ): FoundReference["loads"] {
   if (tag === "script" && attribute === "src") return "script";
-  if (tag === "link" && attribute === "href" && stylesheetRelPattern.test(attributes)) {
-    return "stylesheet";
-  }
+  if (stylesheet && attribute === "href") return "stylesheet";
   return null;
 }
 

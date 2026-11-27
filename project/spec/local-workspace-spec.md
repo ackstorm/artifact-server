@@ -1,6 +1,6 @@
 # Local workspace features
 
-**Status:** Accepted; implementation underway — `LNK-001` through `LNK-008` are implemented across the local application, SQLite/Postgres storage, HTTP, MCP, CLI, and web surfaces and have normal and hostile acceptance-ID tests, but remain `implementing` for the explicit proof gaps recorded in the ledger. `PRV-001` through `PRV-005` are implemented with local HTTP and browser proof. `KAN-001` through `KAN-007` and `OPN-001`/`OPN-002` remain specified and unimplemented (August 23, 2026)
+**Status:** Accepted; implementation underway — `LNK-001` through `LNK-008` are implemented across the local application, SQLite/Postgres storage, HTTP, MCP, CLI, and web surfaces and have normal and hostile acceptance-ID tests, but remain `implementing` for the explicit proof gaps recorded in the ledger. `PRV-001` through `PRV-005` are implemented with local HTTP and browser proof. `EDT-001` through `EDT-003` are implemented over MCP and HTTP. `KAN-001` through `KAN-007` and `OPN-001`/`OPN-002` remain specified and unimplemented (August 23, 2026)
 **Date:** August 19, 2026
 **Owner:** Artifact Server product engineering
 **Companion documents:** [Product specification](./artifact-server-product-spec.html), [Artifact comments](./artifact-comments-spec.md) (the storage and parity precedent this spec follows), [Image and video previews](./media-preview-spec.md), [Conformance ledger](./conformance.yml), [ADR 0023](./decisions/0023-linked-artifacts-are-captured-snapshots.md), [ADR 0024](./decisions/0024-kanban-is-first-class-records.md)
@@ -244,7 +244,7 @@ CREATE TABLE kanban_cards (
 ) STRICT;
 ```
 
-Edits reuse existing tables entirely (staging uploads, versions, manifest entries, actions); open-in and previews add no storage.
+Edits reuse existing tables entirely (versions, manifest entries, blobs, actions) and stage no uploads; open-in and previews add no storage.
 
 ## 11. Non-goals
 

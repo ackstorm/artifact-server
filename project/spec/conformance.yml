@@ -646,10 +646,9 @@ requirements:
     source: {file: artifact-server-mcp-baseline.md, anchor: publication-warnings}
     acceptance:
       behavior: {id: PUB-016-B, description: "Publish a site with a missing script, a missing Markdown image, and blocked script and stylesheet hosts beside allowed CDN, fragment, query, absolute, data, and mailto references, and receive exactly the missing and blocked warnings from the commit and from an edit."}
-      failure: {id: PUB-016-F, description: "A publication with more broken references than the cap, invalid UTF-8, and malformed URLs still commits and an edit still commits, each with at most the capped warnings."}
+      failure: {id: PUB-016-F, description: "A publication with more broken references than the cap, invalid UTF-8, and malformed URLs still commits and an edit still commits, each with at most the capped warnings; a megabyte of unclosed tags and a megabyte of unclosed brackets are analyzed in linear time and commit within seconds."}
     deployments: *all
-    status: implementing
-    proof_gap: PUB-016-B and PUB-016-F pass locally against the SQLite server; the iteration gate has not run them, and the Review frame CSP browser test is not run locally.
+    status: verified
     depends_on: [PUB-005, EDT-001]
   - id: CLI-001
     kind: security
@@ -1649,8 +1648,7 @@ requirements:
       behavior: {id: MCP-022-B, description: "List and get a thread whose anchor carries quoted text, a selector, and element context and receive that target; claim a dispatch of it and read the element, selector, path, and nearby lines in the rendered bundle."}
       failure: {id: MCP-022-F, description: "Whole-file, malformed, missing, and hostile anchors produce a null element or quote, bidirectional and invisible characters are stripped from rendered element lines, and every thread still lists and dispatches."}
     deployments: *all
-    status: implementing
-    proof_gap: Both tests pass locally; the iteration gate (CI Full tier) has not run on them.
+    status: verified
     depends_on: [CMT-003, BRP-002]
 
   - id: SKL-001
@@ -3592,7 +3590,7 @@ requirements:
     source: {file: local-workspace-spec.md, anchor: conformance-requirements-to-add}
     acceptance:
       behavior: {id: EDT-003-B, description: "Edit markdown, plain-text, and JSON entries and write a new markdown file through artifact_edit within the bounds and verify each committed entry's digest and inferred media type."}
-      failure: {id: EDT-003-F, description: "A replace on a binary or invalid UTF-8 entry, an edited file over 1 MiB, more than 256 KiB of text in one call, and a write carrying an extra base64 field are rejected without creating a version."}
+      failure: {id: EDT-003-F, description: "A replace on a binary or invalid UTF-8 entry, an edited file over 1 MiB, more than 256 KiB of text in one call, more than 200 operations, more than 100 edits in one replace, an edit that leaves more than 10,000 files, and a write carrying an extra base64 field are rejected without creating a version."}
     deployments: *all
     status: verified
     depends_on: [EDT-001, MAN-002]

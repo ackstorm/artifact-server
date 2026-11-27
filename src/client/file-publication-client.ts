@@ -68,10 +68,10 @@ const publishResponseSchema = Schema.Struct({
   version: versionSchema,
 });
 const createUploadResponseSchema = Schema.Struct({
-  alreadyStored: Schema.Array(Schema.Struct({
+  alreadyStored: Schema.optionalKey(Schema.Array(Schema.Struct({
     path: Schema.String,
     size: nonnegativeIntegerSchema,
-  })),
+  }))),
   commitUrl: Schema.URLFromString,
   expiresAt: Schema.String,
   files: Schema.Array(Schema.Struct({
@@ -686,14 +686,15 @@ const validateUploadPlan = Effect.fn("FilePublicationClient.validateUploadPlan")
         reason: "unsafe_upload_plan",
       });
     }
-    if (upload.files.length + upload.alreadyStored.length !== prepared.files.length) {
+    const alreadyStored = upload.alreadyStored ?? [];
+    if (upload.files.length + alreadyStored.length !== prepared.files.length) {
       return yield* unsafeUploadPlan(
         "The server returned an incomplete file-upload plan.",
       );
     }
     const preparedByPath = new Map(prepared.files.map((file) => [file.path, file]));
     const plannedPaths = new Set<string>();
-    for (const planned of [...upload.files, ...upload.alreadyStored]) {
+    for (const planned of [...upload.files, ...alreadyStored]) {
       const preparedFile = preparedByPath.get(planned.path);
       if (
         preparedFile === undefined
