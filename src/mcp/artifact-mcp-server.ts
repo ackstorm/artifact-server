@@ -89,6 +89,7 @@ import {
 import {editOperationsSchema} from "../http/artifact-edit-request.js";
 import {artifactServerFailureResponse} from "../http/artifact-http-failure.js";
 import {isInlineTextMediaType} from "../manifest/media-types.js";
+import {commentTarget, commentTargetSchema} from "./comment-target.js";
 import {
   renderBundleMessage,
   type BundleItem,
@@ -280,7 +281,6 @@ async function collectCursorPages<T>(
 }
 const mailboxAgentNameSchema = z.string().trim().min(1).max(120);
 const mailboxDispatchIdSchema = z.string().min(1).max(200);
-const mailboxAnchorSchema = z.object({originalText: z.string()}).loose();
 const mailboxAgentSchema = z.object({
   capabilities: z.object({
     beacon: z.boolean(),
@@ -1565,7 +1565,7 @@ export function createArtifactMcpServer(
     {
       title: "List comment threads",
       description:
-        "List one artifact's comment threads across its saved versions, newest activity first. Filter by exact version or state, pass since to poll for new, edited, and resolved threads, continue a large result set with nextCursor, and pass dispatched to include or show only threads an agent dispatch currently holds (default excludes them, since a sent bundle disappears from ordinary listings until it is addressed, fails, or is canceled).",
+        "List one artifact's comment threads across its saved versions, newest activity first. Filter by exact version or state, pass since to poll for new, edited, and resolved threads, continue a large result set with nextCursor, and pass dispatched to include or show only threads an agent dispatch currently holds (default excludes them, since a sent bundle disappears from ordinary listings until it is addressed, fails, or is canceled). Each thread carries target: the quoted text and, for a comment on a page element, that element's tag, id, classes, selector, and path, when its anchor has them.",
       inputSchema: z.object({
         artifactId: artifactIdSchema,
         cursor: z.string().max(1_024).nullable().default(null),
@@ -1577,7 +1577,7 @@ export function createArtifactMcpServer(
         versionId: versionIdSchema.nullable().default(null),
       }).strict(),
       outputSchema: z.object({
-        items: z.array(commentThreadSchema),
+        items: z.array(commentThreadSchema.extend({target: commentTargetSchema}).strict()),
         nextCursor: z.string().nullable(),
       }).strict(),
       annotations: readOnlyAnnotations,
@@ -1603,7 +1603,7 @@ export function createArtifactMcpServer(
           ),
         );
         return {
-          items: page.items.map(commentThreadProjection),
+          items: page.items.map((thread) => ({...commentThreadProjection(thread), target: commentTarget(thread)})),
           nextCursor: encodePageCursor(page.nextCursor),
         };
       }),
@@ -1622,7 +1622,7 @@ export function createArtifactMcpServer(
       }).strict(),
       outputSchema: z.object({
         replies: z.array(commentReplySchema),
-        thread: commentThreadSchema,
+        thread: commentThreadSchema.extend({target: commentTargetSchema}).strict(),
       }).strict(),
       annotations: readOnlyAnnotations,
     },
@@ -1640,7 +1640,7 @@ export function createArtifactMcpServer(
       );
       return {
         replies: [...details.replies],
-        thread: commentThreadProjection(details.thread),
+        thread: {...commentThreadProjection(details.thread), target: commentTarget(details.thread)},
       };
     }),
   );
@@ -2047,12 +2047,13 @@ export function createArtifactMcpServer(
     ));
     const items: BundleItem[] = readable.map((thread) => {
       const view = artifactViews.get(thread.artifactId);
-      const anchor = mailboxAnchorSchema.safeParse(thread.anchor);
+      const target = commentTarget(thread);
       return {
         artifactName: view?.name ?? thread.artifactId,
         body: thread.body,
+        element: target.element,
         path: thread.path,
-        quotedSelection: anchor.success ? anchor.data.originalText : null,
+        quotedSelection: target.quote,
         threadId: thread.id,
         versionNumber: view?.versionNumbers.get(thread.versionId) ?? 0,
       };
@@ -2345,6 +2346,7 @@ function agentInstructions(mode: "local" | "remote"): string {
     "Use a stable application idempotency key when retrying the same mutation. Use a new key only for an intentional new operation.",
     "Reviewers leave comment threads on an artifact version. Use comment_list and comment_get to read them, comment_create, comment_reply, and comment_update to write, comment_resolve to close or reopen a thread, and comment_delete to remove one you own; deleting a thread also deletes its replies. Sent comments cannot be deleted while their dispatch is queued, claimed, or delivered. comment_clear removes every resolved thread — or all threads — on one artifact at once and reports how many sent comments it skipped.",
     "comment_list hides threads an agent dispatch currently holds unless you pass dispatched: \"include\" or \"only\"; comment_get still reads a dispatched thread directly by id.",
+    "comment_list and comment_get give each thread a target: quote is the text the reviewer selected and element names the page element (tag, id, classes, selector, path, nearby landmark and heading) a pinpoint comment is about; dispatch_inbox bundles print the same element lines. Use them to find what to change.",
     "dispatch_inbox is this caller's mailbox for annotation bundles a reviewer dispatched to it: list registers the caller as a mailbox-tier agent and shows its queued dispatches, claim takes the oldest one as a rendered message, and delivered or failed reports the outcome. Address a delivered bundle's threads with comment_reply, then comment_resolve.",
     "voice_say speaks one short sentence to the user through their connected habla listener; a false answer means nobody listens, so carry on silently.",
     "artifact_get returns the current complete manifest, current.links.review for exact full-screen Review, links.review for the Review link that always opens the latest version, and links.artifact for the moving latest version. artifact_open returns reviewUrl for exact full-screen Review and browserUrl for raw immutable content. Prefer the Review URL for human handoff, and never describe browserUrl as a Review link. A remote server never opens a browser on the server machine.",

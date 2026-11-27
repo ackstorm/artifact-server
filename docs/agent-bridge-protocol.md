@@ -175,6 +175,10 @@ Artifact Server: {sender} sent {N} annotation(s) to address.
 {bundle note, when present}
 
 1. [{artifact name} · version {number} · {path}] "{quoted selection, when the anchor has one}"
+   Element: <{tag}#{id}.{class}…> "{accessible name}"   (when the anchor carries element context)
+   Selector: {selector}
+   Path: {element path}
+   Near: {landmark} · heading {heading}
    {thread body}
    (thread {threadId})
 2. …
@@ -195,6 +199,7 @@ Rules:
 - Items keep the order the human selected.
 - Every item carries its thread ID, because the reply and resolve calls need it.
 - A quoted selection has its whitespace collapsed and is bounded to 300 characters with an ellipsis. Bodies are already capped server-side at 8 KiB each.
+- Element lines appear only when the thread's anchor carries element context, and each line only when its field is present. Each value is sanitized, whitespace-collapsed, and bounded to 300 characters like a quoted selection. The `@plannotator/agent-bridge` renderer used by the Pi, OpenCode, and Claude channel bridges renders no element lines; the server's mailbox renderer does.
 - The closing instruction names the reply-and-resolve surface the host actually has. Native and channel adapters use `artifact_comments`; MCP mailboxes use `comment_reply` and `comment_resolve`.
 
 ### Unicode sanitization

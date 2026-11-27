@@ -34,6 +34,7 @@ The CLI owns local file inspection, symlink policy, media types, SHA-256 hashing
 
 ## MCP reads
 
+- `comment_list`, `comment_get`: each thread's `target` gives the quoted text and the page element (selector, path, tag, id, classes) to change.
 - `artifact_capabilities`: inspect limits, sharing modes, project rules, and deployment mode.
 - `project_list`: resolve a project when more than one exists.
 - `artifact_list`: list artifacts; use `projectId`, exact `tag`, cursor, and bounded limit when relevant.

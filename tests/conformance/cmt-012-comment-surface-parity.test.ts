@@ -64,13 +64,14 @@ const httpThreadCreationSchema = z.object({
   replayed: z.boolean(),
   thread: httpThreadSchema,
 }).strict();
+const mcpTargetSchema = z.object({element: z.json().nullable(), quote: z.string().nullable()}).strict();
 const mcpThreadPageSchema = z.object({
-  items: z.array(commentThreadSchema),
+  items: z.array(commentThreadSchema.extend({target: mcpTargetSchema})),
   nextCursor: z.string().nullable(),
 }).strict();
 const mcpThreadDetailsSchema = z.object({
   replies: z.array(z.object({id: z.string()}).loose()),
-  thread: commentThreadSchema,
+  thread: commentThreadSchema.extend({target: mcpTargetSchema}),
 }).strict();
 const mcpThreadCreationSchema = z.object({
   replayed: z.boolean(),
@@ -163,7 +164,7 @@ describe("comment surface parity and change polling", () => {
         threadId: overHttp.thread.id,
       },
     );
-    expect(readOverMcp.thread).toEqual(withoutLinks(overHttp.thread));
+    expect({...readOverMcp.thread, target: undefined}).toEqual(withoutLinks(overHttp.thread));
     expect(readOverMcp.thread.author.principalId)
       .toBe(overMcp.thread.author.principalId);
 
@@ -198,7 +199,7 @@ describe("comment surface parity and change polling", () => {
         projectId: published.artifact.projectId,
       },
     );
-    expect(mcpAfterMutations.items)
+    expect(mcpAfterMutations.items.map((thread) => ({...thread, target: undefined})))
       .toEqual(httpAfterMutations.items.map(withoutLinks));
     expect(mcpAfterMutations.nextCursor).toBe(httpAfterMutations.nextCursor);
     expect(new Map(mcpAfterMutations.items.map((thread) =>

@@ -123,6 +123,8 @@ A client connected through OAuth by a plain member can list projects but not cre
 
 `voice_say` speaks one sentence of 1 to 500 characters to the caller's own user through a connected habla listener (see [Voice listener](./agent-bridge-protocol.md#voice-listener)). Its description asks the agent to write for the ear: plain words, no identifiers, versions, paths or code names. It answers `queued: false` and stores nothing when no listener of the caller is connected. The listener's API key must be issued for the member, bound to their member id: a service key registers a `svc_…` principal, which that member's `voice_say` never matches.
 
+Each `comment_list` and `comment_get` thread carries `target`: `quote`, the text the reviewer selected, and `element`, the page element a pinpoint comment names (tag, id, classes, selector, path, and nearby landmark and heading), when the anchor has them. `dispatch_inbox` prints the same element lines in each bundle item.
+
 Linked-artifact tools appear only when the deployment enables linked artifacts.
 
 ## Install the Artifact Server skill

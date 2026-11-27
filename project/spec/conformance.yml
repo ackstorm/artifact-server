@@ -1640,6 +1640,19 @@ requirements:
     status: specified
     depends_on: [AUTH-033, MCP-018]
 
+  - id: MCP-022
+    kind: behavior
+    behavior: comment_list and comment_get give each thread a target derived from its anchor, the quoted text and the element context when the anchor carries them, and dispatch_inbox renders the same element as sanitized lines in each bundle item; unrecognized anchors yield no target and stay opaque to the server.
+    owner: mcp
+    source: {file: artifact-server-mcp-baseline.md, anchor: mcp-tools-and-resources}
+    acceptance:
+      behavior: {id: MCP-022-B, description: "List and get a thread whose anchor carries quoted text, a selector, and element context and receive that target; claim a dispatch of it and read the element, selector, path, and nearby lines in the rendered bundle."}
+      failure: {id: MCP-022-F, description: "Whole-file, malformed, missing, and hostile anchors produce a null element or quote, bidirectional and invisible characters are stripped from rendered element lines, and every thread still lists and dispatches."}
+    deployments: *all
+    status: implementing
+    proof_gap: Both tests pass locally; the iteration gate (CI Full tier) has not run on them.
+    depends_on: [CMT-003, BRP-002]
+
   - id: SKL-001
     kind: behavior
     behavior: Artifact Server ships one portable artifact-server skill that routes routine artifact work and explicit server-operation work to separate internal references.
@@ -2421,7 +2434,7 @@ requirements:
       failure: {id: BRP-002-F, description: "A second principal never sees the first principal's dispatches, a claim with an empty inbox answers cleanly, and a delivered report for a dispatch the caller does not hold is refused without state change."}
     deployments: [local]
     status: behavior_verified
-    proof_gap: The render mirror in src/mcp is pinned byte-for-byte against the package render by the acceptance test rather than shared as one module; drift fails the test but the duplication itself is accepted and documented.
+    proof_gap: The render mirror in src/mcp is pinned byte-for-byte against the package render for items without element context; element lines (MCP-022) are rendered only by the server mirror, because the package renders none. Drift in the shared part fails the test; the duplication itself is accepted and documented.
     depends_on: [BRP-001, DSP-004, CMT-012]
 
   - id: NDG-001

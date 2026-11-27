@@ -305,7 +305,7 @@ Start with a small, explicit tool surface:
 | `artifact_diff` | Return a bounded comparison summary and a link to the full comparison. |
 | `artifact_restore_version` | Make an existing immutable version current again. |
 | `artifact_delete` | Delete one artifact after an optimistic current-version check. |
-| `comment_list` | List one artifact's comment threads, filtered by exact version or state and polled with `since` on last activity. A `dispatched` filter (`exclude`, `include`, or `only`; default `exclude`) matches the HTTP `GET …/comments` parameter exactly, so a thread an agent dispatch currently holds stays out of ordinary listings until it is addressed, fails, or is canceled, and is findable on demand with `dispatched: "only"`. |
+| `comment_list` | List one artifact's comment threads, filtered by exact version or state and polled with `since` on last activity. A `dispatched` filter (`exclude`, `include`, or `only`; default `exclude`) matches the HTTP `GET …/comments` parameter exactly, so a thread an agent dispatch currently holds stays out of ordinary listings until it is addressed, fails, or is canceled, and is findable on demand with `dispatched: "only"`. Each listed thread carries `target` (`quote` and `element`) derived from its anchor when recognizable. |
 | `comment_get` | Read one comment thread with every reply it carries. |
 | `comment_create` | Open one comment thread on one exact saved version, optionally on one manifest path with a client-owned anchor. |
 | `comment_reply` | Add one reply to an open comment thread. A resolved thread rejects replies until it is reopened. |
