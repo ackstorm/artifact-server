@@ -76,6 +76,11 @@ const siteFiles: readonly TestSiteFile[] = [
   {bytes: encoder.encode(largeText), mediaType: "text/plain", path: "large.txt"},
 ];
 
+function mcpErrorText(reply: McpReply): string {
+  return z.object({content: z.array(z.object({text: z.string()}).loose())}).loose()
+    .parse(reply.result).content.map((part) => part.text).join("\n");
+}
+
 function siteBytes(path: string): Uint8Array {
   const file = siteFiles.find((candidate) => candidate.path === path);
   if (file === undefined) throw new Error(`The fixture has no ${path}.`);
@@ -224,7 +229,7 @@ describe("edit commits", () => {
     const base = published.version.id;
     const refusals = [
       {code: "INVALID_INPUT", message: /occurs 0 times in notes\.md/u, operations: [{edits: [{newText: "x", oldText: "absent text"}], kind: "replace", path: "notes.md"}]},
-      {code: "INVALID_INPUT", message: /occurs 2 times in notes\.md/u, operations: [{edits: [{newText: "x", oldText: "line"}], kind: "replace", path: "notes.md"}]},
+      {code: "INVALID_INPUT", message: /occurs more than once in notes\.md/u, operations: [{edits: [{newText: "x", oldText: "line"}], kind: "replace", path: "notes.md"}]},
       {code: "INVALID_INPUT", message: /missing\.txt is not a file of this version/u, operations: [{kind: "delete", path: "missing.txt"}]},
       {code: "INVALID_INPUT", message: /data\.json already exists/u, operations: [{from: "plain.txt", kind: "rename", to: "data.json"}]},
       {code: "INVALID_MANIFEST_PATH", message: /escape\.html/u, operations: [{kind: "write", path: "../escape.html", text: "x"}]},
@@ -300,7 +305,7 @@ describe("edit commits", () => {
       operations: [...Array(201).keys()].map((index) => ({kind: "write", path: `n${index}.txt`, text: ""})),
     });
     expect(mcpFailed(tooManyOperations)).toBe(true);
-    expect(JSON.stringify(tooManyOperations)).toMatch(/200/u);
+    expect(mcpErrorText(tooManyOperations)).toMatch(/operations: .*<=200 items/u);
     const tooManyEdits = await callTool("artifact_edit", {
       artifactId,
       expectedCurrentVersionId: moved.version.id,
@@ -312,7 +317,11 @@ describe("edit commits", () => {
       }],
     });
     expect(mcpFailed(tooManyEdits)).toBe(true);
-    expect(JSON.stringify(tooManyEdits)).toMatch(/100/u);
+    expect(mcpErrorText(tooManyEdits)).toMatch(/edits: .*<=100 items/u);
+    const afterCaps = versionListSchema.parse(
+      (await callTool("artifact_version_list", {artifactId})).result?.structuredContent,
+    );
+    expect(afterCaps.versions.map((version) => version.id)).toEqual([moved.version.id, base]);
 
     const crowded = await publishSite("edt-f-crowded-publish");
     const current = await [...Array(49).keys()].reduce(async (previous, batch) => {

@@ -36,8 +36,8 @@ interface FoundReference {
 const htmlTagPattern = /<(a|audio|iframe|img|link|script|source|video)\b([^<>]*)>/giu;
 const urlAttributePattern =
   /\s(href|src)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/giu;
-const stylesheetRelPattern =
-  /\srel\s*=\s*(?:"[^"]*\bstylesheet\b[^"]*"|'[^']*\bstylesheet\b[^']*'|stylesheet\b)/iu;
+const relAttributePattern =
+  /\srel\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/iu;
 // ponytail: inline Markdown links and images only; reference-style definitions, raw HTML, and code spans are not told apart.
 const markdownLinkPattern = /!?\[[^[\]\n]*\]\(\s*<?([^\s<>)]+)>?/gu;
 // ponytail: the content domain is unknown here, so an absolute script or stylesheet URL on a version host warns as blocked_host.
@@ -82,7 +82,7 @@ function scannedFormat(mediaType: string): "html" | "markdown" | null {
 function htmlReferences(text: string): readonly FoundReference[] {
   return [...text.matchAll(htmlTagPattern)].flatMap(([, tagName = "", attributes = ""]) => {
     const tag = tagName.toLowerCase();
-    const stylesheet = tag === "link" && stylesheetRelPattern.test(attributes);
+    const stylesheet = tag === "link" && isStylesheet(attributes);
     return [...attributes.matchAll(urlAttributePattern)].map(
       ([, attribute = "", doubleQuoted, singleQuoted, bare]) => ({
         loads: loadKind(tag, attribute.toLowerCase(), stylesheet),
@@ -91,6 +91,12 @@ function htmlReferences(text: string): readonly FoundReference[] {
       }),
     );
   });
+}
+
+function isStylesheet(attributes: string): boolean {
+  const match = relAttributePattern.exec(attributes);
+  const value = match?.[1] ?? match?.[2] ?? match?.[3] ?? "";
+  return value.toLowerCase().split(/\s+/u).includes("stylesheet");
 }
 
 function loadKind(

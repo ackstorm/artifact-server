@@ -161,5 +161,12 @@ describe("publication warnings", () => {
     ], "pub-016-f-commit-pathological");
     expect(pathological.warnings).toEqual([]);
     expect(performance.now() - started).toBeLessThan(2_000);
+
+    const relStarted = performance.now();
+    const unclosedRel = await commitSite([
+      textFile("index.html", `<link rel="${"stylesheet ".repeat(95_325)}>`, "text/html"),
+    ], "pub-016-f-commit-unclosed-rel");
+    expect(unclosedRel.warnings).toEqual([]);
+    expect(performance.now() - relStarted).toBeLessThan(2_000);
   });
 });

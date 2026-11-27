@@ -92,7 +92,7 @@ export const applyEditOperations = Effect.fnUntraced(function*(
           if (count !== 1) {
             return yield* new InvalidEdit({
               message:
-                `oldText occurs ${count} times in ${operation.path}; it must occur exactly once. Include more surrounding text.`,
+                `oldText occurs ${count === 0 ? "0 times" : "more than once"} in ${operation.path}; it must occur exactly once. Include more surrounding text.`,
             });
           }
           const at = text.indexOf(edit.oldText);
