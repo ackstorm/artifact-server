@@ -13,6 +13,7 @@ import {
   type HostMessage,
   type ReviewAnchor,
   type ReviewAnnotation,
+  type ReviewMode,
 } from "@/review-frame/protocol";
 
 interface PreviewDocument {
@@ -35,32 +36,31 @@ interface PreviewActions {
 
 /** Render one exact immutable manifest entry in the Artifact Server preview surface. */
 export function ReviewPreview({
-  annotateModeActive,
   annotations,
   artifactId,
   artifactName,
   isLight,
   onOpenRawArtifact,
   onSourceViewChange,
-  onAnnotateModeChange,
+  onModeChange,
   onSelectAnnotation,
   onSubmitAnnotation,
   onUnanchoredChange,
   opening,
   projectId,
   readOnly,
+  reviewMode,
   selectedThreadId,
   selectedPath,
   version,
 }: {
-  readonly annotateModeActive: boolean;
   readonly annotations: readonly ReviewAnnotation[];
   readonly artifactId: string;
   readonly artifactName: string;
   readonly isLight: boolean;
   readonly onOpenRawArtifact: () => void;
   readonly onSourceViewChange: (active: boolean) => void;
-  readonly onAnnotateModeChange: (active: boolean) => void;
+  readonly onModeChange: (mode: ReviewMode) => void;
   readonly onSelectAnnotation: (threadId: string | null) => void;
   readonly onSubmitAnnotation: (
     body: string,
@@ -71,6 +71,7 @@ export function ReviewPreview({
   readonly opening: boolean;
   readonly projectId: string;
   readonly readOnly: boolean;
+  readonly reviewMode: ReviewMode;
   readonly selectedThreadId: string | null;
   readonly selectedPath: string | null;
   readonly version: ArtifactVersion | null;
@@ -112,7 +113,6 @@ export function ReviewPreview({
     return (
       <HtmlPreview
         actions={commonActions}
-        annotateModeActive={annotateModeActive}
         annotations={annotations}
         artifactId={artifactId}
         entry={entry}
@@ -120,12 +120,13 @@ export function ReviewPreview({
         key={identity}
         markdown={mediaType === "text/markdown"}
         onSourceViewChange={onSourceViewChange}
-        onAnnotateModeChange={onAnnotateModeChange}
+        onModeChange={onModeChange}
         onSelectAnnotation={onSelectAnnotation}
         onSubmitAnnotation={onSubmitAnnotation}
         onUnanchoredChange={onUnanchoredChange}
         projectId={projectId}
         readOnly={readOnly}
+        reviewMode={reviewMode}
         selectedThreadId={selectedThreadId}
         version={version}
       />
@@ -191,31 +192,30 @@ export function ReviewPreview({
 
 function HtmlPreview({
   actions,
-  annotateModeActive,
   annotations,
   artifactId,
   entry,
   isLight,
   markdown,
   onSourceViewChange,
-  onAnnotateModeChange,
+  onModeChange,
   onSelectAnnotation,
   onSubmitAnnotation,
   onUnanchoredChange,
   projectId,
   readOnly,
+  reviewMode,
   selectedThreadId,
   version,
 }: {
   readonly actions: PreviewActions;
-  readonly annotateModeActive: boolean;
   readonly annotations: readonly ReviewAnnotation[];
   readonly artifactId: string;
   readonly entry: PreviewEntry;
   readonly isLight: boolean;
   readonly markdown: boolean;
   readonly onSourceViewChange: (active: boolean) => void;
-  readonly onAnnotateModeChange: (active: boolean) => void;
+  readonly onModeChange: (mode: ReviewMode) => void;
   readonly onSelectAnnotation: (threadId: string | null) => void;
   readonly onSubmitAnnotation: (
     body: string,
@@ -225,6 +225,7 @@ function HtmlPreview({
   readonly onUnanchoredChange: (threadIds: readonly string[]) => void;
   readonly projectId: string;
   readonly readOnly: boolean;
+  readonly reviewMode: ReviewMode;
   readonly selectedThreadId: string | null;
   readonly version: ArtifactVersion;
 }) {
@@ -238,7 +239,7 @@ function HtmlPreview({
   const [error, setError] = useState<Error | null>(null);
   const frameRef = useRef<HTMLIFrameElement | null>(null);
   const initialisedRef = useRef<PreviewDocument | null>(null);
-  const active = annotateModeActive && !sourceView;
+  const mode: ReviewMode = sourceView ? "view" : reviewMode;
   useEffect(() => {
     onSourceViewChange(markdown && sourceView);
     return () => onSourceViewChange(false);
@@ -364,9 +365,9 @@ function HtmlPreview({
         onUnanchoredChange(message.threadIds);
         return;
       }
-      if (message.type === "as-review-annotate-mode-request") {
+      if (message.type === "as-review-mode-request") {
         if (sourceView) return;
-        onAnnotateModeChange(message.active);
+        onModeChange(message.mode);
         return;
       }
       if (sourceView) return;
@@ -386,7 +387,7 @@ function HtmlPreview({
   }, [
     annotations,
     entry.path,
-    onAnnotateModeChange,
+    onModeChange,
     onSelectAnnotation,
     onSubmitAnnotation,
     onUnanchoredChange,
@@ -399,28 +400,24 @@ function HtmlPreview({
     if (!markdown && initialisedRef.current !== null) return;
     initialisedRef.current = previewDocument;
     postToFrame({
-      annotateModeActive: active,
       annotations: [...annotations],
       baseHref: markdown ? null : previewDocument.baseHref,
       entryPath: previewDocument.entryPath,
       html: previewDocument.html,
       isLight,
+      mode,
       readOnly,
       themeTokens: reviewThemeTokens(),
       type: "as-review-init",
       v: reviewProtocolVersion,
     });
     postToFrame({threadId: selectedThreadId, type: "as-review-focus", v: reviewProtocolVersion});
-  }, [active, annotations, frameReady, isLight, markdown, postToFrame, previewDocument, readOnly, selectedThreadId]);
+  }, [annotations, frameReady, isLight, markdown, mode, postToFrame, previewDocument, readOnly, selectedThreadId]);
 
   useEffect(() => {
     if (!initialisedRef.current) return;
-    postToFrame({
-      active,
-      type: "as-review-annotate-mode",
-      v: reviewProtocolVersion,
-    });
-  }, [active, postToFrame]);
+    postToFrame({mode, type: "as-review-mode", v: reviewProtocolVersion});
+  }, [mode, postToFrame]);
 
   useEffect(() => {
     if (!initialisedRef.current) return undefined;

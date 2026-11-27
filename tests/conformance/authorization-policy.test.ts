@@ -312,7 +312,6 @@ function artifactFixture(
     name: "Authorization fixture",
     ownerPrincipalId: "member-owner",
     projectId: "prj_default",
-    reviewMode: "annotate",
     tags: [],
     ...overrides,
   };

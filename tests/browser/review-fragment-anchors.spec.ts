@@ -29,6 +29,7 @@ const anchorArtifact = `<!doctype html>
       <a id="empty-link" href="#">Document start</a>
       <a id="top-link" href="#top">Top</a>
       <a id="owned-link" href="#section">Authored action</a>
+      <a id="external-link" href="https://external.example/page">External page</a>
     </nav>
     <section><h1>Fragment links remain in the preview</h1></section>
     <section id="section"><h2>Nested target</h2></section>
@@ -52,7 +53,7 @@ const anchorArtifact = `<!doctype html>
 </html>`;
 
 test.describe("Review fragment links", () => {
-  test("CMT-022-B CMT-022-F: fragment links scroll within the sandbox and tolerate invalid targets without navigation", async ({browser}) => {
+  test("CMT-022-B CMT-022-F: fragment links scroll within the View sandbox and tolerate invalid targets without navigation", async ({browser}) => {
     const fixture = await startBrowserFixture(browser);
     try {
       const published = await publishNew(fixture.server, fixture.installation, {
@@ -73,9 +74,7 @@ test.describe("Review fragment links", () => {
       await expect(review.locator("iframe")).toHaveAttribute("sandbox", "allow-scripts");
       const contentBase = await preview.locator("base").getAttribute("href");
       expect(contentBase).toMatch(/^http:\/\/review-[a-f0-9]+\.localhost:\d+\/$/u);
-      await preview.locator("#nested-link").focus();
-      await fixture.page.keyboard.press("Escape");
-      await expect(fixture.page.getByRole("button", {name: /^Interact mode:/u}))
+      await expect(fixture.page.getByRole("button", {name: /^View mode:/u}))
         .toHaveAttribute("aria-pressed", "false");
       const reviewUrl = fixture.page.url();
       const previewUrl = await preview.locator("body").evaluate(() => window.location.href);
@@ -128,7 +127,7 @@ test.describe("Review fragment links", () => {
     }
   });
 
-  test("CMT-022-F CMT-014-B: fragment links remain selectable for comments in annotation mode", async ({browser}) => {
+  test("CMT-022-F CMT-014-B: in Comment a plain click follows a link and Ctrl/Cmd-click pins it for a comment", async ({browser}) => {
     const fixture = await startBrowserFixture(browser);
     try {
       const published = await publishNew(fixture.server, fixture.installation, {
@@ -136,21 +135,29 @@ test.describe("Review fragment links", () => {
         content: anchorArtifact,
         idempotencyKey: "review-fragment-annotation",
         name: "Fragment annotation",
-        reviewMode: "annotate",
       });
       await localLogin(fixture);
+      await fixture.context.route("https://external.example/**", (route) =>
+        route.fulfill({body: "External", contentType: "text/plain"}));
       await fixture.page.goto(
-        `${fixture.server.baseUrl}/review?project=prj_default&artifact=${published.body.artifact.id}&version=${published.body.version.id}`,
+        `${fixture.server.baseUrl}/review?project=prj_default&artifact=${published.body.artifact.id}&version=${published.body.version.id}&mode=comment`,
       );
       const review = fixture.page.frameLocator(".as-artifact-frame");
       const preview = review.frameLocator("iframe");
       await expect(review.locator("iframe")).toHaveAttribute("sandbox", "allow-scripts");
-      await expect(fixture.page.getByRole("button", {name: /^Annotate mode:/u}))
+      await expect(fixture.page.getByRole("button", {name: /^Comment mode:/u}))
         .toHaveAttribute("aria-pressed", "true");
-      await preview.locator("#nested-link span").click();
       const composer = review.getByPlaceholder("Add a comment...");
+
+      await preview.locator("#nested-link span").click();
+      await expectTargetAtTop(preview, "#section");
+      await expect(composer).toBeHidden();
+      const popup = fixture.context.waitForEvent("page");
+      await preview.locator("#external-link").click();
+      await expect.poll(async () => (await popup).url()).toBe("https://external.example/page");
+
+      await preview.locator("#nested-link span").click({modifiers: ["ControlOrMeta"]});
       await expect(composer).toBeVisible();
-      expect(await preview.locator("body").evaluate(() => window.scrollY)).toBe(0);
       await composer.fill("Clarify the section link.");
       await review.getByRole("button", {name: "Save"}).click();
       await expect(fixture.page.getByRole("article").filter({hasText: "Clarify the section link."}))

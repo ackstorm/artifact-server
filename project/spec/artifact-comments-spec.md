@@ -311,13 +311,15 @@ browser focus and button semantics remain intact.
 
 ### HTML fragment navigation
 
-In Interact mode, ordinary same-frame fragment-only links in HTML previews
+In View mode, ordinary same-frame fragment-only links in HTML previews
 scroll to an element ID or legacy named anchor within the rendered document.
 Encoded fragments and keyboard activation work; an empty fragment returns to
 the top. Missing or malformed targets cannot navigate to the injected resource
-base URL. Authored element and document click cancellation and Annotate mode
-retain ownership of their gestures. Modified clicks, downloads, and other browsing targets retain
-their authored behavior. This preview behavior changes scrolling and focus,
+base URL. Authored element and document click cancellation retains ownership
+of its gestures. Modified clicks, downloads, and other browsing targets retain
+their authored behavior. In Comment mode the annotation viewer owns link
+gestures: a plain click follows the link and Ctrl/Cmd-click pins it for a
+comment. This preview behavior changes scrolling and focus,
 without emulating URL hash changes or browser history. It preserves stored
 artifact bytes, relative resource resolution, and the opaque-origin sandbox.
 

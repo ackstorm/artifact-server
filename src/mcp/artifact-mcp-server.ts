@@ -132,7 +132,6 @@ const artifactRecordSchema = z.object({
   name: z.string(),
   ownerPrincipalId: z.string(),
   projectId: z.string(),
-  reviewMode: z.enum(["annotate", "interact"]),
   tags: z.array(z.string()),
 }).strict();
 const versionRecordSchema = z.object({
@@ -1197,7 +1196,6 @@ export function createArtifactMcpServer(
             ),
             kind: z.literal("new_artifact"),
             name: z.string().min(1).max(200),
-            reviewMode: z.enum(["annotate", "interact"]).optional(),
             tags: z.array(tagSchema).max(20).default([]),
           }).strict(),
           z.object({
@@ -1273,41 +1271,6 @@ export function createArtifactMcpServer(
         warning: input.accessSetting !== accessSettings.publicLink
           ? "New requests that this level does not allow are blocked. Content sessions already issued keep serving their version for up to 15 minutes. Copies already downloaded or cached outside Artifact Server cannot be recalled."
           : null,
-      };
-    }),
-  );
-
-  registerNudgedTool(
-    "artifact_set_review_mode",
-    {
-      title: "Change the initial review mode",
-      description:
-        "Set the artifact's default HTML review mode to annotate or interact without changing saved files or versions. A valid mode parameter on a review link overrides this default for that visit.",
-      inputSchema: z.object({
-        artifactId: artifactIdSchema,
-        expectedCurrentVersionId: expectedVersionSchema,
-        idempotencyKey: idempotencyKeySchema,
-        projectId: optionalProjectIdSchema,
-        reviewMode: z.enum(["annotate", "interact"]),
-      }).strict(),
-      outputSchema: artifactStateSchema.extend({
-        links: z.object({artifact: z.url(), version: z.url()}).strict(),
-      }).strict(),
-      annotations: idempotentWriteAnnotations,
-    },
-    async (input) => toolResult(async () => {
-      const state = await runMcpApplicationEffect(
-        dependencies,
-        ArtifactManagementService.use((management) =>
-          management.changeReviewMode({...input, principal: identity.principal})
-        ),
-      );
-      return {
-        ...state,
-        links: {
-          artifact: artifactBrowserUrl(applicationUrl, state.artifact.id),
-          version: versionBrowserUrl(applicationUrl, dependencies.contentDomain, state.version.contentToken),
-        },
       };
     }),
   );

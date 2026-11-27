@@ -1,4 +1,5 @@
 import { installFragmentLinks } from "./fragment-links.ts";
+import { SANDBOX_SHIM_SCRIPT } from "./sandbox-shim.ts";
 
 /**
  * Multi-file artifacts reference their sub-resources relatively. The viewer
@@ -19,8 +20,32 @@ const resourceUrlAttributes = [
 
 /** Return `html` with a `<base href>` in place, or unchanged when it cannot be. */
 export function withBaseHref(html: string, baseHref: string | null): string {
-  if (baseHref === null || !absoluteHttpUrl.test(baseHref)) return html;
-  return withResolvedDocumentResources(html, baseHref);
+  if (!usableBase(baseHref)) return html;
+  return transformDocument(html, (parsed) => resolveDocumentResources(parsed, baseHref));
+}
+
+/**
+ * The document View frames: the page as published, with the content-domain
+ * base when there is one and the sandbox shim ahead of every page script.
+ */
+export function viewDocument(html: string, baseHref: string | null): string {
+  return transformDocument(html, (parsed) => {
+    if (usableBase(baseHref)) resolveDocumentResources(parsed, baseHref);
+    const shim = parsed.createElement("script");
+    shim.textContent = SANDBOX_SHIM_SCRIPT;
+    parsed.head.prepend(shim);
+  });
+}
+
+function usableBase(baseHref: string | null): baseHref is string {
+  return baseHref !== null && absoluteHttpUrl.test(baseHref);
+}
+
+function transformDocument(html: string, change: (parsed: Document) => void): string {
+  const parsed = new DOMParser().parseFromString(html, "text/html");
+  change(parsed);
+  const doctype = doctypeTag.exec(html)?.[0] ?? "";
+  return `${doctype}${parsed.documentElement.outerHTML}`;
 }
 
 /**
@@ -32,8 +57,7 @@ export function withBaseHref(html: string, baseHref: string | null): string {
  * anything. It makes eager resource attributes absolute up front, while the
  * base element still governs CSS, modules, runtime fetches, and navigation.
  */
-function withResolvedDocumentResources(html: string, baseHref: string): string {
-  const parsed = new DOMParser().parseFromString(html, "text/html");
+function resolveDocumentResources(parsed: Document, baseHref: string): void {
   const base = parsed.createElement("base");
   base.href = baseHref;
   parsed.head.prepend(base);
@@ -52,6 +76,4 @@ function withResolvedDocumentResources(html: string, baseHref: string): string {
   const fragmentLinks = parsed.createElement("script");
   fragmentLinks.textContent = `(${installFragmentLinks.toString()})();`;
   parsed.body.append(fragmentLinks);
-  const doctype = doctypeTag.exec(html)?.[0] ?? "";
-  return `${doctype}${parsed.documentElement.outerHTML}`;
 }

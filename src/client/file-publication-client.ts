@@ -82,7 +82,6 @@ const artifactSchema = Schema.Struct({
   name: Schema.String,
   ownerPrincipalId: Schema.String,
   projectId: Schema.String,
-  reviewMode: Schema.Literals(["annotate", "interact"]),
   tags: Schema.Array(Schema.String),
 });
 const versionSchema = Schema.Struct({
@@ -192,7 +191,6 @@ export type FilePublicationTarget =
     readonly accessSetting: "private" | "account_required" | "public_link";
     readonly kind: "new_artifact";
     readonly name?: string;
-    readonly reviewMode?: "annotate" | "interact";
     readonly tags: readonly string[];
   }
   | {
@@ -267,7 +265,6 @@ type CommitPublicationTarget =
     readonly accessSetting: "private" | "account_required" | "public_link";
     readonly kind: "new_artifact";
     readonly name: string;
-    readonly reviewMode?: "annotate" | "interact";
     readonly tags: readonly string[];
   }
   | {
@@ -391,13 +388,12 @@ function effectiveCommitTarget(
   defaultName: string,
 ): CommitPublicationTarget {
   if (target.kind !== "new_artifact") return target;
-  const resolved = {
+  return {
     accessSetting: target.accessSetting,
     kind: target.kind,
     name: target.name ?? defaultName,
     tags: target.tags,
   };
-  return target.reviewMode === "interact" ? {...resolved, reviewMode: target.reviewMode} : resolved;
 }
 
 /** Infer a deterministic browser media type from one file name. */

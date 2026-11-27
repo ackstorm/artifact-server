@@ -24,7 +24,7 @@ test.describe("Native Markdown review", () => {
       const first = (await publishNew(fixture.server, fixture.installation, {
         accessSetting: "account_required", content: richSource,
         idempotencyKey: "markdown-preview-rich", mediaType: "text/markdown; charset=utf-8",
-        name: "Native Markdown", path: "docs/readme.md", reviewMode: "annotate",
+        name: "Native Markdown", path: "docs/readme.md",
       })).body;
       const second = (await publishVersion(fixture.server, fixture.installation, {
         artifactId: first.artifact.id, content: "# Second immutable version\n",
@@ -56,7 +56,6 @@ test.describe("Native Markdown review", () => {
       await fixture.page.getByRole("tab", {name: "Preview", exact: true}).click();
       await expect(document.getByRole("heading", {name: "Native document"})).toBeVisible();
       await expect.poll(() => document.locator("html").evaluate((node) => getComputedStyle(node).colorScheme)).toBe("light");
-      await fixture.page.getByRole("button", {name: /^Annotate mode:/u}).click();
       await document.getByRole("link", {name: "Jump to title"}).click();
       await expect(document.getByRole("heading", {name: "Native document"})).toBeVisible();
       await expect.poll(() => document.locator("html").evaluate(() => window.location.hash)).toBe("#native-document");
@@ -139,7 +138,7 @@ test.describe("Native Markdown review", () => {
       const staged = await createStagedUpload(fixture.server, fixture.installation, "docs/readme.md", files);
       for (const response of await uploadEveryStagedFile(fixture.installation, staged.body, files)) expect(response.ok).toBe(true);
       const publication = (await commitStagedUpload(fixture.installation, staged.body, "markdown-preview-bundle", {
-        accessSetting: "account_required", kind: "new_artifact", name: "Markdown bundle", reviewMode: "annotate",
+        accessSetting: "account_required", kind: "new_artifact", name: "Markdown bundle",
       })).body;
       const next = (await publishVersion(fixture.server, fixture.installation, {
         artifactId: publication.artifact.id, content: "# New document\n\nNo previous feedback.\n",
@@ -147,7 +146,7 @@ test.describe("Native Markdown review", () => {
         mediaType: "text/markdown", path: "docs/readme.md",
       })).body;
       await localLogin(fixture);
-      await fixture.page.goto(reviewUrl(fixture, publication));
+      await fixture.page.goto(`${reviewUrl(fixture, publication)}&mode=comment`);
       const document = fixture.page.frameLocator(".as-artifact-frame").frameLocator("iframe");
       const image = document.getByRole("img", {name: "Bundled image"});
       await expect(image).toBeVisible();
@@ -177,7 +176,7 @@ test.describe("Native Markdown review", () => {
       }).toPass();
       await fixture.page.reload();
       await expect(document.locator("button[data-plannotator-marker]")).toHaveCount(1);
-      await fixture.page.goto(reviewUrl(fixture, next));
+      await fixture.page.goto(`${reviewUrl(fixture, next)}&mode=comment`);
       await expect(document.getByRole("heading", {name: "New document"})).toBeVisible();
       await fixture.page.getByRole("tab", {name: /^Comments/u}).click();
       await expect(fixture.page.getByText("Markdown anchored feedback", {exact: true})).toHaveCount(0);
@@ -195,7 +194,7 @@ test.describe("Native Markdown review", () => {
         expect((bounds?.x ?? -1) + (bounds?.width ?? 0)).toBeLessThanOrEqual(375);
       }
       await sourceTab.click();
-      await expect(fixture.page.getByRole("button", {name: /Annotate mode|Interact mode/u})).toHaveCount(0);
+      await expect(fixture.page.getByRole("button", {name: /^(Comment|View) mode/u})).toHaveCount(0);
     } finally { await stopBrowserFixture(fixture); }
   });
 

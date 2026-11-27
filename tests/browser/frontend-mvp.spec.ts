@@ -48,7 +48,6 @@ test.describe("Artifact Server frontend MVP", () => {
         content: "<!doctype html><html lang=\"en\"><title>Review fixture</title><main><h1 id=\"review-target\">Review preview content</h1><p id=\"review-theme-target\">Theme target</p><button id=\"review-native-action\" onclick=\"this.dataset.clicked = 'true'\">Artifact action</button></main></html>",
         idempotencyKey: "frontend-review-fixture",
         name: "Review fixture",
-        reviewMode: "annotate",
         tags: ["inspection", "prototype"],
       });
       await publishVersion(fixture.server, fixture.installation, {
@@ -143,22 +142,24 @@ test.describe("Artifact Server frontend MVP", () => {
       await expect(preview.getByRole("heading", {name: "Review preview content"}))
         .toBeVisible();
 
-      const annotateMode = fixture.page.getByRole("button", {
-        name: /^Annotate mode:/u,
+      const viewMode = fixture.page.getByRole("button", {
+        name: /^View mode:/u,
       });
-      await expect(annotateMode).toHaveAttribute("aria-pressed", "true");
-      await preview.locator("#review-native-action").focus();
-      await fixture.page.keyboard.press("Escape");
-      const interactMode = fixture.page.getByRole("button", {
-        name: /^Interact mode:/u,
-      });
-      await expect(interactMode).toHaveAttribute("aria-pressed", "false");
+      await expect(viewMode).toHaveAttribute("aria-pressed", "false");
       await preview.locator("#review-native-action").click();
       await expect(preview.locator("#review-native-action"))
         .toHaveAttribute("data-clicked", "true");
       await expect(reviewFrame.getByPlaceholder("Add a comment...")).toHaveCount(0);
-      await interactMode.click();
-      await expect(annotateMode).toHaveAttribute("aria-pressed", "true");
+      await viewMode.click();
+      const commentMode = fixture.page.getByRole("button", {
+        name: /^Comment mode:/u,
+      });
+      await expect(commentMode).toHaveAttribute("aria-pressed", "true");
+      await preview.locator("#review-native-action").focus();
+      await fixture.page.keyboard.press("Escape");
+      await expect(viewMode).toHaveAttribute("aria-pressed", "false");
+      await viewMode.click();
+      await expect(commentMode).toHaveAttribute("aria-pressed", "true");
 
       const catalog = fixture.page.getByRole("complementary", {
         name: "Artifact catalog",
@@ -447,6 +448,8 @@ test.describe("Artifact Server frontend MVP", () => {
 
       await fixture.page.reload();
       await expect(preview.locator("#review-target")).toBeVisible();
+      await expect(preview.locator("button[data-plannotator-marker]")).toHaveCount(0);
+      await fixture.page.getByRole("button", {name: /^View mode:/u}).click();
       await expect(preview.locator("button[data-plannotator-marker]"))
         .toHaveCount(1);
       await fixture.page.getByRole("tab", {name: "Details"}).click();
@@ -472,15 +475,15 @@ test.describe("Artifact Server frontend MVP", () => {
       await fixture.page.locator(".as-preview-panel").focus();
       await fixture.page.keyboard.press("f");
       await expect(fixture.page.getByRole("button", {name: "Exit full screen"})).toBeVisible();
-      await expect(fixture.page.getByRole("button", {name: "Annotate mode", exact: true}))
+      await expect(fixture.page.getByRole("button", {name: "Comment mode", exact: true}))
         .toHaveAttribute("aria-pressed", "true");
       await fixture.page.keyboard.press("Escape");
-      const focusInteractMode = fixture.page.getByRole("button", {
-        name: "Interact mode",
+      const focusViewMode = fixture.page.getByRole("button", {
+        name: "View mode",
         exact: true,
       });
-      await expect(focusInteractMode).toHaveAttribute("aria-pressed", "false");
-      await focusInteractMode.click();
+      await expect(focusViewMode).toHaveAttribute("aria-pressed", "false");
+      await focusViewMode.click();
       const focusComments = fixture.page.getByRole("complementary", {name: "Comments"});
       await expect(focusComments).toBeHidden();
       await preview.locator("#review-native-action").click();
@@ -522,10 +525,10 @@ test.describe("Artifact Server frontend MVP", () => {
       await fixture.page.keyboard.press("Escape");
       await expect(focusComments).toBeHidden();
       await expect(fixture.page.locator(".as-app"))
-        .toHaveAttribute("data-html-annotate-mode", "true");
+        .toHaveAttribute("data-review-mode", "comment");
       await fixture.page.keyboard.press("Escape");
       await expect(fixture.page.locator(".as-app"))
-        .toHaveAttribute("data-html-annotate-mode", "false");
+        .toHaveAttribute("data-review-mode", "view");
       expect(await fixture.page.evaluate(() => ({x: window.scrollX, y: window.scrollY})))
         .toEqual({x: 0, y: 0});
       const collapsedCanvas = await fixture.page.locator(".as-preview-panel__body")
@@ -622,7 +625,8 @@ test.describe("Artifact Server frontend MVP", () => {
         .analyze();
       expect(accessibility.violations).toEqual([]);
 
-      await expect(fixture.page.getByRole("button", {name: /^Annotate mode:/u}))
+      await fixture.page.getByRole("button", {name: /^View mode:/u}).click();
+      await expect(fixture.page.getByRole("button", {name: /^Comment mode:/u}))
         .toHaveAttribute("aria-pressed", "true");
       await preview.locator("#review-theme-target").click();
       const themedCommentPopover = reviewFrame.locator('[data-comment-popover="true"]');

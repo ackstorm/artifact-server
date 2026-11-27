@@ -55,7 +55,7 @@ An agent uses this sequence:
 
 When the agent publishes a new version, it first reads the current version ID. It sends that ID as `expectedCurrentVersionId`.
 
-For a new artifact, `artifact_commit_upload` accepts `target.reviewMode` as `interact` (the default) or `annotate`. Use `annotate` for a page reviewers should comment on region by region. A new version keeps the existing artifact default. To change that default later, use `artifact_set_review_mode` with `artifactId`, `reviewMode`, `expectedCurrentVersionId`, an `idempotencyKey`, and an optional `projectId`. See [Review mode](./review-mode.md) for link overrides and the HTTP equivalent.
+Review opens every artifact in View mode, the page exactly as published. To send a reviewer straight to Comment mode, add `&mode=comment` to `links.review`. See [Review mode](./review-mode.md).
 
 ## Use the publication result
 
@@ -92,7 +92,7 @@ opens its raw immutable content. Agents should hand people the Review URL.
 | Projects | `project_list`, `project_create`, `project_rename`, `project_archive`, `project_unarchive` |
 | Artifacts | `artifact_list`, `artifact_get`, `artifact_open`, `artifact_read_file`, `artifact_version_list`, `artifact_diff` |
 | Publication | `artifact_create_upload`, `artifact_commit_upload` |
-| Management | `artifact_set_visibility`, `artifact_set_tags`, `artifact_set_review_mode`, `artifact_restore_version`, `artifact_delete` |
+| Management | `artifact_set_visibility`, `artifact_set_tags`, `artifact_restore_version`, `artifact_delete` |
 | Comments | `comment_list`, `comment_get`, `comment_create`, `comment_reply`, `comment_update`, `comment_resolve`, `comment_delete` |
 | Voice | `voice_say` |
 

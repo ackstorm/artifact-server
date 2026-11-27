@@ -8,10 +8,10 @@
  * `apps/web/tsconfig.json` maps `@plannotator/ui/*` here so the compiler sees
  * this declared contract instead; Vite still bundles the real source.
  *
- * Mirrors @plannotator/ui@0.31.0:
- *   components/html-viewer/HtmlViewer.tsx:137-181 (HtmlViewerProps)
- *   components/Viewer.tsx:141-145 (ViewerHandle)
- *   types.ts:1-5, 60-125 (AnnotationType, Annotation, anchors)
+ * Mirrors @plannotator/ui@0.66.0:
+ *   components/html-viewer/HtmlViewer.tsx:227-597 (HtmlViewerProps)
+ *   components/Viewer.tsx:546-549 (ViewerHandle)
+ *   types.ts:23, 83-118, 127-165 (AnnotationType, Annotation, anchors)
  * Only the props this application drives are declared; unused Vim, diff,
  * attachment, and Ask-AI inputs are deliberately omitted so they cannot be
  * passed by accident.
@@ -61,6 +61,12 @@ export interface ViewerHandle {
 /** Inputs for the sandboxed raw-HTML viewer and its parent-side annotation UI. */
 export interface HtmlViewerProps {
   rawHtml: string;
+  /** The srcdoc frame's whole `sandbox` attribute; absent widens it with `allow-modals`. */
+  sandbox?: string | undefined;
+  /** A non-fragment link the frame swallowed, as its raw, screened href. */
+  onOpenLink?: ((href: string) => void) | undefined;
+  /** False drops the image button from every comment box. */
+  allowCommentImages?: boolean | undefined;
   annotations: Annotation[];
   onAddAnnotation: (annotation: Annotation) => void;
   onSelectAnnotation: (id: string | null) => void;

@@ -61,15 +61,21 @@ const themeTokensSchema = z.record(
   z.string().max(256),
 );
 
+/**
+ * View renders the artifact exactly as published, with no annotation layer;
+ * Comment mounts the annotation surface.
+ */
+export const reviewModeSchema = z.enum(["view", "comment"]);
+
 /** Every message the host is allowed to send into the review frame. */
 export const hostMessageSchema = z.discriminatedUnion("type", [
   z.object({
-    annotateModeActive: z.boolean().optional(),
     annotations: z.array(reviewAnnotationSchema),
     baseHref: z.string().nullable(),
     entryPath: z.string(),
     html: z.string(),
     isLight: z.boolean(),
+    mode: reviewModeSchema,
     readOnly: z.boolean(),
     themeTokens: themeTokensSchema,
     type: z.literal("as-review-init"),
@@ -87,8 +93,8 @@ export const hostMessageSchema = z.discriminatedUnion("type", [
     v: versionSchema,
   }),
   z.object({
-    active: z.boolean(),
-    type: z.literal("as-review-annotate-mode"),
+    mode: reviewModeSchema,
+    type: z.literal("as-review-mode"),
     v: versionSchema,
   }),
   z.object({
@@ -99,6 +105,7 @@ export const hostMessageSchema = z.discriminatedUnion("type", [
 ]);
 
 export type HostMessage = z.infer<typeof hostMessageSchema>;
+export type ReviewMode = z.infer<typeof reviewModeSchema>;
 export type ReviewAnnotation = z.infer<typeof reviewAnnotationSchema>;
 export type ReviewAnchor = z.infer<typeof reviewAnchorSchema>;
 export type ReviewInit = Extract<HostMessage, {type: "as-review-init"}>;
@@ -123,8 +130,8 @@ export const frameMessageSchema = z.discriminatedUnion("type", [
     v: versionSchema,
   }),
   z.object({
-    active: z.boolean(),
-    type: z.literal("as-review-annotate-mode-request"),
+    mode: reviewModeSchema,
+    type: z.literal("as-review-mode-request"),
     v: versionSchema,
   }),
   z.object({
