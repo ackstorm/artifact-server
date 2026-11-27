@@ -102,7 +102,7 @@ import {
   type ToolResultNudgeFacts,
 } from "./tool-result-nudges.js";
 
-const serverVersion = "0.5.10";
+const serverVersion = "0.6.0";
 const maximumListedArtifacts = 100;
 const maximumTextDiffBytes = 256 * 1_024;
 /** Every level an artifact can hold. */
