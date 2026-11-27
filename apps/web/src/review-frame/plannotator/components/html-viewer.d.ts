@@ -12,6 +12,8 @@
  *   components/html-viewer/HtmlViewer.tsx:227-597 (HtmlViewerProps)
  *   components/Viewer.tsx:546-549 (ViewerHandle)
  *   types.ts:23, 83-118, 127-165 (AnnotationType, Annotation, anchors)
+ *   components/html-viewer/index.ts:25 (buildPersistedHtmlAnchor) and
+ *   @plannotator/core@0.25.34 html-anchor.ts:66-100, 426-571
  * Only the props this application drives are declared; unused Vim, diff,
  * attachment, and Ask-AI inputs are deliberately omitted so they cannot be
  * passed by accident.
@@ -26,12 +28,57 @@ export interface HtmlElementAnchor {
   point?: {x: number; y: number} | undefined;
 }
 
+/** Bounded agent-facing description of a pinpointed element (types.ts:179-230). */
+export interface HtmlElementContext {
+  tag: string;
+  id?: string | undefined;
+  classes?: string[] | undefined;
+  path?: string | undefined;
+  role?: string | undefined;
+  name?: string | undefined;
+  attrs?: Array<[string, string]> | undefined;
+  text?: string | undefined;
+  outline?: string | undefined;
+  children?: number | undefined;
+  rect?: {x: number; y: number; w: number; h: number; vw: number; vh: number} | undefined;
+  landmark?: string | undefined;
+  heading?: string | undefined;
+  component?: string | undefined;
+  page?: {url: string; title?: string | undefined} | undefined;
+  sourceName?: string | undefined;
+}
+
 /** One additional element covered by a multi-target pinpoint comment. */
 export interface HtmlAnnotationTarget {
   label?: string | undefined;
   text: string;
   anchor?: HtmlElementAnchor | undefined;
+  context?: HtmlElementContext | undefined;
 }
+
+/** The anchor record a host persists for one raw-HTML comment. */
+export interface PersistedHtmlAnchor {
+  originalText: string;
+  htmlAnchor?: HtmlElementAnchor | undefined;
+  htmlAdditionalTargets?: HtmlAnnotationTarget[] | undefined;
+  elementContext?: HtmlElementContext | undefined;
+}
+
+/** Validate and bound one composed comment's anchor for persistence. */
+export declare function buildPersistedHtmlAnchor(
+  source: {
+    originalText: string;
+    htmlAnchor?: HtmlElementAnchor | null | undefined;
+    htmlAdditionalTargets?: readonly HtmlAnnotationTarget[] | null | undefined;
+    elementContext?: HtmlElementContext | null | undefined;
+  },
+  options?: {maxBytes?: number | undefined; maxTargets?: number | undefined},
+): {
+  anchor: PersistedHtmlAnchor;
+  droppedTargets: number;
+  capDroppedTargets: number;
+  sizeDroppedTargets: number;
+};
 
 /** The annotation kinds the viewer distinguishes (string enum in the package). */
 export type AnnotationKind = "COMMENT" | "DELETION" | "GLOBAL_COMMENT";
@@ -49,6 +96,7 @@ export interface Annotation {
   author?: string | undefined;
   htmlAnchor?: HtmlElementAnchor | undefined;
   htmlAdditionalTargets?: HtmlAnnotationTarget[] | undefined;
+  elementContext?: HtmlElementContext | undefined;
 }
 
 /** Imperative repaint handle for a prop-driven mount. */

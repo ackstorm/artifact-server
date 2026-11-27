@@ -1988,6 +1988,19 @@ requirements:
     proof_gap: Local Chromium production-build evidence proves fragment scrolling, cancellation, annotation ownership, and retained sandbox isolation. Equivalent Firefox, WebKit, and team-deployment evidence remains unrecorded; URL hash and history emulation are outside this contract.
     depends_on: [CMT-014, CMT-018]
 
+  - id: CMT-023
+    kind: behavior
+    behavior: A pinpoint comment on an HTML element stores the review bridge's bounded element context (tag, id, classes, path, role, name, outline, box) inside its opaque anchor through the package's persisted-anchor helper, within the 16 KiB anchor cap; the server does not interpret it.
+    owner: artifact-comments
+    source: {file: artifact-comments-spec.md, anchor: 3-model}
+    acceptance:
+      behavior: {id: CMT-023-B, description: "Pinpoint an element in Comment mode and read back an anchor carrying its tag, id, classes, path, and selector."}
+      failure: {id: CMT-023-F, description: "An element with oversized page-controlled attributes and text saves a comment whose anchor stays within 16 KiB and whose context fields stay within their caps."}
+    deployments: *all
+    status: verified
+    proof_gap: Local Chromium production-build evidence only; Firefox, WebKit, and team-deployment evidence is unrecorded.
+    depends_on: [CMT-003, CMT-014]
+
   - id: ADM-001
     kind: behavior
     behavior: Artifact Server ships one canonical React application for Review and settings, plus the isolated Review frame; every former application route redirects to the equivalent canonical destination without serving or loading a legacy application bundle.
