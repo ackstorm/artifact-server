@@ -9,8 +9,8 @@
       "@/*": ["./src/*"],
       "@plannotator/ui/*": ["./src/review-frame/plannotator/*"]
     },
-    "rootDir": ".",
+    "rootDir": "../..",
     "types": ["node", "vite/client"]
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "vite.config.ts"]
+  "include": ["src/**/*.ts", "src/**/*.tsx", "vite.config.ts", "vite.embed.config.ts", "../../src/core/diagram-source-rules.ts"]
 }

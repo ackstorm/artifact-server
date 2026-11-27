@@ -88,7 +88,11 @@ opens its raw immutable content. Agents should hand people the Review URL.
 
 ## Publication warnings
 
-Upload commits and edits return `warnings`, which never fail a publication. `missing_reference` names a relative link or image in an HTML or Markdown file that matches no file in the version. `blocked_host` names a script or stylesheet URL whose host the Review frame does not allow. At most 50 warnings are returned, from at most 4 MiB of HTML and Markdown.
+Upload commits and edits return `warnings`, which never fail a publication. `missing_reference` names a relative link or image in an HTML or Markdown file that matches no file in the version. `blocked_host` names a script or stylesheet URL whose host the Review frame does not allow. Pages that embed objects add `diagram_refused` (a `.mmd` file or Markdown Mermaid fence using a construct the renderer refuses, named in the warning) and `embed_runtime_missing` (an HTML file with `<as-embed>` and no `/.artifactserver/embed.js` script); an `<as-embed src>` naming no file is a `missing_reference`. At most 50 warnings are returned, from at most 4 MiB of HTML, Markdown, and Mermaid.
+
+## Embed tables and diagrams
+
+An HTML entry embeds a CSV table or a Mermaid diagram with `<as-embed src="relative path" title="optional"></as-embed>` and loads the runtime once with `<script src="/.artifactserver/embed.js"></script>`. `*.csv` is a read-only table and `*.mmd` a diagram; change them with `artifact_edit`. A comment inside an embed is recorded on the embedded file, and `target.embed` on `comment_list` and `comment_get` gives its `src` and the table `cell` (such as `B4`) or the diagram `element`. `dispatch_inbox` bundles show the embedded file as the item's path and carry no cell. See `skills/artifact-server/references/embeds.md`.
 
 ## Edit text files of an artifact
 

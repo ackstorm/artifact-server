@@ -5,6 +5,7 @@ import {
   type ViewerHandle,
 } from "@plannotator/ui/components/html-viewer";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {z} from "zod";
 
 import { viewDocument, withBaseHref } from "./base-href.ts";
 import {
@@ -26,6 +27,8 @@ interface ReviewSession {
   readonly mode: ReviewMode;
   readonly readOnly: boolean;
 }
+
+const embedsRenderedSchema = z.object({type: z.literal("as-embeds-rendered")}).loose();
 
 /** Project one host thread into the record the viewer paints and numbers. */
 function toAnnotation(review: ReviewAnnotation): Annotation {
@@ -201,9 +204,35 @@ export function ReviewFrame(): React.ReactNode {
     send({mode, type: "as-review-mode-request", v: reviewProtocolVersion});
   }, [send]);
 
+  // The runtime in the page reports that embeds finished rendering; the viewer
+  // registered its pins before they existed, so repaint them. The message
+  // carries no data and only the viewer's own frame is heard.
+  const mode = session?.mode;
+  const annotationsRef = useRef<readonly Annotation[]>([]);
+  annotationsRef.current = session?.annotations ?? [];
+  useEffect(() => {
+    if (mode !== "comment") return undefined;
+    let frame = 0;
+    const repaint = (): void => {
+      frame = 0;
+      viewerRef.current?.clearAllHighlights();
+      viewerRef.current?.applySharedAnnotations([...annotationsRef.current]);
+    };
+    const onEmbedsRendered = (event: MessageEvent<unknown>): void => {
+      const viewerFrame = document.querySelector("iframe");
+      if (viewerFrame === null || event.source !== viewerFrame.contentWindow) return;
+      if (!embedsRenderedSchema.safeParse(event.data).success || frame !== 0) return;
+      frame = window.requestAnimationFrame(repaint);
+    };
+    window.addEventListener("message", onEmbedsRendered);
+    return () => {
+      window.removeEventListener("message", onEmbedsRendered);
+      window.cancelAnimationFrame(frame);
+    };
+  }, [mode]);
+
   const html = session?.html;
   const baseHref = session?.baseHref ?? null;
-  const mode = session?.mode;
   const framedHtml = useMemo(() => {
     if (html === undefined) return "";
     return mode === "comment" ? withBaseHref(html, baseHref) : viewDocument(html, baseHref);

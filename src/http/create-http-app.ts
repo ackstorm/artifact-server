@@ -196,6 +196,10 @@ const commitUploadSchema = z.object({
     }).strict(),
   ]),
 }).strict();
+/** Reserved on every content host; manifests reject the `.artifactserver` segment. */
+const embedRuntimePathPrefix = "/.artifactserver/";
+/** The embed build names every file here by its content hash. */
+const hashedRuntimePrefix = "chunks/";
 const contentTokenSchema = z
   .string()
   .min(16)
@@ -701,6 +705,9 @@ export function createHttpApp(
       dependencies.contentDomain,
     );
     if (contentToken !== null) {
+      if (requestUrl.pathname.startsWith(embedRuntimePathPrefix)) {
+        return serveEmbedRuntime(context, requestUrl, contentToken, dependencies);
+      }
       if (isPreviewLeaseToken(contentToken)) {
         return servePreviewLeaseContent(
           context,
@@ -3717,6 +3724,48 @@ async function servePreviewLeaseContent(
   );
   if (content === null) return versionNotFoundResponse();
   return serveStoredVersionContent(context, content, false, true, dependencies);
+}
+
+/**
+ * The reserved `/.artifactserver/` path of every content host. Version and
+ * preview-lease hosts serve the embed runtime's static build; live hosts
+ * serve nothing there. Artifact files are never served here.
+ */
+async function serveEmbedRuntime(
+  context: Context<HttpEnvironment>,
+  requestUrl: URL,
+  contentToken: string,
+  dependencies: HttpAppDependencies,
+): Promise<Response> {
+  if (isLiveContentToken(contentToken)) return versionNotFoundResponse();
+  const method = context.req.method;
+  if (method !== "GET" && method !== "HEAD") {
+    return Response.json(
+      {error: {code: errorCodes.methodNotAllowed, message: "Only GET and HEAD are supported."}},
+      {status: 405, headers: {Allow: "GET, HEAD"}},
+    );
+  }
+  const rest = requestUrl.pathname.slice(embedRuntimePathPrefix.length);
+  const asset = await dependencies.webAssets?.fetch(
+    `/embed/${rest}`,
+    method === "HEAD" ? "HEAD" : "GET",
+  ) ?? null;
+  if (asset === null || !asset.ok) return versionNotFoundResponse();
+  const headers = new Headers({
+    // The opaque-origin Review frame imports these modules in CORS mode.
+    "Access-Control-Allow-Origin": "*",
+    "Cache-Control": rest.startsWith(hashedRuntimePrefix) ? "public, max-age=31536000, immutable" : "no-cache",
+    "Cross-Origin-Resource-Policy": "cross-origin",
+    "X-Content-Type-Options": "nosniff",
+  });
+  copyAssetHeader(asset.headers, headers, "ETag");
+  const etag = headers.get("ETag");
+  if (etag !== null && etagMatches(context.req.header("if-none-match"), etag)) {
+    return new Response(null, {headers, status: 304});
+  }
+  copyAssetHeader(asset.headers, headers, "Content-Length");
+  copyAssetHeader(asset.headers, headers, "Content-Type");
+  return new Response(method === "HEAD" ? null : asset.body, {headers, status: 200});
 }
 
 async function serveStoredVersionContent(

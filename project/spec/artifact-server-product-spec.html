@@ -1857,6 +1857,28 @@
                 </p>
               </div>
             </article>
+            <article class="feature-row" id="embedded-objects">
+              <h3>Embed tables and diagrams in HTML pages</h3>
+              <div class="feature-copy">
+                <p>
+                  An HTML entry places an object with <code>&lt;as-embed src="relative path" title="optional"&gt;</code>
+                  and loads the runtime with <code>&lt;script src="/.artifactserver/embed.js"&gt;&lt;/script&gt;</code>.
+                  The file name selects the object: <code>*.csv</code> is a table and
+                  <code>*.mmd</code> a Mermaid diagram. Version and preview-lease hosts serve the runtime under
+                  the reserved <code>/.artifactserver/</code> path, which no manifest may use, and the page
+                  renders the same in Review and through its raw link.
+                </p>
+                <p>
+                  A table is a standard CSV file (RFC 4180, UTF-8) shown read-only in the browser: its first
+                  row is the header row, with column letters, row numbers, and numeric-looking values
+                  right-aligned exactly as written. The server computes nothing for it, and the CSV file
+                  itself is the download that spreadsheet applications open. Diagrams follow the Markdown
+                  preview's Mermaid rules, and publication warns about Mermaid constructs the preview
+                  refuses and pages missing the runtime. A comment on anything inside an embed belongs to
+                  the embedded file, and Review shows each embedded object in its own tab beside the page.
+                </p>
+              </div>
+            </article>
             <article class="feature-row">
               <h3>Serve complete client-side output directories</h3>
               <div class="feature-copy">
