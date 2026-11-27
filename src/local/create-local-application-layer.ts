@@ -439,11 +439,6 @@ export function createApplicationLayer(
           try: () => adapters.repository.changeAccessSetting(command),
           catch: classifyChangeAccessFailure,
         }),
-      changeReviewMode: (command) =>
-        Effect.tryPromise({
-          try: () => adapters.repository.changeReviewMode(command),
-          catch: classifyChangeReviewModeFailure,
-        }),
       changeTags: (command) =>
         Effect.tryPromise({
           try: () => adapters.repository.changeTags(command),
@@ -1384,21 +1379,6 @@ function classifyChangeAccessFailure(cause: unknown):
     return cause;
   }
   return repositoryFailure("changeAccessSetting", cause);
-}
-
-function classifyChangeReviewModeFailure(cause: unknown):
-  | ArtifactNotFound
-  | ArtifactMutationConflict
-  | IdempotencyConflict
-  | ArtifactRepositoryFailure {
-  if (
-    cause instanceof ArtifactNotFound ||
-    cause instanceof ArtifactMutationConflict ||
-    cause instanceof IdempotencyConflict
-  ) {
-    return cause;
-  }
-  return repositoryFailure("changeReviewMode", cause);
 }
 
 function classifyChangeTagsFailure(cause: unknown):

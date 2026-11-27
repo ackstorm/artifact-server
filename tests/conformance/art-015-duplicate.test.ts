@@ -93,7 +93,6 @@ describe("duplicate", () => {
       idempotencyKey: "art-015-publish-o",
       name: "O",
       projectId,
-      reviewMode: "interact",
       tags: ["alpha", "beta"],
     });
     const originalId = original.body.artifact.id;
@@ -148,7 +147,6 @@ describe("duplicate", () => {
     expect(copy.artifact).toMatchObject({
       accessSetting: "private",
       name: "O (copy)",
-      reviewMode: "interact",
       tags: [],
     });
     expect(copy.version).toMatchObject({
@@ -256,7 +254,6 @@ describe("duplicate", () => {
       accessSetting: z.string(),
       id: z.string(),
       name: z.string(),
-      reviewMode: z.string(),
       tags: z.array(z.string()),
     }),
     links: z.object({version: z.url()}),

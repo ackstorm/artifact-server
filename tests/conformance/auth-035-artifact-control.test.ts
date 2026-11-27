@@ -60,7 +60,6 @@ const jsonSchema = z.json();
 const artifactSchema = z.object({
   accessSetting: z.string(),
   currentVersionId: z.string(),
-  reviewMode: z.string(),
   tags: z.array(z.string()),
 }).loose();
 const stateSchema = z.object({
@@ -135,7 +134,7 @@ describe("artifact control by owner", () => {
     await removeTestInstallation(installation);
   });
 
-  test("AUTH-035-B: the owner publishes, tags, restores, sets review mode and raises the level, and an administrator lowers any level and manages service-owned artifacts", async () => {
+  test("AUTH-035-B: the owner publishes, tags, restores and raises the level, and an administrator lowers any level and manages service-owned artifacts", async () => {
     const {ada, adaKey, administrator, bobKey, serviceKey} = await setUp();
     const first = await publishNew(server, {...installation, apiToken: adaKey}, {
       accessSetting: "private",
@@ -150,12 +149,11 @@ describe("artifact control by owner", () => {
       currentVersionId: first.body.artifact.currentVersionId,
       firstVersionId: first.body.version.id,
     };
-    const bySession = await changeAsOwner(ada, owned, "session", "interact");
+    const bySession = await changeAsOwner(ada, owned, "session");
     const current = await changeAsOwner(
       bearer(adaKey),
       {...owned, currentVersionId: bySession},
       "key",
-      "annotate",
     );
 
     const shared = await changeLevel(ada, artifactId, current, "account_required", "ada-raise-1");
@@ -332,13 +330,11 @@ describe("artifact control by owner", () => {
       {
         accessSetting: "account_required",
         currentVersionId: organization.currentVersionId,
-        reviewMode: "interact",
         tags: [],
       },
       {
         accessSetting: "private",
         currentVersionId: hidden.currentVersionId,
-        reviewMode: "interact",
         tags: [],
       },
     ]);
@@ -396,7 +392,6 @@ describe("artifact control by owner", () => {
     credential: Credential,
     target: Target,
     label: string,
-    reviewMode: "annotate" | "interact",
   ): Promise<string> {
     const {artifactId} = target;
     const published = state(await publish(
@@ -417,12 +412,7 @@ describe("artifact control by owner", () => {
       versionId: target.firstVersionId,
     }, `auth-035-ada-restore-${label}`));
     expect(restored.artifact.currentVersionId).toBe(target.firstVersionId);
-    const reviewed = state(await send(credential, "PATCH", `${artifactId}/review-mode`, {
-      expectedCurrentVersionId: restored.artifact.currentVersionId,
-      reviewMode,
-    }, `auth-035-ada-review-${label}`));
-    expect(reviewed.artifact.reviewMode).toBe(reviewMode);
-    return reviewed.artifact.currentVersionId;
+    return restored.artifact.currentVersionId;
   }
 
   async function attemptEveryChange(
@@ -450,10 +440,6 @@ describe("artifact control by owner", () => {
         expectedCurrentVersionId,
         versionId: target.firstVersionId,
       }, key("restore")),
-      await send(credential, "PATCH", `${target.artifactId}/review-mode`, {
-        expectedCurrentVersionId,
-        reviewMode: "annotate",
-      }, key("review-mode")),
       await send(credential, "PATCH", `${target.artifactId}/access`, {
         accessSetting: raiseTo,
         expectedCurrentVersionId,
@@ -495,11 +481,6 @@ describe("artifact control by owner", () => {
         ...common,
         idempotencyKey: key("restore"),
         versionId: target.firstVersionId,
-      }),
-      callTool(token, "artifact_set_review_mode", {
-        ...common,
-        idempotencyKey: key("review-mode"),
-        reviewMode: "annotate",
       }),
     ]);
   }

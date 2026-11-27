@@ -1,7 +1,6 @@
 import { z } from "zod";
 
 const accessSettingSchema = z.enum(["private", "account_required", "public_link"]);
-const reviewModeSchema = z.enum(["annotate", "interact"]);
 const membershipRoleSchema = z.enum(["administrator", "member"]);
 const principalKindSchema = z.enum(["human", "service"]);
 const capabilitySchema = z.enum([
@@ -82,7 +81,6 @@ const artifactSchema = z.object({
   name: z.string(),
   ownerPrincipalId: z.string(),
   projectId: z.string(),
-  reviewMode: reviewModeSchema,
   tags: z.array(z.string()),
 });
 
@@ -137,7 +135,6 @@ const apiErrorBodySchema = z.object({
 const noContentStatuses = new Set([204, 205]);
 
 export type AccessSetting = z.infer<typeof accessSettingSchema>;
-export type ReviewMode = z.infer<typeof reviewModeSchema>;
 export type SourceFreshness = z.infer<typeof sourceFreshnessSchema>;
 export type SourceBinding = z.infer<typeof sourceBindingSchema>;
 export type PrincipalCapability = z.infer<typeof capabilitySchema>;

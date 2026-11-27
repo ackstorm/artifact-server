@@ -31,7 +31,6 @@ interface PublishOptions {
   readonly profile?: string;
   readonly profileData: string;
   readonly routing: "spa" | "static";
-  readonly reviewMode?: "annotate" | "interact";
   readonly server?: string;
   readonly tag: readonly string[];
   readonly tokenFile?: string;
@@ -75,10 +74,6 @@ export function configurePublishCommand(
         .default("static"),
     )
     .addOption(new Option("--name <name>", "name for a new artifact"))
-    .addOption(
-      new Option("--review-mode <mode>", "initial HTML review mode for a new artifact")
-        .choices(["annotate", "interact"]),
-    )
     .addOption(
       new Option("--public", "let anyone with the link open it without sign-in")
         .default(false)
@@ -158,10 +153,10 @@ function publicationCommand(
   if (options.artifact !== undefined && options.expectedVersion !== undefined) {
     if (
       options.name !== undefined || options.public || options.signedIn
-      || options.tag.length > 0 || options.reviewMode !== undefined
+      || options.tag.length > 0
     ) {
       throw new Error(
-        "--name, --public, --signed-in, --tag, and --review-mode apply only when creating a new artifact.",
+        "--name, --public, --signed-in, and --tag apply only when creating a new artifact.",
       );
     }
     return withEntryPath({
@@ -175,7 +170,7 @@ function publicationCommand(
   }
 
   const accessSetting = newArtifactAccess(options);
-  const initialTarget = options.name === undefined
+  const target = options.name === undefined
     ? {
       accessSetting,
       kind: "new_artifact" as const,
@@ -187,9 +182,6 @@ function publicationCommand(
       name: options.name,
       tags: options.tag,
     };
-  const target = options.reviewMode === undefined
-    ? initialTarget
-    : {...initialTarget, reviewMode: options.reviewMode};
   return withEntryPath({
     ...common,
     target,

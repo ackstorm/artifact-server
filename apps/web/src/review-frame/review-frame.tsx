@@ -3,9 +3,9 @@ import {
   type Annotation,
   type ViewerHandle,
 } from "@plannotator/ui/components/html-viewer";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { withBaseHref } from "./base-href.ts";
+import { viewDocument, withBaseHref } from "./base-href.ts";
 import {
   hostMessageSchema,
   reviewAnchorFrom,
@@ -13,16 +13,17 @@ import {
   type FrameMessage,
   type ReviewAnnotation,
   type ReviewInit,
+  type ReviewMode,
   type ReviewTheme,
 } from "./protocol.ts";
 
 interface ReviewSession {
-  readonly annotateModeActive: boolean;
   readonly annotations: Annotation[];
+  readonly baseHref: string | null;
   readonly entryPath: string;
   readonly html: string;
+  readonly mode: ReviewMode;
   readonly readOnly: boolean;
-  readonly supportsAnnotateMode: boolean;
 }
 
 /** Project one host thread into the record the viewer paints and numbers. */
@@ -48,12 +49,12 @@ function toAnnotation(review: ReviewAnnotation): Annotation {
 
 function sessionFrom(init: ReviewInit): ReviewSession {
   return {
-    annotateModeActive: init.annotateModeActive ?? true,
     annotations: init.annotations.map(toAnnotation),
+    baseHref: init.baseHref,
     entryPath: init.entryPath,
-    html: withBaseHref(init.html, init.baseHref),
+    html: init.html,
+    mode: init.mode,
     readOnly: init.readOnly,
-    supportsAnnotateMode: init.annotateModeActive !== undefined,
   };
 }
 
@@ -67,9 +68,25 @@ function applyTheme(theme: ReviewInit | ReviewTheme): void {
 }
 
 /**
- * The review frame: a same-origin document whose only job is to host
- * `@plannotator/ui`'s sandboxed HTML annotation surface and relay its events
- * to the application shell. It holds no credential, makes no request, and
+ * Open a link the Comment surface swallowed in a new tab. Only web addresses
+ * leave; a relative link resolves against the version's content base.
+ */
+function openLink(href: string, baseHref: string | null): void {
+  let url: URL;
+  try {
+    url = baseHref === null ? new URL(href) : new URL(href, baseHref);
+  } catch {
+    return;
+  }
+  if (url.protocol !== "https:" && url.protocol !== "http:") return;
+  window.open(url.href, "_blank", "noopener,noreferrer");
+}
+
+/**
+ * The review frame: a same-origin document that frames the artifact in a
+ * sandbox and relays review events to the application shell. View frames the
+ * page as published; Comment hosts `@plannotator/ui`'s HTML annotation
+ * surface. It holds no credential, makes no request, and
  * learns everything it renders from one validated `as-review-init` message.
  */
 export function ReviewFrame(): React.ReactNode {
@@ -111,11 +128,9 @@ export function ReviewFrame(): React.ReactNode {
         );
         return;
       }
-      if (message.type === "as-review-annotate-mode") {
+      if (message.type === "as-review-mode") {
         setSession((current) =>
-          current === null
-            ? current
-            : {...current, annotateModeActive: message.active}
+          current === null ? current : {...current, mode: message.mode}
         );
         return;
       }
@@ -133,19 +148,22 @@ export function ReviewFrame(): React.ReactNode {
   // The viewer paints marks for its initial prop set when the bridge reports
   // ready; every later arrival or removal is reconciled by id so a replaced
   // optimistic annotation leaves no orphan marker behind.
+  // With no viewer mounted (View), the next one paints the full set itself.
   const annotations = session?.annotations;
   useEffect(() => {
+    if (annotations === undefined) return;
     const viewer = viewerRef.current;
-    if (viewer === null || annotations === undefined) return;
     const painted = paintedIdsRef.current;
     const next = new Set(annotations.map((annotation) => annotation.id));
-    for (const id of painted) {
-      if (!next.has(id)) viewer.removeHighlight(id);
+    if (viewer !== null) {
+      for (const id of painted) {
+        if (!next.has(id)) viewer.removeHighlight(id);
+      }
+      const added = annotations.filter(
+        (annotation) => !painted.has(annotation.id),
+      );
+      if (added.length > 0) viewer.applySharedAnnotations(added);
     }
-    const added = annotations.filter(
-      (annotation) => !painted.has(annotation.id),
-    );
-    if (added.length > 0) viewer.applySharedAnnotations(added);
     paintedIdsRef.current = next;
   }, [annotations]);
 
@@ -177,13 +195,17 @@ export function ReviewFrame(): React.ReactNode {
     send({threadIds, type: "as-review-unanchored", v: reviewProtocolVersion});
   }, [send]);
 
-  const requestAnnotateMode = useCallback((active: boolean): void => {
-    send({
-      active,
-      type: "as-review-annotate-mode-request",
-      v: reviewProtocolVersion,
-    });
+  const requestMode = useCallback((mode: ReviewMode): void => {
+    send({mode, type: "as-review-mode-request", v: reviewProtocolVersion});
   }, [send]);
+
+  const html = session?.html;
+  const baseHref = session?.baseHref ?? null;
+  const mode = session?.mode;
+  const framedHtml = useMemo(() => {
+    if (html === undefined) return "";
+    return mode === "comment" ? withBaseHref(html, baseHref) : viewDocument(html, baseHref);
+  }, [baseHref, html, mode]);
 
   if (session === null) {
     return (
@@ -193,28 +215,40 @@ export function ReviewFrame(): React.ReactNode {
     );
   }
 
+  const title = `Artifact review: ${session.entryPath}`;
+  if (session.mode === "view") {
+    // Never widen this sandbox: allow-same-origin beside allow-scripts would
+    // let the page lift its own sandbox.
+    return (
+      <iframe
+        className="review-view"
+        sandbox="allow-scripts"
+        srcDoc={framedHtml}
+        title={title}
+      />
+    );
+  }
+
   return (
     <HtmlViewer
-      annotateModeActive={session.annotateModeActive}
+      allowCommentImages={false}
       annotations={session.annotations}
       fullViewport
       hideControls
       inputMethod="pinpoint"
       mode="comment"
       onAddAnnotation={handleAdd}
-      onAnnotateModeExit={session.supportsAnnotateMode
-        ? () => requestAnnotateMode(false)
-        : undefined}
-      onAnnotateModeToggle={session.supportsAnnotateMode
-        ? () => requestAnnotateMode(!session.annotateModeActive)
-        : undefined}
+      onAnnotateModeExit={() => requestMode("view")}
+      onAnnotateModeToggle={() => requestMode("view")}
+      onOpenLink={(href) => openLink(href, session.baseHref)}
       onSelectAnnotation={handleSelect}
       onUnanchoredChange={handleUnanchored}
-      rawHtml={session.html}
+      rawHtml={framedHtml}
       readOnly={session.readOnly}
       ref={viewerRef}
+      sandbox="allow-scripts"
       selectedAnnotationId={selectedThreadId}
-      title={`Artifact review: ${session.entryPath}`}
+      title={title}
     />
   );
 }

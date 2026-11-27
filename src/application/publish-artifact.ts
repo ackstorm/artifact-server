@@ -26,8 +26,6 @@ import {
   accessSettings,
   type CanonicalManifest,
   type PublishedVersion,
-  type ReviewMode,
-  reviewModes,
 } from "../core/model.js";
 import type {
   BlobWrite,
@@ -74,7 +72,6 @@ export interface PublishPreparedNewArtifactCommand {
   readonly name: string;
   readonly principal: Principal;
   readonly projectId: string;
-  readonly reviewMode?: ReviewMode | undefined;
   readonly source: StagedUploadSource;
   readonly tags?: readonly string[];
 }
@@ -287,14 +284,12 @@ function makePublishArtifactService(
     );
     const idempotencyKey = yield* parseIdempotencyKey(command.idempotencyKey);
     const tags = yield* parseArtifactTags(command.tags ?? []);
-    const reviewMode = command.reviewMode ?? reviewModes.interact;
     const inputDigest = newArtifactInputDigest({
       accessSetting: command.accessSetting,
       manifest: command.manifest,
       name,
       principalId: command.principal.id,
       projectId: command.projectId,
-      reviewMode: command.reviewMode,
       tags,
     });
     const replayed = yield* dependencies.repository.findIdempotentPublication(
@@ -330,7 +325,6 @@ function makePublishArtifactService(
       projectId: command.projectId,
       authorizedByPrincipalId: command.principal.authorizedByPrincipalId,
       source: command.source,
-      reviewMode,
       tags,
       versionId: dependencies.ids.versionId(),
     });
@@ -441,7 +435,6 @@ function makePublishArtifactService(
         name: copyName(source.artifact.name),
         principalId: command.principal.id,
         projectId,
-        reviewMode: source.artifact.reviewMode,
         source: {kind: "saved_version"},
         tags: [],
         versionId: dependencies.ids.versionId(),
@@ -462,7 +455,6 @@ interface NewArtifactDigestInput {
   readonly name: string;
   readonly principalId: string;
   readonly projectId: string;
-  readonly reviewMode: ReviewMode | undefined;
   readonly tags: readonly string[];
 }
 
@@ -475,20 +467,15 @@ interface ArtifactVersionDigestInput {
 }
 
 function newArtifactInputDigest(input: NewArtifactDigestInput): string {
-  const value = {
+  // Stored idempotency records hold this digest; changing its input breaks replay of their keys.
+  const canonicalInput = JSON.stringify({
     accessSetting: input.accessSetting,
     manifestDigest: input.manifest.digest,
     name: input.name,
     principalId: input.principalId,
     projectId: input.projectId,
     tags: input.tags,
-  };
-  // Keyed on the mode the caller sent: an omitted mode and `annotate` hash
-  // alike (no key) and `interact` adds the key. Stored idempotency records use
-  // this digest, so changing it breaks replay of their keys.
-  const canonicalInput = JSON.stringify(input.reviewMode === reviewModes.interact
-    ? {...value, reviewMode: input.reviewMode}
-    : value);
+  });
   return createHash("sha256").update(canonicalInput).digest("hex");
 }
 

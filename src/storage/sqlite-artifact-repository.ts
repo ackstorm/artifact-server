@@ -30,7 +30,6 @@ import {
 import {normalizeArtifactSearchText} from "../application/artifact-tags.js";
 import {
   accessSettings,
-  reviewModes,
   agentDispatchStates,
   artifactActionKinds,
   commentThreadStates,
@@ -80,7 +79,6 @@ import type {
   ArtifactRepository,
   CancelAgentDispatch,
   ChangeArtifactAccessSetting,
-  ChangeArtifactReviewMode,
   ChangeArtifactTags,
   ClearCommentThreads,
   CommentRepository,
@@ -162,7 +160,6 @@ import {
   pageFromRows,
   projectRowSchema,
   registeredAgentRowSchema,
-  reviewModeSchema,
   stagedUploadGrantRowSchema,
   threadIdsSchema,
   workingDispatchCandidateRowSchema,
@@ -211,7 +208,6 @@ const sourceBindingRowSchema = z.object({
   projectId: z.string(),
 });
 const publishedRowSchema = z.object({
-  reviewMode: reviewModeSchema,
   accessSetting: accessSettingSchema,
   artifactCreatedAt: z.string(),
   artifactDeletedAt: z.string().nullable(),
@@ -253,7 +249,6 @@ const artifactActionRowSchema = z.object({
   versionId: z.string(),
 });
 const artifactRowSchema = z.object({
-  reviewMode: reviewModeSchema,
   accessSetting: accessSettingSchema,
   createdAt: z.string(),
   currentVersionId: z.string(),
@@ -581,10 +576,10 @@ export class SqliteArtifactRepository implements
     this.#database
       .prepare(
         `INSERT INTO artifacts (
-          id, project_id, name, search_name, access_setting, review_mode,
+          id, project_id, name, search_name, access_setting,
           current_version_id, created_at, deleted_at, owner_principal_id,
           source_path, source_fingerprint, source_status, source_verified_at
-        ) VALUES (?, ?, ?, ?, ?, ?, NULL, ?, NULL, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, NULL, ?, NULL, ?, ?, ?, ?, ?)`,
       )
       .run(
         command.artifactId,
@@ -592,7 +587,6 @@ export class SqliteArtifactRepository implements
         command.name,
         normalizeArtifactSearchText(command.name),
         command.accessSetting,
-        command.reviewMode ?? reviewModes.interact,
         command.createdAt,
         command.principalId,
         binding === null ? null : binding.path,
@@ -909,71 +903,6 @@ export class SqliteArtifactRepository implements
     );
   }
 
-  changeReviewMode(
-    command: ChangeArtifactReviewMode,
-  ): Promise<ArtifactState> {
-    return Promise.resolve().then(() =>
-      this.#transaction(() => {
-        const replayed = this.#findIdempotentManagementResult(
-          command.projectId,
-          "change_review_mode",
-          command.idempotencyKey,
-          command.inputDigest,
-        );
-        if (replayed !== null) return replayed;
-        const artifact = this.#readArtifact(command.projectId, command.artifactId);
-        this.#assertExpectedCurrentVersion(
-          artifact,
-          command.expectedCurrentVersionId,
-        );
-        const update = this.#database
-          .prepare(
-            `UPDATE artifacts
-             SET review_mode = ?
-             WHERE project_id = ? AND id = ? AND current_version_id = ? AND deleted_at IS NULL`,
-          )
-          .run(
-            command.reviewMode,
-            command.projectId,
-            command.artifactId,
-            command.expectedCurrentVersionId,
-          );
-        if (update.changes !== 1) {
-          throw changedDuringManagement();
-        }
-        this.#insertAction(
-          command.projectId,
-          command.artifactId,
-          command.expectedCurrentVersionId,
-          command.idempotencyKey,
-          command.createdAt,
-          "change_review_mode",
-          command.principalId,
-          command.authorizedByPrincipalId,
-        );
-        this.#insertIdempotency(
-          command.projectId,
-          command.idempotencyKey,
-          command.inputDigest,
-          command.artifactId,
-          command.expectedCurrentVersionId,
-          command.createdAt,
-          "change_review_mode",
-          artifact.accessSetting,
-        );
-        return this.#readArtifactState(
-          command.projectId,
-          command.artifactId,
-          command.expectedCurrentVersionId,
-          artifact.accessSetting,
-          false,
-          null,
-          command.reviewMode,
-        );
-      }),
-    );
-  }
-
   changeTags(command: ChangeArtifactTags): Promise<ArtifactState> {
     return Promise.resolve().then(() =>
       this.#transaction(() => {
@@ -1210,7 +1139,7 @@ export class SqliteArtifactRepository implements
               id,
               project_id AS projectId,
               name,
-              review_mode AS reviewMode, access_setting AS accessSetting,
+              access_setting AS accessSetting,
               current_version_id AS currentVersionId,
               created_at AS createdAt,
               deleted_at AS deletedAt,
@@ -1433,7 +1362,7 @@ export class SqliteArtifactRepository implements
             artifact.id AS artifactId,
             artifact.project_id AS projectId,
             artifact.name AS artifactName,
-            artifact.review_mode AS reviewMode, artifact.access_setting AS accessSetting,
+            artifact.access_setting AS accessSetting,
             artifact.current_version_id AS currentVersionId,
             artifact.created_at AS artifactCreatedAt,
             artifact.deleted_at AS artifactDeletedAt,
@@ -1477,7 +1406,6 @@ export class SqliteArtifactRepository implements
       const parsedRows = z.array(publicLinkInventoryRowSchema).parse(rows);
       const artifacts = this.#withTagsForArtifacts(parsedRows.map((row) => ({
         accessSetting: row.accessSetting,
-        reviewMode: row.reviewMode,
         createdAt: row.artifactCreatedAt,
         currentVersionId: row.currentVersionId,
         deletedAt: row.artifactDeletedAt,
@@ -1622,7 +1550,7 @@ export class SqliteArtifactRepository implements
       const row = this.#database
         .prepare(
           `SELECT
-            a.review_mode AS reviewMode, a.access_setting AS accessSetting,
+            a.access_setting AS accessSetting,
             a.id AS artifactId,
             a.project_id AS projectId,
             v.content_token AS contentToken,
@@ -2059,14 +1987,14 @@ export class SqliteArtifactRepository implements
 
   #findIdempotentManagementResult(
     projectId: string,
-    operation: "change_access" | "change_review_mode" | "restore",
+    operation: "change_access" | "restore",
     idempotencyKey: string,
     inputDigest: string,
   ): ArtifactState | null {
     const row = this.#database
       .prepare(
         `SELECT
-          review_mode AS reviewMode, access_setting AS accessSetting,
+          access_setting AS accessSetting,
           artifact_id AS artifactId,
           input_digest AS inputDigest,
           operation,
@@ -2094,7 +2022,6 @@ export class SqliteArtifactRepository implements
       parsed.accessSetting,
       true,
       null,
-      parsed.reviewMode,
     );
   }
 
@@ -2106,7 +2033,7 @@ export class SqliteArtifactRepository implements
     const row = this.#database
       .prepare(
         `SELECT
-          review_mode AS reviewMode, access_setting AS accessSetting,
+          access_setting AS accessSetting,
           artifact_id AS artifactId,
           input_digest AS inputDigest,
           operation,
@@ -2137,7 +2064,6 @@ export class SqliteArtifactRepository implements
       parsed.accessSetting,
       true,
       tags,
-      parsed.reviewMode,
     );
   }
 
@@ -2149,7 +2075,7 @@ export class SqliteArtifactRepository implements
     const row = this.#database
       .prepare(
         `SELECT
-          review_mode AS reviewMode, access_setting AS accessSetting,
+          access_setting AS accessSetting,
           artifact_id AS artifactId,
           input_digest AS inputDigest,
           operation,
@@ -2184,7 +2110,7 @@ export class SqliteArtifactRepository implements
           id,
           project_id AS projectId,
           name,
-          review_mode AS reviewMode, access_setting AS accessSetting,
+          access_setting AS accessSetting,
           current_version_id AS currentVersionId,
           created_at AS createdAt,
           deleted_at AS deletedAt,
@@ -2208,7 +2134,7 @@ export class SqliteArtifactRepository implements
           id,
           project_id AS projectId,
           name,
-          review_mode AS reviewMode, access_setting AS accessSetting,
+          access_setting AS accessSetting,
           current_version_id AS currentVersionId,
           created_at AS createdAt,
           deleted_at AS deletedAt,
@@ -2304,7 +2230,6 @@ export class SqliteArtifactRepository implements
     accessSetting: ArtifactRecord["accessSetting"],
     replayed: boolean,
     tags: readonly string[] | null = null,
-    reviewMode: ArtifactRecord["reviewMode"] | null = null,
   ): ArtifactState {
     const artifact = this.#readArtifact(projectId, artifactId);
     const version = this.#readVersionOrNull(projectId, versionId, artifactId);
@@ -2317,7 +2242,6 @@ export class SqliteArtifactRepository implements
         accessSetting,
         currentVersionId: versionId,
         tags: tags ?? artifact.tags,
-        reviewMode: reviewMode ?? artifact.reviewMode,
       },
       replayed,
       version,
@@ -2397,7 +2321,7 @@ export class SqliteArtifactRepository implements
     const row = this.#database
       .prepare(
         `SELECT
-          review_mode AS reviewMode, access_setting AS accessSetting,
+          access_setting AS accessSetting,
           artifact_id AS artifactId,
           input_digest AS inputDigest,
           operation,
@@ -2414,8 +2338,7 @@ export class SqliteArtifactRepository implements
         message: "The idempotency key was already used with different input.",
       });
     }
-    const published = this.#readPublishedVersion(projectId, parsed.versionId, true);
-    return {...published, artifact: {...published.artifact, reviewMode: parsed.reviewMode}};
+    return this.#readPublishedVersion(projectId, parsed.versionId, true);
   }
 
   #insertAction(
@@ -2517,7 +2440,6 @@ export class SqliteArtifactRepository implements
     createdAt: string,
     operation:
       | "change_access"
-      | "change_review_mode"
       | "change_tags"
       | "delete"
       | "publish"
@@ -2529,8 +2451,8 @@ export class SqliteArtifactRepository implements
       .prepare(
         `INSERT INTO idempotency_records (
           project_id, idempotency_key, input_digest, artifact_id, version_id,
-          operation, access_setting, tags_json, created_at, review_mode
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, (SELECT review_mode FROM artifacts WHERE id = ?))`,
+          operation, access_setting, tags_json, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         projectId,
@@ -2542,7 +2464,6 @@ export class SqliteArtifactRepository implements
         accessSetting,
         tagsJson,
         createdAt,
-        artifactId,
       );
   }
 
@@ -5230,7 +5151,7 @@ export class SqliteArtifactRepository implements
           a.id AS artifactId,
           a.project_id AS projectId,
           a.name AS artifactName,
-          a.review_mode AS reviewMode, a.access_setting AS accessSetting,
+          a.access_setting AS accessSetting,
           a.current_version_id AS currentVersionId,
           a.created_at AS artifactCreatedAt,
           a.deleted_at AS artifactDeletedAt,
@@ -5252,7 +5173,6 @@ export class SqliteArtifactRepository implements
     const parsed = publishedRowSchema.parse(row);
     const artifact: ArtifactRecord = {
       accessSetting: parsed.accessSetting,
-      reviewMode: parsed.reviewMode,
       createdAt: parsed.artifactCreatedAt,
       currentVersionId: parsed.currentVersionId,
       deletedAt: parsed.artifactDeletedAt,

@@ -1,51 +1,23 @@
 # Review mode
 
-HTML artifacts have two Review modes. **Annotate** captures clicks for comments. **Interact** lets clicks reach the artifact so people can use a prototype. The existing mode toggle and Escape shortcut remain available.
+Review opens every HTML artifact in **View** mode. **Comment** mode is a per-viewer toggle. The mode is not stored on the artifact: publication, management, and reads neither accept nor return one.
 
-Every artifact has a default `reviewMode`: `annotate` or `interact`. New artifacts without an explicit choice default to `interact`, and upgrading moves every existing artifact to `interact` once. The default belongs to the artifact and remains through publication and restore of immutable versions.
+## View
 
-## Choose a default when publishing
+View shows the page exactly as published, with no annotation layer over it. Clicks, keyboard input, scrolling, and text selection reach the page, so games, 3D scenes, prototypes, and copying text work as they do outside Review.
 
-With the CLI:
+## Comment
 
-```sh
-artifactserver publish ./dist --name "Product prototype" --review-mode interact
-```
+Comment mode adds the annotation layer:
 
-`--review-mode` applies only to a new artifact. It cannot be combined with `--artifact` when publishing a new version.
+- Click an element to pin a comment to it.
+- Select text to comment on the selection.
+- A plain click on a link follows it. Ctrl-click (Cmd-click on macOS) pins a comment to the link instead.
 
-With MCP, include `reviewMode` in the `new_artifact` target of `artifact_commit_upload`:
+Switch modes with the toggle in the Review toolbar or with Escape. The choice belongs to the viewer and that visit only; it never changes the artifact.
 
-```json
-{
-  "kind": "new_artifact",
-  "name": "Product prototype",
-  "reviewMode": "interact"
-}
-```
+## Open a link in a mode
 
-The HTTP upload-commit request accepts the same field in `target`. A `new_version` target does not accept it.
-
-## Change an existing default
-
-Read the artifact to obtain its current version ID. Call `artifact_set_review_mode` with `artifactId`, `reviewMode`, `expectedCurrentVersionId`, a new `idempotencyKey`, and, when needed, `projectId`.
-
-The HTTP equivalent is:
-
-```http
-PATCH /api/v1/artifacts/art_example/review-mode?projectId=prj_example
-Idempotency-Key: example-review-mode-change
-Content-Type: application/json
-
-{"reviewMode":"interact","expectedCurrentVersionId":"ver_example"}
-```
-
-The project query is optional. The operation requires artifact-management permission and checks that the current version still matches `expectedCurrentVersionId`. Reuse the idempotency key only for an exact retry. Changing the default records a `change_review_mode` action; it creates no version and changes no stored file bytes or version IDs.
-
-## Override a mode in a link
-
-Add `mode=interact` or `mode=annotate` to a Review URL. For example, add `&mode=interact` to the returned `links.review` URL, which already has query parameters.
-
-The initial mode is chosen in this order: a valid link override, the artifact's stored default, then `annotate`. An invalid mode value is ignored. Review navigation preserves a valid override, and browser back and forward restore it. Changing the mode with the toggle or Escape does not change the stored default. Refreshing Review data or changing the selected version does not reset a manual choice.
+Add `mode=comment` or `mode=view` to a Review URL. For example, add `&mode=comment` to the returned `links.review` URL, which already has query parameters. Without a valid `mode` parameter, Review opens in View. An invalid value is ignored.
 
 Mode selection changes HTML Review interaction only. It does not change artifact access, sandboxing, raw-content links, or the presentation of image and video previews.

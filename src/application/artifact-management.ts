@@ -43,12 +43,10 @@ import {
   type ArtifactVersion,
   type PageCursor,
   type PublishedVersion,
-  type ReviewMode,
   type VersionRecord,
 } from "../core/model.js";
 import type {
   ChangeArtifactAccessSetting,
-  ChangeArtifactReviewMode,
   ChangeArtifactTags,
   DeleteArtifact,
   ListArtifactActions,
@@ -113,13 +111,6 @@ export interface ChangeArtifactAccessCommand extends ReadArtifactCommand {
   readonly idempotencyKey: string;
 }
 
-/** Input for changing the artifact's initial HTML review mode. */
-export interface ChangeArtifactReviewModeCommand extends ReadArtifactCommand {
-  readonly expectedCurrentVersionId: string;
-  readonly idempotencyKey: string;
-  readonly reviewMode: ReviewMode;
-}
-
 /** Input for replacing one artifact's complete tag set. */
 export interface ChangeArtifactTagsCommand extends ReadArtifactCommand {
   readonly expectedCurrentVersionId: string;
@@ -166,15 +157,6 @@ export interface DeleteArtifactCommand extends ReadArtifactCommand {
 
 /** Repository capabilities required by artifact management. */
 export interface ArtifactManagementRepository {
-  readonly changeReviewMode: (
-    command: ChangeArtifactReviewMode,
-  ) => Effect.Effect<
-    ArtifactState,
-    | ArtifactMutationConflict
-    | ArtifactNotFound
-    | IdempotencyConflict
-    | ArtifactRepositoryFailure
-  >;
   readonly changeAccessSetting: (
     command: ChangeArtifactAccessSetting,
   ) => Effect.Effect<
@@ -274,9 +256,6 @@ export type ArtifactManagementFailure =
   | ProjectManagementFailure;
 
 interface ArtifactManagementOperations {
-  readonly changeReviewMode: (
-    command: ChangeArtifactReviewModeCommand,
-  ) => Effect.Effect<ArtifactState, ArtifactManagementFailure>;
   readonly changeAccess: (
     command: ChangeArtifactAccessCommand,
   ) => Effect.Effect<ArtifactState, ArtifactManagementFailure>;
@@ -698,34 +677,6 @@ function makeArtifactManagementService(
     },
   );
 
-  const changeReviewMode = Effect.fn("ArtifactManagementService.changeReviewMode")(
-    function*(command: ChangeArtifactReviewModeCommand) {
-      const project = yield* resolveProjectForRead(command.principal, command.projectId);
-      const artifact = yield* requireArtifact(project.id, command.artifactId);
-      yield* requireArtifactChange(command.principal, artifact);
-      const idempotencyKey = yield* parseIdempotencyKey(command.idempotencyKey);
-      const createdAt = DateTime.formatIso(yield* dependencies.clock.now);
-      return yield* dependencies.repository.changeReviewMode({
-        artifactId: artifact.id,
-        authorizedByPrincipalId: command.principal.authorizedByPrincipalId,
-        createdAt,
-        expectedCurrentVersionId: command.expectedCurrentVersionId,
-        idempotencyKey,
-        inputDigest: managementInputDigest({
-          artifactId: artifact.id,
-          expectedCurrentVersionId: command.expectedCurrentVersionId,
-          operation: "change_review_mode",
-          principalId: command.principal.id,
-          projectId: project.id,
-          value: command.reviewMode,
-        }),
-        principalId: command.principal.id,
-        projectId: project.id,
-        reviewMode: command.reviewMode,
-      });
-    },
-  );
-
   const changeTags = Effect.fn("ArtifactManagementService.changeTags")(
     function*(command: ChangeArtifactTagsCommand) {
       const project = yield* resolveProjectForRead(
@@ -804,7 +755,6 @@ function makeArtifactManagementService(
 
   return ArtifactManagementService.of({
     changeAccess,
-    changeReviewMode,
     changeTags,
     deleteArtifact,
     getArtifact,
@@ -824,7 +774,6 @@ interface ManagementInputDigest {
   readonly expectedCurrentVersionId: string;
   readonly operation:
     | "change_access"
-    | "change_review_mode"
     | "change_tags"
     | "delete"
     | "restore";

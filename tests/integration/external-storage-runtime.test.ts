@@ -309,7 +309,7 @@ describe.sequential("external-storage Postgres and S3 runtime", () => {
     }
   });
 
-  test("ART-012: populated PostgreSQL schema upgrades artifacts to interact and replays historical retries as annotate", async () => {
+  test("ART-012: a populated PostgreSQL schema upgrades across the review mode migrations and replays a historical publish retry", async () => {
     const identity = {apiToken: managedTestKey("postgres-review-upgrade"), installationId: "postgres-review-upgrade"};
     let server = await startInProcessExternalStorageServer(environment, identity);
     const content = "<h1>Pre-feature PostgreSQL artifact</h1>";
@@ -371,54 +371,10 @@ describe.sequential("external-storage Postgres and S3 runtime", () => {
     server = await startInProcessExternalStorageServer(environment, identity);
     const replay = await publish();
     expect(replay.status).toBe(200);
-    expect(await replay.json()).toMatchObject({artifact: {reviewMode: "annotate"}, replayed: true, version: publication.version});
+    const replayed = z.object({artifact: z.object({}).loose()}).loose().parse(await replay.json());
+    expect(replayed).toMatchObject({replayed: true, version: publication.version});
+    expect(replayed.artifact).not.toHaveProperty("reviewMode");
     expect(await (await fetchContentThroughServer(server.baseUrl, publication.links.version)).text()).toBe(content);
-    const details = await fetch(new URL(`/api/v1/artifacts/${publication.artifact.id}`, server.baseUrl), {
-      headers: {Authorization: `Bearer ${identity.apiToken}`},
-    });
-    expect(await details.json()).toMatchObject({artifact: {reviewMode: "interact"}});
-  });
-
-  test("ART-012: PostgreSQL review mode persists across replicas and replays its original state", async () => {
-    const identity = {apiToken: managedTestKey("postgres-review-mode"), installationId: "postgres-review-mode"};
-    let firstServer = await startInProcessExternalStorageServer(environment, identity);
-    const secondServer = await startInProcessExternalStorageServer(environment, identity);
-    const content = "<button>Immutable interactive artifact</button>";
-    const upload = await stageExternalStorageFile(firstServer.baseUrl, identity.apiToken, content);
-    const committed = await fetch(upload.commitUrl, {
-      body: JSON.stringify({target: {
-        accessSetting: "public_link", kind: "new_artifact", name: "Review mode", reviewMode: "interact",
-      }}),
-      headers: mutationHeaders(identity.apiToken, "postgres-review-mode-publish"),
-      method: "POST",
-    });
-    expect(committed.status).toBe(201);
-    const publication = publishResponseSchema.extend({artifact: z.object({id: z.string(), reviewMode: z.enum(["annotate", "interact"])})})
-      .parse(await committed.json());
-    expect(publication.artifact.reviewMode).toBe("interact");
-    const changeMode = (baseUrl: string, reviewMode: "annotate" | "interact", key: string) => mutateArtifact(
-      baseUrl, identity.apiToken, `/api/v1/artifacts/${publication.artifact.id}/review-mode`, "PATCH", key,
-      {expectedCurrentVersionId: publication.version.id, reviewMode},
-    );
-    const firstChanges = await Promise.all([
-      changeMode(firstServer.baseUrl, "annotate", "postgres-review-mode-first"),
-      changeMode(secondServer.baseUrl, "annotate", "postgres-review-mode-first"),
-    ]);
-    expect(firstChanges.map(({status}) => status)).toEqual([200, 200]);
-    expect((await changeMode(secondServer.baseUrl, "interact", "postgres-review-mode-second")).status).toBe(200);
-    await firstServer.stop();
-    firstServer = await startInProcessExternalStorageServer(environment, identity);
-    const replay = await changeMode(firstServer.baseUrl, "annotate", "postgres-review-mode-first");
-    expect(replay.status).toBe(200);
-    expect(await replay.json()).toMatchObject({artifact: {reviewMode: "annotate"}, replayed: true, version: publication.version});
-    const details = await authenticatedFetch(firstServer.baseUrl, identity.apiToken, `/api/v1/artifacts/${publication.artifact.id}`);
-    expect(await details.json()).toMatchObject({artifact: {reviewMode: "interact"}, current: {version: publication.version}});
-    const savedContent = await fetchContentThroughServer(firstServer.baseUrl, publication.links.version);
-    expect(savedContent.status).toBe(200);
-    expect(await savedContent.text()).toBe(content);
-    const actions = await authenticatedFetch(firstServer.baseUrl, identity.apiToken, `/api/v1/artifacts/${publication.artifact.id}/actions`);
-    expect(z.object({actions: z.array(z.object({action: z.string()}))}).parse(await actions.json())
-      .actions.map(({action}) => action).toSorted()).toEqual(["change_review_mode", "change_review_mode", "publish"]);
   });
 
   test("AUTH-036-B AUTH-036-F: a populated Postgres schema records each owner from version 1, keeps levels and replays, and leaves another member's Members artifact readable by link", async () => {
@@ -3863,7 +3819,6 @@ function patchCommentThread(
 }
 
 type ArtifactMutationBody =
-  | {readonly expectedCurrentVersionId: string; readonly reviewMode: "annotate" | "interact"}
   | {readonly expectedCurrentVersionId: string}
   | {
     readonly accessSetting: "account_required" | "public_link";

@@ -10,7 +10,6 @@ import type {
   ArtifactState,
   ArtifactVersion,
   ArtifactRecord,
-  ReviewMode,
   CanonicalManifest,
   CommentAuthor,
   DispatchedThreadFilter,
@@ -110,7 +109,6 @@ export interface SavedVersionSource {
 export type PublicationSource = SavedVersionSource | StagedUploadSource;
 
 export interface CommitNewArtifact {
-  readonly reviewMode?: ReviewMode;
   readonly accessSetting: AccessSetting;
   readonly artifactId: string;
   readonly contentToken: string;
@@ -159,19 +157,6 @@ export interface RestoreArtifactVersion {
 /** Values used to atomically change one artifact's read setting. */
 export interface ChangeArtifactAccessSetting {
   readonly accessSetting: AccessSetting;
-  readonly artifactId: string;
-  readonly authorizedByPrincipalId: string | null;
-  readonly createdAt: string;
-  readonly expectedCurrentVersionId: string;
-  readonly idempotencyKey: string;
-  readonly inputDigest: string;
-  readonly principalId: string;
-  readonly projectId: string;
-}
-
-/** Values used to atomically change one artifact's default review mode. */
-export interface ChangeArtifactReviewMode {
-  readonly reviewMode: ReviewMode;
   readonly artifactId: string;
   readonly authorizedByPrincipalId: string | null;
   readonly createdAt: string;
@@ -729,7 +714,6 @@ export interface ArtifactRepository {
   close(): void;
   commitNewArtifact(command: CommitNewArtifact): Promise<PublishedVersion>;
   commitVersion(command: CommitArtifactVersion): Promise<PublishedVersion>;
-  changeReviewMode(command: ChangeArtifactReviewMode): Promise<ArtifactState>;
   changeAccessSetting(command: ChangeArtifactAccessSetting): Promise<ArtifactState>;
   changeTags(command: ChangeArtifactTags): Promise<ArtifactState>;
   deleteArtifact(command: DeleteArtifact): Promise<ArtifactDeletion>;

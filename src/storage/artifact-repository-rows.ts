@@ -7,7 +7,6 @@ import {
   agentDispatchStates,
   commentThreadStates,
   parseStoredAgentCapabilities,
-  reviewModes,
   type AgentDispatchRecord,
   type CommentAuthor,
   type CommentReplyRecord,
@@ -23,10 +22,7 @@ export const accessSettingSchema = z.enum([
   accessSettings.publicLink,
 ]);
 
-export const reviewModeSchema = z.enum([reviewModes.annotate, reviewModes.interact]);
-
 export const idempotencyRowSchema = z.object({
-  reviewMode: reviewModeSchema,
   accessSetting: accessSettingSchema.nullable(),
   artifactId: z.string(),
   inputDigest: z.string(),

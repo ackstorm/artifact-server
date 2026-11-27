@@ -123,7 +123,7 @@ Open the printed URL.
 
 Most artifacts are published by an agent through the [Artifact Server Skill](./skills/artifact-server/SKILL.md) or [MCP](./docs/mcp.md). For direct access, use the `artifactserver` CLI to publish files and directories, connect to remote servers, and create new versions. [Read the CLI guide](./docs/cli.md).
 
-Artifacts open in Interact mode by default, so people can use an HTML prototype immediately. Set `--review-mode annotate` when creating a page meant for comments, or share a Review link with `mode=annotate`. Reviewers can switch modes at any time. [Read about Review mode](./docs/review-mode.md).
+Review opens every artifact in View mode, so people can use an HTML prototype immediately. Reviewers switch to Comment mode to pin comments on elements and text, and a Review link with `mode=comment` opens in Comment mode. [Read about Review mode](./docs/review-mode.md).
 
 ## Security model
 

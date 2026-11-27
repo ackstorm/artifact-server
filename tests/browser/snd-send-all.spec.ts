@@ -116,7 +116,7 @@ test.describe("Review send-all", () => {
       await localLogin(fixture);
       const page = fixture.page;
       await page.goto(
-        `${fixture.server.baseUrl}/review?project=prj_default&artifact=${published.artifact.id}&version=${published.version.id}`,
+        `${fixture.server.baseUrl}/review?project=prj_default&artifact=${published.artifact.id}&version=${published.version.id}&mode=comment`,
       );
       await page.getByRole("tab", {name: "Comments"}).click();
       await expect(page.getByRole("button", {

@@ -48,7 +48,7 @@ export interface AuthorizationOperations {
     principal: Principal,
     artifact: ArtifactRecord,
   ) => Effect.Effect<void, ArtifactNotFound>;
-  /** Publish, tag, restore, review mode, capture, relink, or raise the level. */
+  /** Publish, tag, restore, capture, relink, or raise the level. */
   readonly requireArtifactControl: (
     principal: Principal,
     artifact: ArtifactRecord,

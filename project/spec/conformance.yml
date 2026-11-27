@@ -324,16 +324,16 @@ requirements:
 
   - id: ART-012
     kind: behavior
-    behavior: Each artifact has an Annotate or Interact default Review mode, Interact when creation omits it and for artifacts that existed before the upgrade, and mutable without changing any immutable version or file bytes.
+    behavior: Review mode is a viewer choice, never artifact metadata; publication, management, and reads accept and return no Review mode.
     owner: artifact-core
     source: {file: artifact-review-mode-spec.md, anchor: conformance}
     acceptance:
-      behavior: {id: ART-012-B, description: "Create artifacts with default and explicit Review modes, preserve the stored choice through reads and versions, change it through management with normal action attribution, and replay an exact retry without duplicating the action."}
-      failure: {id: ART-012-F, description: "Reject invalid modes, unauthorized changes, stale expected current-version IDs, and conflicting idempotency retries without changing metadata, version identity, current pointer, bytes, or action history."}
+      behavior: {id: ART-012-B, description: "Publish and read artifacts over HTTP and MCP and observe no Review mode in any artifact response or tool output."}
+      failure: {id: ART-012-F, description: "MCP lists no Review-mode tool, the Review-mode management route is not found, and a commit target naming a Review mode creates no state beyond what the same commit without it would."}
     deployments: *all
     status: behavior_verified
-    proof_gap: Local publication, management, persistence, and upgrade tests pass; equivalent live deployment evidence remains unrecorded.
-    depends_on: [ART-001, ART-004, AUTH-008, PUB-006, PUB-008, AUD-001]
+    proof_gap: Local HTTP and MCP tests pass; equivalent live deployment evidence remains unrecorded.
+    depends_on: [ART-001, PUB-006]
 
   - id: ART-013
     kind: security
@@ -1953,12 +1953,12 @@ requirements:
 
   - id: CMT-022
     kind: behavior
-    behavior: Ordinary same-frame fragment-only links in HTML Review previews scroll within the rendered document without navigating to the injected resource base or weakening sandbox isolation.
+    behavior: In View, ordinary same-frame fragment-only links in HTML Review previews scroll within the rendered document without navigating to the injected resource base or weakening sandbox isolation; in Comment, Ctrl/Cmd-click pins a link for a comment.
     owner: artifact-comments
     source: {file: artifact-comments-spec.md, anchor: html-fragment-navigation}
     acceptance:
-      behavior: {id: CMT-022-B, description: "In Interact mode, activate nested, encoded, legacy named, and keyboard fragment links and observe the target within the same sandboxed document; empty and top fragments return to the document start with no navigation request."}
-      failure: {id: CMT-022-F, description: "Missing and malformed fragment targets cause no navigation or script error, authored element and document cancellation retains control, and Annotate mode can save a comment on a link without scrolling or weakening the opaque-origin sandbox."}
+      behavior: {id: CMT-022-B, description: "In View mode, activate nested, encoded, legacy named, and keyboard fragment links and observe the target within the same sandboxed document; empty and top fragments return to the document start with no navigation request."}
+      failure: {id: CMT-022-F, description: "Missing and malformed fragment targets cause no navigation or script error, authored element and document cancellation retains control in View, and Comment mode saves a comment on a Ctrl/Cmd-clicked link without scrolling or weakening the opaque-origin sandbox."}
     deployments: *all
     status: behavior_verified
     proof_gap: Local Chromium production-build evidence proves fragment scrolling, cancellation, annotation ownership, and retained sandbox isolation. Equivalent Firefox, WebKit, and team-deployment evidence remains unrecorded; URL hash and history emulation are outside this contract.
@@ -3632,15 +3632,15 @@ requirements:
 
   - id: PRV-006
     kind: behavior
-    behavior: HTML Review starts from a valid URL mode override or the artifact default, permits real clicks in Interact, preserves link overrides in navigation and browser history, and retains manual mode changes during data refresh and version loading.
+    behavior: HTML and Markdown Review open in View, a plain sandboxed page with no annotation layer; a mode=comment link, the toggle, Escape, or selecting a thread switches to Comment and back; link overrides persist through navigation and browser history, and manual mode changes survive data refresh and version loading.
     owner: web-application
     source: {file: artifact-review-mode-spec.md, anchor: conformance}
     acceptance:
-      behavior: {id: PRV-006-B, description: "Open an HTML artifact with its stored default and both valid link overrides, interact with the actual frame, and preserve overrides through artifact, version, file, focus, and back/forward navigation."}
-      failure: {id: PRV-006-F, description: "Ignore an invalid link mode, preserve a manual toggle or Escape choice during data refresh and version loading, and keep Annotate as the legacy fallback without changing sandboxing or access."}
+      behavior: {id: PRV-006-B, description: "Open an HTML artifact in View, send keys to the page and select and copy text with no composer, open mode=comment and comment on selected text, switch with the toggle, Escape, and thread selection, and preserve overrides through artifact, version, file, focus, and back/forward navigation."}
+      failure: {id: PRV-006-F, description: "Open View for invalid and legacy link modes, preserve a manual toggle or Escape choice during data refresh and version loading, and change neither sandboxing nor access in either mode."}
     deployments: *all
     status: behavior_verified
-    proof_gap: Local browser precedence, frame interaction, navigation, history, and manual-choice tests pass; equivalent live deployment evidence remains unrecorded.
+    proof_gap: Local Chromium View, Comment, navigation, history, and manual-choice tests pass; equivalent live deployment evidence remains unrecorded.
     depends_on: [ART-012, PRV-004, CMT-013]
 
   - id: MDV-001

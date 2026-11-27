@@ -11,10 +11,9 @@ Publish one finished file or a complete directory:
 ```sh
 artifactserver publish ./report.pdf
 artifactserver publish ./dist --signed-in --name "Product prototype" --tag prototype
-artifactserver publish ./dist --name "Interactive prototype" --review-mode interact
 ```
 
-New artifacts open in Interact mode by default, so people can click and use an HTML prototype immediately. Use `--review-mode annotate` for a page meant for comments, or `--review-mode interact` to select the default explicitly. The option applies only when creating an artifact; combining it with `--artifact` is rejected. Later versions preserve the artifact's default. See [Review mode](./review-mode.md) for changing an existing default and sharing a link with a mode override.
+Review opens every artifact in View mode, so people can click and use an HTML prototype immediately. Reviewers switch to Comment mode to pin comments, and a Review link with `mode=comment` opens in Comment mode. See [Review mode](./review-mode.md).
 
 New artifacts are private: only the publisher opens them, and only the publisher sees them in lists. Members and Public artifacts also appear in a colleague's Shared with me when the owner lists them or the colleague opens the link. `--signed-in` sets the Members level: any member with the link opens the artifact. `--public` lets anyone with the link open it without signing in. The two flags conflict.
 

@@ -57,7 +57,6 @@ import {
   type ArtifactPage,
   type ArtifactVersion,
   type Project,
-  type ReviewMode,
   type Session,
   type Version,
 } from "@/api/client";
@@ -70,6 +69,7 @@ import {
   sourceDriftDescription,
   sourceFreshnessLabel,
 } from "@/lib/presentation";
+import type {ReviewMode} from "@/review-frame/protocol";
 import artifactServerAnimationUrl from "./assets/artifact-server.svg";
 import {ArtifactMoreMenu} from "./artifact-more-menu.tsx";
 import {
@@ -105,6 +105,10 @@ const inspectorMinimumWidth = 240;
 const inspectorMaximumWidth = 480;
 const inspectorGapPixels = 12;
 const catalogRefreshConfirmationMilliseconds = 1_600;
+const reviewModeLabels = {
+  comment: "Comment mode: click an element or select text to comment. Press Escape to view.",
+  view: "View mode: the artifact works as published. Turn on Comment mode to comment.",
+} as const satisfies Record<ReviewMode, string>;
 
 function reviewShortcutBlocked(event: KeyboardEvent): boolean {
   if (
@@ -700,37 +704,19 @@ function ArtifactReview({
       // A blocked store only loses the remembered choice.
     }
   };
-  const [htmlAnnotateModeActive, setHtmlAnnotateModeActive] = useState(
-    initialLocation.mode !== "interact",
-  );
-  // History restores the URL's mode; refreshing details preserves manual choices.
+  const [reviewMode, setReviewMode] = useState<ReviewMode>(initialLocation.mode ?? "view");
+  // Another artifact or a restored URL starts from the URL's mode; refreshing
+  // details or loading a version keeps a manual choice.
   const reviewModeContext = `${projectId}:${selectedArtifactId}:${modeOverride}:${reviewModeRestoration}`;
-  const reviewModeInitializationRef = useRef({
-    context: reviewModeContext,
-    initialized: initialLocation.mode !== null,
-  });
-  const changeHtmlAnnotateMode = useCallback((
-    active: boolean | ((current: boolean) => boolean),
-  ): void => {
-    reviewModeInitializationRef.current.initialized = true;
-    setHtmlAnnotateModeActive(active);
-  }, []);
+  const reviewModeContextRef = useRef(reviewModeContext);
   useEffect(() => {
-    const initialization = reviewModeInitializationRef.current;
-    if (initialization.context !== reviewModeContext) {
-      initialization.context = reviewModeContext;
-      initialization.initialized = modeOverride !== null;
-      setHtmlAnnotateModeActive(modeOverride !== "interact");
-    }
-    if (
-      !initialization.initialized
-      && details?.artifact.id === selectedArtifactId
-      && details.artifact.projectId === projectId
-    ) {
-      initialization.initialized = true;
-      setHtmlAnnotateModeActive(details.artifact.reviewMode !== "interact");
-    }
-  }, [details, modeOverride, projectId, reviewModeContext, selectedArtifactId]);
+    if (reviewModeContextRef.current === reviewModeContext) return;
+    reviewModeContextRef.current = reviewModeContext;
+    setReviewMode(modeOverride ?? "view");
+  }, [modeOverride, reviewModeContext]);
+  const toggleReviewMode = useCallback((): void => {
+    setReviewMode((mode) => mode === "comment" ? "view" : "comment");
+  }, []);
   const [homeOpen, setHomeOpen] = useState(false);
   const focusCommentsButtonRef = useRef<HTMLButtonElement>(null);
   const focusControlsRestoreRef = useRef<HTMLButtonElement>(null);
@@ -794,6 +780,14 @@ function ArtifactReview({
       ...new Set([...current, ...details.artifact.tags]),
     ].toSorted());
   }, [details]);
+  // A thread shown from the panel is shown in Comment, where its mark lives.
+  const commentsPanel = {
+    ...comments,
+    selectThread: (threadId: string | null): void => {
+      if (threadId !== null) setReviewMode("comment");
+      comments.selectThread(threadId);
+    },
+  };
   const openCommentCount = comments.threads.filter(
     (thread) => thread.state === "open",
   ).length;
@@ -1455,9 +1449,9 @@ function ArtifactReview({
         if (focusCommentsOpen) {
           event.preventDefault();
           setFocusCommentsOpen(false);
-        } else if (htmlAnnotateModeActive) {
+        } else if (reviewMode === "comment") {
           event.preventDefault();
-          changeHtmlAnnotateMode(false);
+          setReviewMode("view");
         } else if (focusMode) {
           event.preventDefault();
           exitFocusMode();
@@ -1503,13 +1497,12 @@ function ArtifactReview({
     return () => window.removeEventListener("keydown", handleReviewShortcut);
   }, [
     catalogItems,
-    changeHtmlAnnotateMode,
     enterFocusMode,
     exitFocusMode,
     focusCommentsOpen,
     focusMode,
     homeOpen,
-    htmlAnnotateModeActive,
+    reviewMode,
     selectArtifact,
     selectedIndex,
     selectedVersionId,
@@ -1573,7 +1566,7 @@ function ArtifactReview({
       className="as-app"
       data-catalog-open={catalogOpen}
       data-focus-mode={focusMode}
-      data-html-annotate-mode={htmlAnnotateModeActive}
+      data-review-mode={reviewMode}
       data-inspector-open={inspectorOpen}
       data-panel-resizing={catalogResize.isDragging || inspectorResize.isDragging}
     >
@@ -1963,17 +1956,15 @@ function ArtifactReview({
                 >
                   {(previewKind === "html" || previewKind === "markdown") && !markdownSourceViewActive && canComment ? (
                     <button
-                      aria-pressed={htmlAnnotateModeActive}
+                      aria-pressed={reviewMode === "comment"}
                       className="as-button as-button--secondary as-focus-controls__button"
-                      data-active={htmlAnnotateModeActive}
-                      onClick={() => changeHtmlAnnotateMode((active) => !active)}
-                      title={htmlAnnotateModeActive
-                        ? "Annotate mode: click an element or select text to comment. Press Escape to interact."
-                        : "Interact mode: links and controls work normally. Select text or turn annotation mode back on to comment."}
+                      data-active={reviewMode === "comment"}
+                      onClick={toggleReviewMode}
+                      title={reviewModeLabels[reviewMode]}
                       type="button"
                     >
                       <HugeiconsIcon aria-hidden="true" icon={Edit02Icon} strokeWidth={1.8} />
-                      {htmlAnnotateModeActive ? "Annotate mode" : "Interact mode"}
+                      {reviewMode === "comment" ? "Comment mode" : "View mode"}
                     </button>
                   ) : null}
                   <button
@@ -2070,7 +2061,7 @@ function ArtifactReview({
                     canDeleteAny={canDeleteAnyComment}
                     principalId={session.principal.id}
                     ref={commentsInspectorRef}
-                    session={comments}
+                    session={commentsPanel}
                     versionId={selectedVersionId}
                   />
                 </div>
@@ -2108,11 +2099,9 @@ function ArtifactReview({
             <div className="as-preview-header__actions">
               {(previewKind === "html" || previewKind === "markdown") && !markdownSourceViewActive && canComment ? (
                 <IconButton
-                  active={htmlAnnotateModeActive}
-                  label={htmlAnnotateModeActive
-                    ? "Annotate mode: click an element or select text to comment. Press Escape to interact."
-                    : "Interact mode: links and controls work normally. Select text or turn annotation mode back on to comment."}
-                  onClick={() => changeHtmlAnnotateMode((active) => !active)}
+                  active={reviewMode === "comment"}
+                  label={reviewModeLabels[reviewMode]}
+                  onClick={toggleReviewMode}
                 >
                   <HugeiconsIcon icon={Edit02Icon} strokeWidth={1.8} />
                 </IconButton>
@@ -2211,14 +2200,13 @@ function ArtifactReview({
               />
             ) : (
               <ReviewPreview
-                annotateModeActive={htmlAnnotateModeActive}
                 annotations={comments.annotations}
                 artifactId={selectedArtifactId}
                 artifactName={details?.artifact.name ?? selectedItem?.artifact.name ?? "Artifact"}
                 isLight={theme === "dawn"}
                 onOpenRawArtifact={() => void openRawArtifact()}
                 onSourceViewChange={setMarkdownSourceViewActive}
-                onAnnotateModeChange={changeHtmlAnnotateMode}
+                onModeChange={setReviewMode}
                 onSelectAnnotation={(threadId) => {
                   comments.selectThread(threadId);
                   if (threadId !== null) {
@@ -2254,6 +2242,7 @@ function ArtifactReview({
                 opening={opening}
                 projectId={projectId}
                 readOnly={!canComment}
+                reviewMode={reviewMode}
                 selectedThreadId={comments.selectedThreadId}
                 selectedPath={selectedPath}
                 version={selectedVersion}
@@ -2437,7 +2426,7 @@ function ArtifactReview({
                 canDeleteAny={canDeleteAnyComment}
                 principalId={session.principal.id}
                 ref={commentsInspectorRef}
-                session={comments}
+                session={commentsPanel}
                 versionId={selectedVersionId}
               />
             ) : inspectorTab === "files" ? (
@@ -3274,7 +3263,7 @@ function readReviewLocation(): ReviewLocation {
   const mode = search.get("mode");
   return {
     artifactId: search.get("artifact"),
-    mode: mode === "annotate" || mode === "interact" ? mode : null,
+    mode: mode === "view" || mode === "comment" ? mode : null,
     path: search.get("path"),
     projectId: search.get("project"),
     versionId: search.get("version"),

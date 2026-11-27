@@ -16,7 +16,6 @@ const publishResponseSchema = z.object({
     id: z.string(),
     name: z.string(),
     projectId: z.string(),
-    reviewMode: z.enum(["annotate", "interact"]),
     tags: z.array(z.string()),
   }),
   links: z.object({artifact: z.url(), review: z.url(), version: z.url()}),
@@ -71,7 +70,6 @@ export interface PublishNewInput {
   readonly name?: string;
   readonly path?: string;
   readonly projectId?: string;
-  readonly reviewMode?: "annotate" | "interact";
   readonly tags?: readonly string[];
 }
 
@@ -101,17 +99,16 @@ export async function publishNew(
   await requireSuccessfulUploads(
     uploadEveryStagedFile(installation, upload.body, [file]),
   );
-  const target = {
-    accessSetting: input.accessSetting,
-    kind: "new_artifact" as const,
-    name: input.name ?? "Test artifact",
-    tags: [...(input.tags ?? [])],
-  };
   return commitStagedUpload(
     installation,
     upload.body,
     input.idempotencyKey,
-    input.reviewMode === undefined ? target : {...target, reviewMode: input.reviewMode},
+    {
+      accessSetting: input.accessSetting,
+      kind: "new_artifact",
+      name: input.name ?? "Test artifact",
+      tags: [...(input.tags ?? [])],
+    },
   );
 }
 
@@ -231,7 +228,6 @@ const commitTargetSchema = z.discriminatedUnion("kind", [
     accessSetting: z.enum(["private", "account_required", "public_link"]),
     kind: z.literal("new_artifact"),
     name: z.string(),
-    reviewMode: z.enum(["annotate", "interact"]).optional(),
     tags: z.array(z.string()).optional(),
   }),
   z.object({
