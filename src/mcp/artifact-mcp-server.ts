@@ -1137,14 +1137,16 @@ export function createArtifactMcpServer(
     {
       title: "Begin a file upload",
       description:
-        "Begin publishing actual files. Supply relative paths, byte sizes, SHA-256 fingerprints, media types, and the entry file. PUT each file's exact bytes to its returned uploadUrl with the header Authorization: Bearer <uploadGrant.token>, then call artifact_commit_upload. The upload grant works only for this upload's files and expires with it; never print it or repeat it in chat. Do not send file bytes through MCP.",
+        "Begin publishing actual files. Supply relative paths, byte sizes, SHA-256 fingerprints, media types, and the entry file. PUT each file's exact bytes to its returned uploadUrl with the header Authorization: Bearer <uploadGrant.token>, then call artifact_commit_upload. The upload grant works only for this upload's files and expires with it; never print it or repeat it in chat. Do not send file bytes through MCP. When publishing a new version of an artifact you may publish to, pass it as baseArtifactId: declared files whose SHA-256 and size match a file in any of its versions come back in alreadyStored and need no PUT.",
       inputSchema: z.object({
+        baseArtifactId: artifactIdSchema.nullable().default(null),
         entryPath: z.string().min(1).max(1_024),
         files: z.array(declaredFileSchema).min(1).max(maximumDeclaredFiles),
         projectId: optionalProjectIdSchema,
         routingMode: z.enum(["static", "spa"]).default("static"),
       }).strict(),
       outputSchema: z.object({
+        alreadyStored: z.array(z.object({path: z.string(), size: z.number().int().nonnegative()}).strict()),
         commit: z.object({
           mcpTool: z.literal("artifact_commit_upload"),
           uploadId: z.string(),
@@ -1171,11 +1173,12 @@ export function createArtifactMcpServer(
       }).strict(),
       annotations: additiveWriteAnnotations,
     },
-    async ({entryPath, files, projectId, routingMode}) => toolResult(async () => {
+    async ({baseArtifactId, entryPath, files, projectId, routingMode}) => toolResult(async () => {
       const created = await runMcpApplicationEffect(
         dependencies,
         StagedUploadService.use((uploads) =>
           uploads.createUploadWithGrant({
+            baseArtifactId,
             entryPath,
             files,
             principal: identity.principal,
@@ -2321,7 +2324,7 @@ function agentInstructions(mode: "local" | "remote"): string {
     "Artifact Server stores actual files as immutable versions. MCP never carries whole files or base64; artifact_edit changes text files of a version already on the server with bounded text edits.",
     "Start with artifact_capabilities when you do not know this installation's limits.",
     "Artifacts belong to projects. Omit projectId only when the installation has one active project; otherwise call project_list and choose explicitly.",
-    "For publishing, inspect the selected file or finished directory on the client, compute each relative path, byte length, media type, and SHA-256 fingerprint, call artifact_create_upload, PUT the exact bytes to every returned uploadUrl with Authorization: Bearer <uploadGrant.token>, then call artifact_commit_upload. The upload grant works only for that upload; never print it or repeat it in chat.",
+    "For publishing, inspect the selected file or finished directory on the client, compute each relative path, byte length, media type, and SHA-256 fingerprint, call artifact_create_upload, PUT the exact bytes to every returned uploadUrl with Authorization: Bearer <uploadGrant.token>, then call artifact_commit_upload. The upload grant works only for that upload; never print it or repeat it in chat. When publishing a new version, pass baseArtifactId so files the artifact already stores need no upload.",
     "To change text files of an artifact already on the server, read them with artifact_read_file, then call artifact_edit with artifact_get's current version ID: replace needs each oldText to occur exactly once; write, delete, and rename cover the rest. Publish binaries and new sites through artifact_create_upload.",
     "After publishing, always give the user links.review first so they can see the exact version full screen and comment. Mention links.version second when the raw artifact is useful. Do not put content bootstrap URLs or credentials in chat.",
     "When publishing a new version, first call artifact_get and pass its current version ID as expectedCurrentVersionId. On conflict, inspect the new current version before retrying.",
@@ -2393,12 +2396,15 @@ function uploadPlan(
   grant: Redacted.Redacted,
 ) {
   return {
+    alreadyStored: upload.files
+      .filter((file) => file.uploadedAt !== null)
+      .map((file) => ({path: file.entry.path, size: file.entry.size})),
     commit: {
       mcpTool: "artifact_commit_upload",
       uploadId: upload.id,
     },
     expiresAt: upload.expiresAt,
-    files: upload.files.map((file) => ({
+    files: upload.files.filter((file) => file.uploadedAt === null).map((file) => ({
       authorization: {
         credential: "upload_grant" as const,
         scheme: "Bearer" as const,

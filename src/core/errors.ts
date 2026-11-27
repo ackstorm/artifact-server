@@ -421,6 +421,7 @@ export class ArtifactRepositoryFailure extends Schema.TaggedError<ArtifactReposi
       "deleteArtifact",
       "listAgentDispatches",
       "listArtifactActions",
+      "listArtifactBlobs",
       "listArtifacts",
       "listCommentReplies",
       "listCommentThreads",

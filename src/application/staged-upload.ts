@@ -4,6 +4,7 @@ import {
   type ArtifactRepositoryFailure,
   AuthenticationRequired,
   type AuthorizationDenied,
+  type BlobStorageFailure,
   StagingStorageFailure,
   type ProjectArchived,
   UploadClosed,
@@ -43,6 +44,7 @@ import {
   type AuthorizationOperations,
   AuthorizationService,
 } from "./authorization.js";
+import {ArtifactManagementService} from "./artifact-management.js";
 import {
   type ProjectManagementFailure,
   ProjectManagementService,
@@ -53,6 +55,8 @@ const uploadLifetimeMilliseconds = 60 * 60 * 1_000;
 /** Input for creating a principal-bound staged upload. */
 export interface CreateStagedUploadCommand {
   readonly entryPath: string;
+  /** An artifact the caller may publish to whose stored files need no upload. */
+  readonly baseArtifactId?: string | null;
   readonly files: readonly DeclaredManifestFile[];
   readonly principal: Principal;
   readonly projectId?: string | null;
@@ -143,6 +147,10 @@ export interface StagedUploadRepositoryPort {
     | ProjectArchived
     | ArtifactRepositoryFailure
   >;
+  listArtifactBlobs(
+    projectId: string,
+    artifactId: string,
+  ): Effect.Effect<readonly StoredBlob[], ArtifactRepositoryFailure>;
   listExpiredStagedUploads(
     expiredBefore: string,
     limit: number,
@@ -170,6 +178,12 @@ export interface StagingStoragePort {
 
 /** Dependencies used to construct the staged upload application service. */
 export interface StagedUploadDependencies {
+  /** Opens a stored blob that a base artifact already references. */
+  readonly blobs: {
+    readonly open: (
+      blob: StoredBlob,
+    ) => Effect.Effect<ReadableStream<Uint8Array>, BlobStorageFailure>;
+  };
   readonly clock: ApplicationClock;
   readonly ids: IdGenerator;
   readonly secrets: UploadGrantSecretProvider;
@@ -189,6 +203,7 @@ export type StagedUploadFailure =
   | UploadedFileMismatch
   | ArtifactRepositoryFailure
   | StagingStorageFailure
+  | BlobStorageFailure
   | PublishArtifactFailure
   | ProjectManagementFailure
   | AuthorizationDenied;
@@ -223,7 +238,7 @@ export class StagedUploadService extends Context.Service<
     StagedUploadService,
     never,
     PublishArtifactService | AuthorizationService
-      | ProjectManagementService
+      | ProjectManagementService | ArtifactManagementService
   > =>
     Layer.effect(
       StagedUploadService,
@@ -231,11 +246,13 @@ export class StagedUploadService extends Context.Service<
         const authorization = yield* AuthorizationService;
         const publish = yield* PublishArtifactService;
         const projects = yield* ProjectManagementService;
+        const management = yield* ArtifactManagementService;
         return makeStagedUploadService(
           dependencies,
           publish,
           authorization,
           projects,
+          management,
         );
       }),
     );
@@ -246,6 +263,7 @@ function makeStagedUploadService(
   publish: PublishArtifactService["Service"],
   authorization: AuthorizationOperations,
   projects: ProjectManagementService["Service"],
+  management: ArtifactManagementService["Service"],
 ): StagedUploadOperations {
   const requiredUpload = Effect.fn("StagedUploadService.requiredUpload")(
     function*(projectId: string, uploadId: string, principalId: string) {
@@ -260,6 +278,49 @@ function makeStagedUploadService(
         });
       }
       return upload;
+    },
+  );
+
+  const blobKey = (blob: StoredBlob): string => `${blob.sha256}:${blob.size}`;
+
+  const reusableBlobKeys = Effect.fn("StagedUploadService.reusableBlobKeys")(
+    function*(
+      principal: Principal,
+      projectId: string,
+      artifactId: string,
+    ): Effect.fn.Return<ReadonlySet<string>, StagedUploadFailure> {
+      const base = yield* management.getArtifact({artifactId, principal, projectId});
+      yield* authorization.requireVersionPublication(principal);
+      yield* authorization.requireArtifactControl(principal, base.artifact);
+      const stored = yield* dependencies.uploads.listArtifactBlobs(projectId, artifactId);
+      return new Set(stored.map(blobKey));
+    },
+  );
+
+  // ponytail: a reused blob is copied into its staging slot so commit keeps one path; costs one server-side copy per reused file at create time. A per-file stored flag (a migration) skips the copy if that latency matters.
+  const stageReusedFiles = Effect.fn("StagedUploadService.stageReusedFiles")(
+    function*(
+      upload: StagedUpload,
+      reusable: ReadonlySet<string>,
+    ): Effect.fn.Return<StagedUpload, StagedUploadFailure> {
+      let staged = upload;
+      for (const file of upload.files.filter((candidate) => reusable.has(blobKey(candidate.entry)))) {
+        yield* dependencies.staging.put({
+          body: yield* dependencies.blobs.open(file.entry),
+          sha256: file.entry.sha256,
+          size: file.entry.size,
+          storageToken: file.storageToken,
+          uploadId: upload.id,
+        });
+        staged = yield* dependencies.uploads.markStagedFileUploaded(
+          upload.projectId,
+          upload.id,
+          upload.principalId,
+          file.storageToken,
+          DateTime.formatIso(yield* dependencies.clock.now),
+        );
+      }
+      return staged;
     },
   );
 
@@ -278,8 +339,11 @@ function makeStagedUploadService(
         files: command.files,
         routingMode: command.routingMode ?? "static",
       });
+      const reusable = command.baseArtifactId === undefined || command.baseArtifactId === null
+        ? new Set<string>()
+        : yield* reusableBlobKeys(command.principal, project.id, command.baseArtifactId);
       const created = yield* dependencies.clock.now;
-      return yield* dependencies.uploads.createStagedUpload({
+      const upload = yield* dependencies.uploads.createStagedUpload({
         createdAt: DateTime.formatIso(created),
         expiresAt: DateTime.formatIso(
           DateTime.addDuration(created, uploadLifetimeMilliseconds),
@@ -294,6 +358,7 @@ function makeStagedUploadService(
         principalId: command.principal.id,
         projectId: project.id,
       });
+      return yield* stageReusedFiles(upload, reusable);
     },
   );
 

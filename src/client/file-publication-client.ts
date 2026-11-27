@@ -68,6 +68,10 @@ const publishResponseSchema = Schema.Struct({
   version: versionSchema,
 });
 const createUploadResponseSchema = Schema.Struct({
+  alreadyStored: Schema.Array(Schema.Struct({
+    path: Schema.String,
+    size: nonnegativeIntegerSchema,
+  })),
   commitUrl: Schema.URLFromString,
   expiresAt: Schema.String,
   files: Schema.Array(Schema.Struct({
@@ -210,6 +214,7 @@ export interface PreparedFilePublication {
 }
 
 interface CreateUploadRequestBody {
+  readonly baseArtifactId?: string | undefined;
   readonly entryPath: string;
   readonly files: readonly {
     readonly mediaType: string;
@@ -217,7 +222,7 @@ interface CreateUploadRequestBody {
     readonly sha256: string;
     readonly size: number;
   }[];
-  readonly projectId?: string;
+  readonly projectId?: string | undefined;
   readonly routingMode: "spa" | "static";
 }
 
@@ -324,6 +329,7 @@ export const publishPreparedPath = Effect.fn(
       config.apiToken,
       publication,
       prepared.projectId,
+      prepared.target.kind === "new_version" ? prepared.target.artifactId : undefined,
     );
     yield* validateUploadPlan(serverOrigin, publication, upload);
     yield* Effect.forEach(
@@ -632,6 +638,7 @@ const createUpload = Effect.fn("FilePublicationClient.createUpload")(
     apiToken: Redacted.Redacted,
     prepared: PreparedPublication,
     projectId: string | undefined,
+    baseArtifactId: string | undefined,
   ): Effect.fn.Return<
     typeof createUploadResponseSchema.Type,
     FilePublicationProtocolError,
@@ -643,15 +650,12 @@ const createUpload = Effect.fn("FilePublicationClient.createUpload")(
       sha256: file.sha256,
       size: file.size,
     }));
-    const body: CreateUploadRequestBody = projectId === undefined ? {
+    const body: CreateUploadRequestBody = {
       entryPath: prepared.entryPath,
       files,
       routingMode: prepared.routingMode,
-    } : {
-      entryPath: prepared.entryPath,
-      files,
+      baseArtifactId,
       projectId,
-      routingMode: prepared.routingMode,
     };
     const request = yield* jsonRequest(
       HttpClientRequest.post(new URL("/api/v1/uploads", serverOrigin)),
@@ -682,14 +686,14 @@ const validateUploadPlan = Effect.fn("FilePublicationClient.validateUploadPlan")
         reason: "unsafe_upload_plan",
       });
     }
-    if (upload.files.length !== prepared.files.length) {
+    if (upload.files.length + upload.alreadyStored.length !== prepared.files.length) {
       return yield* unsafeUploadPlan(
         "The server returned an incomplete file-upload plan.",
       );
     }
     const preparedByPath = new Map(prepared.files.map((file) => [file.path, file]));
     const plannedPaths = new Set<string>();
-    for (const planned of upload.files) {
+    for (const planned of [...upload.files, ...upload.alreadyStored]) {
       const preparedFile = preparedByPath.get(planned.path);
       if (
         preparedFile === undefined

@@ -170,6 +170,7 @@ const declaredFileSchema = z.object({
   size: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
 }).strict();
 const createUploadSchema = z.object({
+  baseArtifactId: z.string().min(1).max(200).optional(),
   entryPath: z.string().min(1).max(1_024),
   files: z.array(declaredFileSchema).min(1).max(maximumDeclaredFiles),
   projectId: projectIdSchema.optional(),
@@ -2309,6 +2310,7 @@ export function createHttpApp(
       dependencies,
       StagedUploadService.use((stagedUploads) =>
         stagedUploads.createUpload({
+          baseArtifactId: body.baseArtifactId ?? null,
           entryPath: body.entryPath,
           files: body.files,
           principal: context.get("principal"),
@@ -2320,12 +2322,15 @@ export function createHttpApp(
     const requestUrl = responseApplicationUrl(context, dependencies);
     const projectQuery = `?projectId=${encodeURIComponent(upload.projectId)}`;
     return context.json({
+      alreadyStored: upload.files
+        .filter((file) => file.uploadedAt !== null)
+        .map((file) => ({path: file.entry.path, size: file.entry.size})),
       commitUrl: new URL(
         `/api/v1/uploads/${upload.id}/commit${projectQuery}`,
         requestUrl,
       ).toString(),
       expiresAt: upload.expiresAt,
-      files: upload.files.map((file) => ({
+      files: upload.files.filter((file) => file.uploadedAt === null).map((file) => ({
         method: "PUT" as const,
         path: file.entry.path,
         size: file.entry.size,

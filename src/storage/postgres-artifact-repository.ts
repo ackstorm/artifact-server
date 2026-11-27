@@ -109,6 +109,7 @@ import type {
   SetProjectArchive,
   StagedUploadGrantRecord,
   StagedUploadRepository,
+  StoredBlob,
   TakeVoiceMessages,
   UpdateCommentReply,
   UpdateCommentThread,
@@ -2157,6 +2158,28 @@ export class PostgresArtifactRepository implements
           thread.versionId,
         );
       }));
+    }));
+  }
+
+  async listArtifactBlobs(
+    projectId: string,
+    artifactId: string,
+  ): Promise<readonly StoredBlob[]> {
+    const installationId = this.#installationId;
+    return this.#database.run(Effect.gen(function*() {
+      const sql = yield* SqlClient;
+      const rows = yield* sql`SELECT DISTINCT entry.sha256 AS sha256, entry.size AS size
+        FROM manifest_entries entry
+        INNER JOIN versions version
+          ON version.installation_id = entry.installation_id
+          AND version.id = entry.version_id
+        WHERE version.installation_id = ${installationId}
+          AND version.project_id = ${projectId}
+          AND version.artifact_id = ${artifactId}`;
+      return z.array(z.object({
+        sha256: z.string(),
+        size: nonnegativeIntegerSchema,
+      })).parse(rows);
     }));
   }
 

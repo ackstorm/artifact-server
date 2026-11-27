@@ -285,6 +285,13 @@ export function createApplicationLayer(
     },
   };
   const stagedDependencies: StagedUploadDependencies = {
+    blobs: {
+      open: (blob) =>
+        Effect.tryPromise({
+          try: async () => (await adapters.blobs.open(blob.sha256)).body,
+          catch: (cause) => new BlobStorageFailure({cause, operation: "open"}),
+        }),
+    },
     clock,
     ids: adapters.ids,
     secrets: {
@@ -348,6 +355,11 @@ export function createApplicationLayer(
         Effect.tryPromise({
           try: () => adapters.repository.findStagedUploadGrant(uploadId),
           catch: (cause) => repositoryFailure("findStagedUploadGrant", cause),
+        }),
+      listArtifactBlobs: (projectId, artifactId) =>
+        Effect.tryPromise({
+          try: () => adapters.repository.listArtifactBlobs(projectId, artifactId),
+          catch: (cause) => repositoryFailure("listArtifactBlobs", cause),
         }),
       listExpiredStagedUploads: (expiredBefore, limit) =>
         Effect.tryPromise({
@@ -1073,7 +1085,7 @@ export function createApplicationLayer(
     ),
   );
   const stagedLayer = StagedUploadService.layer(stagedDependencies).pipe(
-    Layer.provideMerge(Layer.mergeAll(publishLayer, projectLayer)),
+    Layer.provideMerge(Layer.mergeAll(publishLayer, projectLayer, managementLayer)),
   );
   const cleanupLayer = ExpiredStagingCleanupService.layer({
     clock,

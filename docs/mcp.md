@@ -55,6 +55,8 @@ An agent uses this sequence:
 
 When the agent publishes a new version, it first reads the current version ID. It sends that ID as `expectedCurrentVersionId`.
 
+Pass `baseArtifactId` to `artifact_create_upload` when publishing a new version. Declared files whose SHA-256 and size match a file in any version of that artifact come back in `alreadyStored` and need no upload; `files` lists only the uploads still needed. The caller must be allowed to publish to the base artifact.
+
 Review opens every artifact in View mode, the page exactly as published. To send a reviewer straight to Comment mode, add `&mode=comment` to `links.review`. See [Review mode](./review-mode.md).
 
 ## Use the publication result

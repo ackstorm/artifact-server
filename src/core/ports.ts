@@ -801,6 +801,11 @@ export interface StagedUploadRepository {
     storageToken: string,
     uploadedAt: string,
   ): Promise<StagedUpload>;
+  /** Every distinct stored blob any version of one artifact references. */
+  listArtifactBlobs(
+    projectId: string,
+    artifactId: string,
+  ): Promise<readonly StoredBlob[]>;
   listExpiredStagedUploads(
     expiredBefore: string,
     limit: number,

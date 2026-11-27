@@ -627,6 +627,18 @@ requirements:
     status: implementing
     proof_gap: PUB-014-B and PUB-014-F run against the local SQLite server; Postgres runtime tests cover grant storage. No deployment-specific evidence is recorded.
     depends_on: [PUB-001, PUB-002, MCP-013]
+  - id: PUB-015
+    kind: behavior
+    behavior: An upload plan created against a base artifact the caller may publish to reports each declared file whose SHA-256 and size match an entry in any version of that artifact as already stored, asks for no upload of it, and commits it; a match never comes from another artifact or project. The CLI passes the artifact it publishes a new version of as the base and sends no file PUT for files the artifact already stores.
+    owner: publishing
+    source: {file: artifact-server-mcp-baseline.md, anchor: direct-upload-flow}
+    acceptance:
+      behavior: {id: PUB-015-B, description: "Create an upload over MCP and HTTP against a base artifact whose versions hold some declared files, upload only the rest, commit, and read back every digest; re-publish unchanged files through the CLI client with the artifact as target and send no file PUT."}
+      failure: {id: PUB-015-F, description: "A file whose hash exists only in another artifact still needs its upload and blocks commit until uploaded, a size mismatch is not reused, and an unknown or other-project base artifact is refused as not found without revealing its files."}
+    deployments: *all
+    status: implementing
+    proof_gap: PUB-015-B and PUB-015-F run against the local SQLite server. The Postgres blob query is covered only by typecheck, and refusal of a readable base artifact the caller does not control is enforced by the shared artifact-control check but not exercised by these tests.
+    depends_on: [PUB-001, PUB-003, PUB-004]
   - id: CLI-001
     kind: security
     behavior: The Artifact Server CLI keeps profiles by exact server origin and account; remote interactive login uses browser authorization and operating-system credential storage, local mode uses private user-only state without visible secrets, and CI uses scoped service credentials from its secret manager.

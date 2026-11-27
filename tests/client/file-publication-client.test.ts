@@ -209,6 +209,7 @@ describe("file publication client", () => {
     await writeFile(filePath, "protocol failure fixture");
 
     const incompletePlanServer = await startResponseServer((origin) => JSON.stringify({
+      alreadyStored: [],
       commitUrl: `${origin}/commit`,
       expiresAt: "2099-01-01T00:00:00.000Z",
       files: [],
@@ -357,6 +358,7 @@ async function startUnsafeUploadPlanServer(): Promise<{
   readonly server: Server;
 }> {
   return startResponseServer(() => JSON.stringify({
+      alreadyStored: [],
       commitUrl: "https://elsewhere.example.test/commit",
       expiresAt: "2099-01-01T00:00:00.000Z",
       files: [{
