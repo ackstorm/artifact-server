@@ -86,6 +86,10 @@ version. `artifact_open.reviewUrl`
 opens the selected exact version in Review, while `artifact_open.browserUrl`
 opens its raw immutable content. Agents should hand people the Review URL.
 
+## Publication warnings
+
+Upload commits and edits return `warnings`, which never fail a publication. `missing_reference` names a relative link or image in an HTML or Markdown file that matches no file in the version. `blocked_host` names a script or stylesheet URL whose host the Review frame does not allow. At most 50 warnings are returned, from at most 4 MiB of HTML and Markdown.
+
 ## Edit text files of an artifact
 
 `artifact_edit` creates a new version from the artifact's current version without uploading anything. It applies operations in order, all or nothing:

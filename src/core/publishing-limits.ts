@@ -63,3 +63,9 @@ export const maximumInlineTextFileBytes = 1_024 * 1_024;
 
 /** Most UTF-8 bytes of oldText, newText, and text one edit commit carries. */
 export const maximumEditTextBytes = 256 * 1_024;
+
+/** Most publication warnings one commit or edit returns. */
+export const maximumPublicationWarnings = 50;
+
+/** Most HTML and Markdown bytes one publication's warning analysis reads. */
+export const maximumWarningScanBytes = 4 * 1_024 * 1_024;

@@ -21,6 +21,7 @@ import {
   type UploadIncomplete,
   type UploadNotFound,
 } from "../core/errors.js";
+import { type PublicationWarning, publicationWarnings } from "./publication-warnings.js";
 import { compareManifests } from "../comparison/compare-manifests.js";
 import type { Principal } from "../core/identity.js";
 import {
@@ -122,6 +123,7 @@ export interface EditedFileChange {
 export interface ArtifactEdit {
   readonly changes: readonly EditedFileChange[];
   readonly published: PublishedVersion;
+  readonly warnings: readonly PublicationWarning[];
 }
 
 type SourceReadinessFailure =
@@ -200,6 +202,9 @@ export type PublishArtifactFailure =
   | ProjectManagementFailure;
 
 interface PublishArtifactOperations {
+  readonly publicationWarnings: (
+    manifest: CanonicalManifest,
+  ) => Effect.Effect<readonly PublicationWarning[]>;
   readonly editArtifact: (
     command: EditArtifactCommand,
   ) => Effect.Effect<ArtifactEdit, PublishArtifactFailure | InvalidEdit>;
@@ -473,6 +478,9 @@ function makePublishArtifactService(
     },
   );
 
+  const warningsFor = (manifest: CanonicalManifest) =>
+    publicationWarnings(manifest, (blob) => dependencies.blobs.readBytes(blob));
+
   const editArtifact = Effect.fn("PublishArtifactService.editArtifact")(
     function*(
       command: EditArtifactCommand,
@@ -514,7 +522,7 @@ function makePublishArtifactService(
       );
       const manifest = yield* parseManifest(applied.manifest);
       const changes = editedFileChanges(base.saved.manifest, manifest);
-      if (replayed !== null) return {changes, published: replayed};
+      if (replayed !== null) return {changes, published: replayed, warnings: yield* warningsFor(manifest)};
       yield* Effect.forEach(
         applied.blobs,
         (blob) => dependencies.blobs.put({
@@ -538,7 +546,7 @@ function makePublishArtifactService(
         source: {kind: "saved_version"},
         versionId: dependencies.ids.versionId(),
       });
-      return {changes, published};
+      return {changes, published, warnings: yield* warningsFor(manifest)};
     },
   );
 
@@ -547,6 +555,7 @@ function makePublishArtifactService(
     editArtifact,
     publishPreparedNew,
     publishPreparedVersion,
+    publicationWarnings: warningsFor,
   });
 }
 

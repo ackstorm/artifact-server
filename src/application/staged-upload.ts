@@ -18,7 +18,6 @@ import type { Principal } from "../core/identity.js";
 import {
   uploadStatuses,
   type AccessSetting,
-  type PublishedVersion,
   type RoutingMode,
   type StagedUpload,
 } from "../core/model.js";
@@ -44,6 +43,7 @@ import {
   type AuthorizationOperations,
   AuthorizationService,
 } from "./authorization.js";
+import type { CommittedPublication } from "./publication-warnings.js";
 import {ArtifactManagementService} from "./artifact-management.js";
 import {
   type ProjectManagementFailure,
@@ -211,7 +211,7 @@ export type StagedUploadFailure =
 interface StagedUploadOperations {
   readonly commitUpload: (
     command: CommitStagedUploadCommand,
-  ) => Effect.Effect<PublishedVersion, StagedUploadFailure>;
+  ) => Effect.Effect<CommittedPublication, StagedUploadFailure>;
   readonly createUpload: (
     command: CreateStagedUploadCommand,
   ) => Effect.Effect<StagedUpload, StagedUploadFailure>;
@@ -258,6 +258,8 @@ export class StagedUploadService extends Context.Service<
     );
 }
 
+const blobKey = (blob: StoredBlob): string => `${blob.sha256}:${blob.size}`;
+
 function makeStagedUploadService(
   dependencies: StagedUploadDependencies,
   publish: PublishArtifactService["Service"],
@@ -280,8 +282,6 @@ function makeStagedUploadService(
       return upload;
     },
   );
-
-  const blobKey = (blob: StoredBlob): string => `${blob.sha256}:${blob.size}`;
 
   const reusableBlobKeys = Effect.fn("StagedUploadService.reusableBlobKeys")(
     function*(
@@ -523,7 +523,7 @@ function makeStagedUploadService(
   const commitUpload = Effect.fn("StagedUploadService.commitUpload")(
     function*(
     command: CommitStagedUploadCommand,
-  ): Effect.fn.Return<PublishedVersion, StagedUploadFailure> {
+  ): Effect.fn.Return<CommittedPublication, StagedUploadFailure> {
       yield* authorization.requirePublicationPreparation(command.principal);
       // An explicit project can be archived after a successful commit. Let the
       // repository replay that exact idempotent result; it still rejects every
@@ -562,10 +562,9 @@ function makeStagedUploadService(
         projectId: project.id,
         uploadId: upload.id,
       };
-      switch (command.target.kind) {
-        case "new_artifact":
-          return yield* expirePublicationAtDeadline(signal,
-            publish.publishPreparedNew({
+      const published = command.target.kind === "new_artifact"
+        ? yield* expirePublicationAtDeadline(signal,
+          publish.publishPreparedNew({
             accessSetting: command.target.accessSetting,
             files,
             idempotencyKey: command.idempotencyKey,
@@ -575,10 +574,9 @@ function makeStagedUploadService(
             projectId: project.id,
             source,
             tags: command.target.tags ?? [],
-            }));
-        case "new_version":
-          return yield* expirePublicationAtDeadline(signal,
-            publish.publishPreparedVersion({
+          }))
+        : yield* expirePublicationAtDeadline(signal,
+          publish.publishPreparedVersion({
             artifactId: command.target.artifactId,
             expectedCurrentVersionId: command.target.expectedCurrentVersionId,
             files,
@@ -587,13 +585,11 @@ function makeStagedUploadService(
             principal: command.principal,
             projectId: project.id,
             source,
-            }));
-      }
-      return yield* Effect.die(
-        new Error(
-          `Unreachable staged upload target: ${String(command.target)}`,
-        ),
-      );
+          }));
+      return {
+        ...published,
+        warnings: yield* publish.publicationWarnings(upload.manifest),
+      };
     },
   );
 

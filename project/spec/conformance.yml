@@ -639,6 +639,18 @@ requirements:
     status: implementing
     proof_gap: PUB-015-B and PUB-015-F run against the local SQLite server. The Postgres blob query is covered only by typecheck, and refusal of a readable base artifact the caller does not control is enforced by the shared artifact-control check but not exercised by these tests.
     depends_on: [PUB-001, PUB-003, PUB-004]
+  - id: PUB-016
+    kind: behavior
+    behavior: Upload commits and edit commits return non-fatal publication warnings for relative HTML and Markdown references that name no manifest path and for absolute script or stylesheet URLs the Review frame policy blocks; analysis is bounded in warnings and bytes read and never fails a publication.
+    owner: publishing
+    source: {file: artifact-server-mcp-baseline.md, anchor: publication-warnings}
+    acceptance:
+      behavior: {id: PUB-016-B, description: "Publish a site with a missing script, a missing Markdown image, and blocked script and stylesheet hosts beside allowed CDN, fragment, query, absolute, data, and mailto references, and receive exactly the missing and blocked warnings from the commit and from an edit."}
+      failure: {id: PUB-016-F, description: "A publication with more broken references than the cap, invalid UTF-8, and malformed URLs still commits and an edit still commits, each with at most the capped warnings."}
+    deployments: *all
+    status: implementing
+    proof_gap: PUB-016-B and PUB-016-F pass locally against the SQLite server; the iteration gate has not run them, and the Review frame CSP browser test is not run locally.
+    depends_on: [PUB-005, EDT-001]
   - id: CLI-001
     kind: security
     behavior: The Artifact Server CLI keeps profiles by exact server origin and account; remote interactive login uses browser authorization and operating-system credential storage, local mode uses private user-only state without visible secrets, and CI uses scoped service credentials from its secret manager.

@@ -171,6 +171,12 @@ const artifactStateSchema = z.object({
   replayed: z.boolean(),
   version: versionRecordSchema,
 }).strict();
+const publicationWarningSchema = z.object({
+  code: z.enum(["blocked_host", "missing_reference"]),
+  path: z.string(),
+  reference: z.string(),
+}).strict();
+
 const publishedVersionSchema = artifactStateSchema.extend({
   links: z.object({artifact: z.url(), review: z.url(), version: z.url()}).strict(),
 }).strict();
@@ -1217,7 +1223,9 @@ export function createArtifactMcpServer(
         ]),
         uploadId: z.string().min(1).max(200),
       }).strict(),
-      outputSchema: publishedVersionSchema,
+      outputSchema: publishedVersionSchema.extend({
+        warnings: z.array(publicationWarningSchema),
+      }).strict(),
       annotations: idempotentWriteAnnotations,
     },
     async ({idempotencyKey, projectId, target, uploadId}) => toolResult(async () => {
@@ -1233,12 +1241,15 @@ export function createArtifactMcpServer(
           })
         ),
       );
-      return publishedVersionProjection(
-        applicationUrl,
-        dependencies.contentDomain,
-        published,
-      );
-    }, publicationSummary),
+      return {
+        ...publishedVersionProjection(
+          applicationUrl,
+          dependencies.contentDomain,
+          published,
+        ),
+        warnings: published.warnings,
+      };
+    }, (published) => publicationSummary(published) + warningSummary(published.warnings)),
   );
 
   registerNudgedTool(
@@ -1256,6 +1267,7 @@ export function createArtifactMcpServer(
       }).strict(),
       outputSchema: publishedVersionSchema.extend({
         changes: z.array(editedFileChangeSchema),
+        warnings: z.array(publicationWarningSchema),
       }).strict(),
       annotations: idempotentWriteAnnotations,
     },
@@ -1281,8 +1293,9 @@ export function createArtifactMcpServer(
             edit.published,
           ),
           changes: edit.changes,
+          warnings: edit.warnings,
         };
-      }, editSummary),
+      }, (edit) => editSummary(edit) + warningSummary(edit.warnings)),
   );
 
   registerNudgedTool(
@@ -2326,6 +2339,7 @@ function agentInstructions(mode: "local" | "remote"): string {
     "Artifacts belong to projects. Omit projectId only when the installation has one active project; otherwise call project_list and choose explicitly.",
     "For publishing, inspect the selected file or finished directory on the client, compute each relative path, byte length, media type, and SHA-256 fingerprint, call artifact_create_upload, PUT the exact bytes to every returned uploadUrl with Authorization: Bearer <uploadGrant.token>, then call artifact_commit_upload. The upload grant works only for that upload; never print it or repeat it in chat. When publishing a new version, pass baseArtifactId so files the artifact already stores need no upload.",
     "To change text files of an artifact already on the server, read them with artifact_read_file, then call artifact_edit with artifact_get's current version ID: replace needs each oldText to occur exactly once; write, delete, and rename cover the rest. Publish binaries and new sites through artifact_create_upload.",
+    "Commit and edit results may carry warnings: missing_reference is a relative link or image that names no file in the version, and blocked_host is a script or stylesheet host the Review frame blocks. They never fail a publication; fix them in a new version when they matter.",
     "After publishing, always give the user links.review first so they can see the exact version full screen and comment. Mention links.version second when the raw artifact is useful. Do not put content bootstrap URLs or credentials in chat.",
     "When publishing a new version, first call artifact_get and pass its current version ID as expectedCurrentVersionId. On conflict, inspect the new current version before retrying.",
     "Use a stable application idempotency key when retrying the same mutation. Use a new key only for an intentional new operation.",
@@ -2763,6 +2777,22 @@ function editSummary(edit: {
     `Edited ${JSON.stringify(edit.artifact.name)}: ${edit.changes.map((change) => `${change.change} ${change.path}`).join(", ")}.`,
     `Review and comment: ${edit.links.review}`,
   ].join("\n");
+}
+
+function warningSummary(
+  warnings: readonly {
+    readonly code: string;
+    readonly path: string;
+    readonly reference: string;
+  }[],
+): string {
+  return warnings.length === 0
+    ? ""
+    : [
+      "",
+      `Warnings (${warnings.length}):`,
+      ...warnings.map((warning) => `- ${warning.code} in ${warning.path}: ${warning.reference}`),
+    ].join("\n");
 }
 
 function publicationSummary(published: {

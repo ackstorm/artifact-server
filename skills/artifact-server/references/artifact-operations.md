@@ -74,6 +74,8 @@ For publication, collect these fields from the structured result:
 - full-screen review link (the only link handed to people);
 - access setting.
 
+Report any `warnings` from the result in one line each; offer to fix them with a new version.
+
 Present only the full-screen review link: it is the human link for viewing and
 commenting on the exact published version. Give the stable or raw link only when
 the user explicitly asks for it.

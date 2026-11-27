@@ -367,6 +367,10 @@ HTTP requests. Upload identifiers, temporary addresses, bearer credentials,
 fingerprints, and retry state stay inside the client and never enter model
 context or project configuration.
 
+### Publication warnings
+
+`artifact_commit_upload`, `artifact_edit`, and their HTTP routes return `warnings` computed over the resulting version, never failures. `missing_reference` names a relative `src` or `href` (script, link, img, source, video, audio, iframe, a) in an HTML file, or a Markdown link or image, that resolves to no manifest path; fragments, queries, absolute URLs, `data:`, and `mailto:` are ignored. `blocked_host` names an absolute script or stylesheet URL whose host the Review frame CSP does not allow; fonts load from any host. At most 50 warnings are returned and at most 4 MiB of HTML and Markdown is read.
+
 Every durable mutation requires an application idempotency key. A mutation of
 an existing artifact also requires the current version the caller started
 from. Creating a new artifact has no earlier version to supply. Creating an
