@@ -157,6 +157,7 @@ describe("publication warnings", () => {
     const started = performance.now();
     const pathological = await commitSite([
       textFile("index.html", "<a ".repeat(349_525), "text/html"),
+      textFile("embeds.html", "<as-embed ".repeat(104_857), "text/html"),
       textFile("notes.md", "[".repeat(1_048_576), "text/markdown"),
     ], "pub-016-f-commit-pathological");
     expect(pathological.warnings).toEqual([]);

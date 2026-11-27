@@ -15,6 +15,8 @@ instructions.
   [artifact operations](references/artifact-operations.md). Read
   [target selection](references/target-selection.md) when the server or project
   is not already exact.
+- For a page that shows a table or a diagram, also read
+  [embeds](references/embeds.md).
 - For an explicit request to install, deploy, upgrade, reconfigure, back up,
   restore, inspect, repair, or delete an Artifact Server installation, read
   [server operations](references/server-operations.md). Do not load or follow

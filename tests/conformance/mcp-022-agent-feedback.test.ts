@@ -19,6 +19,7 @@ import {
 
 const targetSchema = z.object({
   element: z.json().nullable(),
+  embed: z.json().nullable(),
   quote: z.string().nullable(),
 }).strict();
 const pageSchema = z.object({
@@ -140,6 +141,7 @@ describe("agent-ready comment feedback", () => {
         tag: "button",
         text: "Save draft",
       },
+      embed: null,
       quote: "Save draft",
     };
     expect((await targets()).get(threadId)).toEqual(expected);
@@ -170,13 +172,14 @@ describe("agent-ready comment feedback", () => {
     );
     const bare = await openThread(null, "No anchor at all.", "mcp-022-f-thread-bare");
     const listed = await targets();
-    expect(listed.get(pageNote)).toEqual({element: null, quote: null});
-    expect(listed.get(malformed)).toEqual({element: null, quote: "Plain quote"});
+    expect(listed.get(pageNote)).toEqual({element: null, embed: null, quote: null});
+    expect(listed.get(malformed)).toEqual({element: null, embed: null, quote: "Plain quote"});
     expect(listed.get(hostile)).toEqual({
       element: {name: "Sa‮ve", path: "body >​ main", tag: "div"},
+      embed: null,
       quote: "q",
     });
-    expect(listed.get(bare)).toEqual({element: null, quote: null});
+    expect(listed.get(bare)).toEqual({element: null, embed: null, quote: null});
 
     const message = await claimBundle([pageNote, malformed, hostile, bare], "mcp-022-f-dispatch-all");
     expect(message.match(/Element: /gu)).toHaveLength(1);

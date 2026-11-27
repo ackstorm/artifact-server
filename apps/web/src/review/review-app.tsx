@@ -196,6 +196,7 @@ interface ReviewLocation {
   readonly mode: ReviewMode | null;
   readonly path: string | null;
   readonly projectId: string | null;
+  readonly tab: string | null;
   readonly versionId: string | null;
   readonly view: "focus" | null;
 }
@@ -648,6 +649,7 @@ function ArtifactReview({
   const [selectedPath, setSelectedPath] = useState<string | null>(
     initialLocation.path,
   );
+  const [selectedTab, setSelectedTab] = useState<string | null>(initialLocation.tab);
   const [modeOverride, setModeOverride] = useState(initialLocation.mode);
   const [reviewModeRestoration, setReviewModeRestoration] = useState(0);
   const [query, setQuery] = useState("");
@@ -767,6 +769,7 @@ function ArtifactReview({
     setDetailError(null);
     setSelectedVersionId(versionId);
     setSelectedPath(null);
+    setSelectedTab(null);
   }, []);
   const comments = useReviewComments({
     artifactId: selectedArtifactId,
@@ -876,6 +879,7 @@ function ArtifactReview({
     setDetailError(null);
     setSelectedVersionId(versionId);
     setSelectedPath(null);
+    setSelectedTab(null);
   };
   const mergePrincipalNames = useCallback((
     ...maps: readonly Readonly<Record<string, string>>[]
@@ -1120,12 +1124,13 @@ function ArtifactReview({
       mode: modeOverride,
       path: selectedPath,
       projectId,
+      tab: selectedTab,
       versionId: selectedVersionId,
       view: focusMode ? "focus" : null,
     });
     window.history.replaceState(null, "", href);
     window.sessionStorage.setItem("artifact-review-return-url", href);
-  }, [focusMode, modeOverride, projectId, selectedArtifactId, selectedPath, selectedVersionId]);
+  }, [focusMode, modeOverride, projectId, selectedArtifactId, selectedPath, selectedTab, selectedVersionId]);
 
   useEffect(() => {
     const restoreLocation = (): void => {
@@ -1140,6 +1145,7 @@ function ArtifactReview({
       setReviewModeRestoration((restoration) => restoration + 1);
       setSelectedVersionId(restored.versionId);
       setSelectedPath(restored.path);
+      setSelectedTab(restored.tab);
       setFocusMode(restored.view === "focus");
     };
     window.addEventListener("popstate", restoreLocation);
@@ -1201,16 +1207,23 @@ function ArtifactReview({
     || session.principal.capabilities.includes("artifact:manage:any");
   const previewKind = reviewPreviewKind(selectedVersion, selectedPath);
   const {copiedTarget, copy: copyText} = useCopy<"review-link">();
+  const [checkedTab, setCheckedTab] = useState<string | null>(null);
+  const checkTab = useCallback((tab: string | null): void => {
+    setCheckedTab(tab);
+    if (tab === null) setSelectedTab(null);
+  }, []);
   const download = reviewDownload(
     projectId,
     selectedArtifactId,
     selectedVersion,
+    previewKind === "html" && checkedTab === selectedTab ? selectedTab : null,
   );
   const selectArtifact = useCallback((artifactId: string, versionId?: string): void => {
     setDetailError(null);
     setSelectedArtifactId(artifactId);
     setSelectedVersionId(versionId ?? null);
     setSelectedPath(null);
+    setSelectedTab(null);
   }, []);
   const selectProject = (nextProjectId: string): void => {
     if (nextProjectId !== projectId) {
@@ -1219,6 +1232,7 @@ function ArtifactReview({
       setSelectedArtifactId(null);
       setSelectedVersionId(null);
       setSelectedPath(null);
+      setSelectedTab(null);
     }
     setProjectId(nextProjectId);
   };
@@ -1228,10 +1242,12 @@ function ArtifactReview({
       mode: modeOverride,
       path,
       projectId,
+      tab: null,
       versionId: selectedVersionId,
       view: focusMode ? "focus" : null,
     }));
     setSelectedPath(path);
+    setSelectedTab(null);
   };
   const changeTags = async (tags: readonly string[]): Promise<void> => {
     if (details === null) return;
@@ -1393,6 +1409,7 @@ function ArtifactReview({
       setSelectedArtifactId(null);
       setSelectedVersionId(null);
       setSelectedPath(null);
+      setSelectedTab(null);
       setDetails(null);
       setVersions([]);
       void loadArtifacts(null, true);
@@ -1408,26 +1425,40 @@ function ArtifactReview({
       mode: modeOverride,
       path: selectedPath,
       projectId,
+      tab: selectedTab,
       versionId: selectedVersionId,
       view: "focus",
     }));
     setFocusCommentsOpen(false);
     setFocusControlsCollapsed(false);
     setFocusMode(true);
-  }, [modeOverride, projectId, selectedArtifactId, selectedPath, selectedVersionId]);
+  }, [modeOverride, projectId, selectedArtifactId, selectedPath, selectedTab, selectedVersionId]);
   const exitFocusMode = useCallback((): void => {
     window.history.pushState(null, "", reviewHref({
       artifactId: selectedArtifactId,
       mode: modeOverride,
       path: selectedPath,
       projectId,
+      tab: selectedTab,
       versionId: selectedVersionId,
       view: null,
     }));
     setFocusCommentsOpen(false);
     setFocusControlsCollapsed(false);
     setFocusMode(false);
-  }, [modeOverride, projectId, selectedArtifactId, selectedPath, selectedVersionId]);
+  }, [modeOverride, projectId, selectedArtifactId, selectedPath, selectedTab, selectedVersionId]);
+  const selectEmbedTab = (tab: string | null): void => {
+    window.history.pushState(null, "", reviewHref({
+      artifactId: selectedArtifactId,
+      mode: modeOverride,
+      path: selectedPath,
+      projectId,
+      tab,
+      versionId: selectedVersionId,
+      view: focusMode ? "focus" : null,
+    }));
+    setSelectedTab(tab);
+  };
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   useEffect(() => {
     const focusSearch = (event: KeyboardEvent): void => {
@@ -1721,6 +1752,7 @@ function ArtifactReview({
                   setSelectedArtifactId(null);
                   setSelectedVersionId(null);
                   setSelectedPath(null);
+                  setSelectedTab(null);
                 }}
                 role="tab"
                 type="button"
@@ -2218,6 +2250,8 @@ function ArtifactReview({
                     }
                   }
                 }}
+                onSelectTab={selectEmbedTab}
+                onTabChecked={checkTab}
                 onSubmitAnnotation={async (body, anchor, path) => {
                   const saved = await comments.submit(body, anchor, path);
                   if (!saved && selectedArtifactId !== null && selectedVersionId !== null) {
@@ -2245,6 +2279,7 @@ function ArtifactReview({
                 reviewMode={reviewMode}
                 selectedThreadId={comments.selectedThreadId}
                 selectedPath={selectedPath}
+                selectedTab={selectedTab}
                 version={selectedVersion}
               />
             )}
@@ -2474,9 +2509,17 @@ function reviewDownload(
   projectId: string,
   artifactId: string | null,
   version: ArtifactVersion | null,
+  tabPath: string | null,
 ): ReviewDownload | null {
   if (artifactId === null || version === null) return null;
   const entries = version.manifest.entries;
+  const tabEntry = entries.find((entry) => entry.path === tabPath);
+  if (tabEntry !== undefined) {
+    return {
+      href: api.versionFileUrl(projectId, artifactId, version.version.id, tabEntry.path),
+      title: `Download ${tabEntry.path}`,
+    };
+  }
   const onlyEntry = entries.length === 1 ? entries[0] : undefined;
   if (onlyEntry !== undefined) {
     return {
@@ -3266,6 +3309,7 @@ function readReviewLocation(): ReviewLocation {
     mode: mode === "view" || mode === "comment" ? mode : null,
     path: search.get("path"),
     projectId: search.get("project"),
+    tab: search.get("tab"),
     versionId: search.get("version"),
     view: search.get("view") === "focus" ? "focus" : null,
   };
@@ -3280,6 +3324,7 @@ function reviewHref(location: ReviewLocation): string {
   if (location.mode !== null) search.set("mode", location.mode);
   if (location.versionId !== null) search.set("version", location.versionId);
   if (location.path !== null) search.set("path", location.path);
+  if (location.tab !== null) search.set("tab", location.tab);
   if (location.view !== null) search.set("view", location.view);
   return search.size === 0 ? "/review" : `/review?${search}`;
 }

@@ -20,6 +20,7 @@ const mediaTypesByExtension = new Map<string, string>([
   [".m4a", "audio/mp4"],
   [".md", "text/markdown; charset=utf-8"],
   [".mjs", "text/javascript; charset=utf-8"],
+  [".mmd", "text/plain; charset=utf-8"],
   [".mov", "video/quicktime"],
   [".mp3", "audio/mpeg"],
   [".mp4", "video/mp4"],

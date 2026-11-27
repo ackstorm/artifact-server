@@ -64,7 +64,7 @@ const httpThreadCreationSchema = z.object({
   replayed: z.boolean(),
   thread: httpThreadSchema,
 }).strict();
-const mcpTargetSchema = z.object({element: z.json().nullable(), quote: z.string().nullable()}).strict();
+const mcpTargetSchema = z.object({element: z.json().nullable(), embed: z.json().nullable(), quote: z.string().nullable()}).strict();
 const mcpThreadPageSchema = z.object({
   items: z.array(commentThreadSchema.extend({target: mcpTargetSchema})),
   nextCursor: z.string().nullable(),

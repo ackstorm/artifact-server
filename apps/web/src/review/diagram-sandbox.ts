@@ -1,6 +1,6 @@
 import mermaid from "mermaid";
 
-import {diagramRequestSchema} from "./diagram-sandbox-protocol.ts";
+import {diagramRequestSchema, mermaidConfiguration} from "./diagram-sandbox-protocol.ts";
 
 /** Trusted classic-script entry, executed only inside an opaque, network-denied frame. */
 function startDiagramSandbox(): void {
@@ -23,18 +23,7 @@ function startDiagramSandbox(): void {
     });
     void (async () => {
       try {
-        mermaid.initialize({
-          deterministicIds: true,
-          deterministicIDSeed: request.id,
-          flowchart: {htmlLabels: false},
-          htmlLabels: false,
-          maxEdges: 200,
-          maxTextSize: 20_000,
-          securityLevel: "strict",
-          startOnLoad: false,
-          suppressErrorRendering: true,
-          theme: request.isLight ? "default" : "dark",
-        });
+        mermaid.initialize(mermaidConfiguration(request.id, request.isLight));
         const host = document.createElement("div");
         document.body.append(host);
         const result = await mermaid.render(request.id, request.text, host);

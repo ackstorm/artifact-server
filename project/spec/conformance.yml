@@ -1641,7 +1641,7 @@ requirements:
 
   - id: MCP-022
     kind: behavior
-    behavior: comment_list and comment_get give each thread a target derived from its anchor, the quoted text and the element context when the anchor carries them, and dispatch_inbox renders the same element as sanitized lines in each bundle item; unrecognized anchors yield no target and stay opaque to the server.
+    behavior: comment_list and comment_get give each thread a target derived from its anchor, the quoted text and the element context when the anchor carries them (EMB-007 adds the embedded file and cell or element), and dispatch_inbox renders the same element as sanitized lines in each bundle item; unrecognized anchors yield no target and stay opaque to the server.
     owner: mcp
     source: {file: artifact-server-mcp-baseline.md, anchor: mcp-tools-and-resources}
     acceptance:
@@ -3754,3 +3754,91 @@ requirements:
     status: implementing
     proof_gap: The Playwright tests run only in the CI iteration gate, which has not yet run these IDs.
     depends_on: [SHL-001]
+
+  - id: EMB-001
+    kind: security
+    behavior: Version and preview-lease hosts serve the embed runtime and its type modules under the reserved /.artifactserver/ path with GET and HEAD only, nosniff, ETag revalidation, and CORS for the opaque-origin Review frame; entry files revalidate on every use and content-hashed chunks are immutable for a year; live hosts answer 404 under the path, which never serves an artifact file and which no manifest can claim.
+    owner: content-delivery
+    source: {file: artifact-server-product-spec.html, anchor: embedded-objects}
+    acceptance:
+      behavior: {id: EMB-001-B, description: "Fetch the runtime script, a type module, and a hashed chunk from version and preview-lease hosts and receive the built bytes with CORS, nosniff, ETag revalidation, and no-cache entries beside an immutable chunk."}
+      failure: {id: EMB-001-F, description: "Unknown runtime files, encoded traversal, an artifact file name under the reserved path, non-GET methods, and every runtime file on a live host are refused, and an upload declaring a .artifactserver path is rejected."}
+    deployments: *all
+    status: verified
+    depends_on: [CNT-004, CNT-008]
+
+  - id: EMB-002
+    kind: behavior
+    behavior: The embed runtime renders a *.csv file (RFC 4180, UTF-8) as a read-only table with the file's first row as the header row, column-letter and row-number headers, and numeric-looking values right-aligned exactly as written; every cell from the file is a text node carrying data-cell and data-annotate with its A1 reference, and a file over 1 MiB, 20,000 cells, or 256 columns, or with an unclosed quoted field, shows an inline error after parsing in time linear in its size.
+    owner: web-application
+    source: {file: artifact-server-product-spec.html, anchor: embedded-objects}
+    acceptance:
+      behavior: {id: EMB-002-B, description: "Render a CSV with quoted commas, escaped quotes, an embedded newline, and CRLF line ends, read its letters, row numbers, header row, and right-aligned numbers, and comment on a cell in Review Comment so the anchor carries the cell's data-annotate."}
+      failure: {id: EMB-002-F, description: "A 1 MiB unclosed quote and 1 MiB of commas fail fast with inline errors, files over the size, cell, and column limits, including ragged rows whose padded grid exceeds the cell limit, show errors while the page stays responsive, markup in a cell renders as text, and a src that leaves the version host or traverses with encoded dot segments is refused without a request."}
+    deployments: *all
+    status: verified
+    proof_gap: Chromium evidence only; Firefox and WebKit evidence is unrecorded.
+    depends_on: [EMB-004]
+
+  - id: EMB-003
+    kind: behavior
+    behavior: Upload and edit commits warn diagram_refused naming the construct for each .mmd file or Markdown Mermaid fence the renderer refuses, embed_runtime_missing for an HTML file with as-embed elements and no /.artifactserver/embed.js script, and missing_reference for an as-embed src naming no file; the reserved runtime path never warns, and analysis stays capped, linear in its input, and never fails a publication.
+    owner: publishing
+    source: {file: artifact-server-product-spec.html, anchor: embedded-objects}
+    acceptance:
+      behavior: {id: EMB-003-B, description: "Commit and edit a site whose page embeds an existing and a missing table, whose second page lacks the runtime, and whose diagram file and Markdown fence use refused Mermaid constructs, and receive exactly the expected warnings."}
+      failure: {id: EMB-003-F, description: "Sixty refused Mermaid fences and Mermaid and Markdown sources built against the construct and fence scanners still commit with at most fifty warnings within seconds."}
+    deployments: *all
+    status: verified
+    depends_on: [PUB-016]
+
+  - id: EMB-004
+    kind: behavior
+    behavior: The embed runtime replaces each as-embed element naming a .csv table or a .mmd Mermaid diagram of its version with the rendered object, diagrams under the Markdown preview's Mermaid configuration, refusals, and sanitizer; it loads only the modules for the types on the page and renders the same in Review View, Review Comment, and the raw link; an embed whose src leaves the runtime's host or names no supported file shows an inline error without a request.
+    owner: web-application
+    source: {file: artifact-server-product-spec.html, anchor: embedded-objects}
+    acceptance:
+      behavior: {id: EMB-004-B, description: "Open a page embedding a table and a diagram in View, Comment, and the raw link, read both, and open a diagram-only page that requests no table module."}
+      failure: {id: EMB-004-F, description: "Remote, other-host, unsupported, missing, configured, click-bound, and markup-carrying embeds show inline errors naming the refused construct or sanitized output and cause no request outside the version host."}
+    deployments: *all
+    status: verified
+    proof_gap: Chromium evidence only; Firefox and WebKit evidence is unrecorded.
+    depends_on: [EMB-001]
+
+  - id: EMB-005
+    kind: behavior
+    behavior: Review shows an Overview tab plus one tab per embedded .csv table and .mmd diagram that exists in the version, in document order and named by title or file name; a tab renders its object full size through the same runtime, deep-links with ?tab=, and makes the Download control download that file as stored; a page without embeds shows no tab bar.
+    owner: web-application
+    source: {file: artifact-server-product-spec.html, anchor: embedded-objects}
+    acceptance:
+      behavior: {id: EMB-005-B, description: "Open a page with a table and a diagram embedded, switch to the table tab, download its file and compare the bytes, reload its deep link, switch to the diagram tab, and return to Overview."}
+      failure: {id: EMB-005-F, description: "An unknown tab parameter, or one naming a file the page does not embed, opens Overview, leaves the URL without it, and never drives Download; duplicate, missing, and unsupported embeds get no tab, and a page without embeds has no tab bar."}
+    deployments: *all
+    status: verified
+    proof_gap: Chromium evidence only; Firefox and WebKit evidence is unrecorded.
+    depends_on: [EMB-004]
+
+  - id: EMB-006
+    kind: behavior
+    behavior: A Review comment on anything inside an embed is saved on the embedded file's path, with element context whose data-annotate names that file and the cell or element, and its thread lists that file's path on the Overview and on that object's tab; a comment elsewhere on the page, or on an element whose data-annotate names a file the page does not embed, stays on the page's path.
+    owner: artifact-comments
+    source: {file: artifact-server-product-spec.html, anchor: embedded-objects}
+    acceptance:
+      behavior: {id: EMB-006-B, description: "Comment on a table cell and on a node of each of two diagrams in Overview, read back each thread's path and data-annotate, see the cell's thread list its file on Overview and on the table tab, and see the second diagram's marker on its tab."}
+      failure: {id: EMB-006-F, description: "A comment on page text and one on an element with a forged data-annotate on a page without embeds stay on their page's path."}
+    deployments: *all
+    status: verified
+    proof_gap: Chromium evidence only; Firefox and WebKit evidence is unrecorded.
+    depends_on: [EMB-005, CMT-023]
+
+  - id: EMB-007
+    kind: behavior
+    behavior: comment_list and comment_get give a thread an embed target (src, plus cell for a .csv table or element for a .mmd diagram) when its element context's data-annotate names the thread's own .csv or .mmd path; a .mmd file infers a text media type so artifact_edit writes it; the agent instructions point at the embeds skill reference.
+    owner: mcp
+    source: {file: artifact-server-product-spec.html, anchor: embedded-objects}
+    acceptance:
+      behavior: {id: EMB-007-B, description: "List and get threads on a table cell, a diagram node, and a whole diagram and read their embed targets, and write a diagram with artifact_edit."}
+      failure: {id: EMB-007-F, description: "A data-annotate naming another path, a malformed encoding, a missing separator, a table reference that is not an A1 cell, and a thread without a path yield a null embed while every thread still lists."}
+    deployments: *all
+    status: verified
+    depends_on: [MCP-022, EMB-006]

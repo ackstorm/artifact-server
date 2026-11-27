@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { ExternalLinkIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
@@ -7,6 +7,7 @@ import {
   type ArtifactVersion,
 } from "@/api/client";
 import {formatBytes} from "@/lib/presentation";
+import {embedDocument, embedPathOfAnchor, pageEmbeds, type PageEmbed} from "./page-embeds.ts";
 import {
   frameMessageSchema,
   reviewProtocolVersion,
@@ -44,7 +45,9 @@ export function ReviewPreview({
   onSourceViewChange,
   onModeChange,
   onSelectAnnotation,
+  onSelectTab,
   onSubmitAnnotation,
+  onTabChecked,
   onUnanchoredChange,
   opening,
   projectId,
@@ -52,6 +55,7 @@ export function ReviewPreview({
   reviewMode,
   selectedThreadId,
   selectedPath,
+  selectedTab,
   version,
 }: {
   readonly annotations: readonly ReviewAnnotation[];
@@ -62,11 +66,13 @@ export function ReviewPreview({
   readonly onSourceViewChange: (active: boolean) => void;
   readonly onModeChange: (mode: ReviewMode) => void;
   readonly onSelectAnnotation: (threadId: string | null) => void;
+  readonly onSelectTab: (path: string | null) => void;
   readonly onSubmitAnnotation: (
     body: string,
     anchor: ReviewAnchor | null,
     path: string,
   ) => Promise<boolean>;
+  readonly onTabChecked: (tab: string | null) => void;
   readonly onUnanchoredChange: (threadIds: readonly string[]) => void;
   readonly opening: boolean;
   readonly projectId: string;
@@ -74,6 +80,7 @@ export function ReviewPreview({
   readonly reviewMode: ReviewMode;
   readonly selectedThreadId: string | null;
   readonly selectedPath: string | null;
+  readonly selectedTab: string | null;
   readonly version: ArtifactVersion | null;
 }) {
   if (version === null) {
@@ -122,11 +129,14 @@ export function ReviewPreview({
         onSourceViewChange={onSourceViewChange}
         onModeChange={onModeChange}
         onSelectAnnotation={onSelectAnnotation}
+        onSelectTab={onSelectTab}
         onSubmitAnnotation={onSubmitAnnotation}
+        onTabChecked={onTabChecked}
         onUnanchoredChange={onUnanchoredChange}
         projectId={projectId}
         readOnly={readOnly}
         reviewMode={reviewMode}
+        selectedTab={selectedTab}
         selectedThreadId={selectedThreadId}
         version={version}
       />
@@ -200,11 +210,14 @@ function HtmlPreview({
   onSourceViewChange,
   onModeChange,
   onSelectAnnotation,
+  onSelectTab,
   onSubmitAnnotation,
+  onTabChecked,
   onUnanchoredChange,
   projectId,
   readOnly,
   reviewMode,
+  selectedTab,
   selectedThreadId,
   version,
 }: {
@@ -217,15 +230,18 @@ function HtmlPreview({
   readonly onSourceViewChange: (active: boolean) => void;
   readonly onModeChange: (mode: ReviewMode) => void;
   readonly onSelectAnnotation: (threadId: string | null) => void;
+  readonly onSelectTab: (path: string | null) => void;
   readonly onSubmitAnnotation: (
     body: string,
     anchor: ReviewAnchor | null,
     path: string,
   ) => Promise<boolean>;
+  readonly onTabChecked: (tab: string | null) => void;
   readonly onUnanchoredChange: (threadIds: readonly string[]) => void;
   readonly projectId: string;
   readonly readOnly: boolean;
   readonly reviewMode: ReviewMode;
+  readonly selectedTab: string | null;
   readonly selectedThreadId: string | null;
   readonly version: ArtifactVersion;
 }) {
@@ -240,6 +256,18 @@ function HtmlPreview({
   const frameRef = useRef<HTMLIFrameElement | null>(null);
   const initialisedRef = useRef<PreviewDocument | null>(null);
   const mode: ReviewMode = sourceView ? "view" : reviewMode;
+  const manifestPaths = useMemo(
+    () => new Set(version.manifest.entries.map((candidate) => candidate.path)),
+    [version.manifest.entries],
+  );
+  const embeds = useMemo(
+    () => markdown || sourceDocument === null ? [] : pageEmbeds(sourceDocument.html, entry.path, manifestPaths),
+    [entry.path, manifestPaths, markdown, sourceDocument],
+  );
+  const activeTab = embeds.find((embed) => embed.path === selectedTab)?.path ?? null;
+  useEffect(() => {
+    if (sourceDocument !== null) onTabChecked(activeTab);
+  }, [activeTab, onTabChecked, sourceDocument]);
   useEffect(() => {
     onSourceViewChange(markdown && sourceView);
     return () => onSourceViewChange(false);
@@ -310,12 +338,19 @@ function HtmlPreview({
   }, [artifactId, entry.path, entry.size, markdown, projectId, retry, version.version.id]);
 
   useEffect(() => {
-    if (sourceDocument === null) return undefined;
-    if (!markdown) {
-      setPreviewDocument({...sourceDocument, baseHref: documentBaseUrl(sourceDocument.baseHref, entry.path)});
-      setLoading(false);
-      return undefined;
-    }
+    if (sourceDocument === null || markdown) return;
+    setFrameReady(false);
+    initialisedRef.current = null;
+    setPreviewDocument({
+      ...sourceDocument,
+      baseHref: documentBaseUrl(sourceDocument.baseHref, entry.path),
+      html: activeTab === null ? sourceDocument.html : embedDocument(activeTab),
+    });
+    setLoading(false);
+  }, [activeTab, entry.path, markdown, sourceDocument]);
+
+  useEffect(() => {
+    if (sourceDocument === null || !markdown) return undefined;
     let current = true;
     const controller = new AbortController();
     void (async () => {
@@ -372,7 +407,11 @@ function HtmlPreview({
       }
       if (sourceView) return;
       void (async () => {
-        const saved = await onSubmitAnnotation(message.body, message.anchor, entry.path);
+        const saved = await onSubmitAnnotation(
+          message.body,
+          message.anchor,
+          embedPathOfAnchor(message.anchor, embeds) ?? activeTab ?? entry.path,
+        );
         if (!saved) {
           postToFrame({
             annotations: [...annotations],
@@ -385,7 +424,9 @@ function HtmlPreview({
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
   }, [
+    activeTab,
     annotations,
+    embeds,
     entry.path,
     onModeChange,
     onSelectAnnotation,
@@ -468,12 +509,17 @@ function HtmlPreview({
   ) : (
     <iframe
       className="as-artifact-frame"
+      key={activeTab ?? "overview"}
       ref={frameRef}
       src="/review-frame"
       title={`${version.version.artifactId} version ${version.version.number}`}
     />
   );
-  if (!markdown) return preview;
+  if (!markdown) {
+    return embeds.length === 0 ? preview : (
+      <EmbedViews activePath={activeTab} embeds={embeds} onSelect={onSelectTab} preview={preview} />
+    );
+  }
   return (
     <MarkdownViews
       downloadUrl={actions.downloadUrl}
@@ -558,6 +604,55 @@ function MarkdownViews({
         role="tabpanel"
         tabIndex={0}
       ><code>{source}</code></pre>
+    </div>
+  );
+}
+
+function EmbedViews({
+  activePath,
+  embeds,
+  onSelect,
+  preview,
+}: {
+  readonly activePath: string | null;
+  readonly embeds: readonly PageEmbed[];
+  readonly onSelect: (path: string | null) => void;
+  readonly preview: ReactNode;
+}) {
+  const tabs = [
+    {label: "Overview", path: null},
+    ...embeds.map((embed) => ({label: embed.title, path: embed.path})),
+  ];
+  const index = Math.max(0, tabs.findIndex((tab) => tab.path === activePath));
+  const onTabKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
+    const next = event.key === "ArrowRight" ? index + 1
+      : event.key === "ArrowLeft" ? index - 1
+      : event.key === "Home" ? 0
+      : event.key === "End" ? tabs.length - 1
+      : null;
+    if (next === null) return;
+    event.preventDefault();
+    onSelect(tabs[(next + tabs.length) % tabs.length]?.path ?? null);
+  };
+  return (
+    <div className="as-markdown-preview">
+      <div className="as-markdown-preview__toolbar">
+        <div aria-label="Embedded objects" className="as-markdown-preview__tabs" onKeyDown={onTabKeyDown} role="tablist">
+          {tabs.map((tab, tabIndex) => (
+            <button
+              aria-selected={tabIndex === index}
+              key={tab.path ?? ""}
+              onClick={() => onSelect(tab.path)}
+              role="tab"
+              tabIndex={tabIndex === index ? 0 : -1}
+              type="button"
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="as-markdown-preview__panel" role="tabpanel">{preview}</div>
     </div>
   );
 }

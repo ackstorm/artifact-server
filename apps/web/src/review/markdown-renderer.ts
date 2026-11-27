@@ -2,6 +2,7 @@ import DOMPurify from "dompurify";
 import { Marked, Renderer, type Token } from "marked";
 
 import { resolveMarkdownReference, type MarkdownRenderOptions } from "./markdown-references.ts";
+import { diagramSourceRefusal, sanitizedDiagramSvg } from "./diagram-safety.ts";
 import { renderMermaidInSandbox } from "./diagram-sandbox-client.ts";
 import { markdownDocumentStyle } from "./markdown-document-style.ts";
 import { markdownHeadingId } from "./markdown-headings.ts";
@@ -10,7 +11,6 @@ export type { MarkdownRenderOptions } from "./markdown-references.ts";
 
 export const markdownSourceByteLimit = 1_048_576;
 const diagramCountLimit = 12;
-const diagramTextLimit = 20_000;
 const highlightedCodeLimit = 20_000;
 const highlightedDocumentLimit = 200_000;
 const highlightedBlockLimit = 128;
@@ -73,34 +73,14 @@ async function highlightCode(text: string, language: string, isLight: boolean): 
 
 async function renderDiagram(text: string, isLight: boolean, id: string, signal?: AbortSignal): Promise<string> {
   signal?.throwIfAborted();
-  if (text.length > diagramTextLimit) return codeFallback(text, "Diagram exceeds the preview size limit.");
-  // User configuration, event links, and custom CSS cannot cross the renderer's security boundary.
-  if (/%%\s*\{|^\s*---|(?:^|[;\n])\s*(?:click|classDef|style|linkStyle)\s/imu.test(text)) {
-    return codeFallback(text, "Diagram configuration and interactive styling are disabled in preview.");
-  }
+  const refusal = diagramSourceRefusal(text);
+  if (refusal !== null) return codeFallback(text, refusal);
   try {
     const rendered = await renderMermaidInSandbox(text, isLight, id, signal);
     signal?.throwIfAborted();
-    if (/url\s*\(\s*["']?\s*(?!#)[^\s)"']|@import/iu.test(rendered)) {
-      return codeFallback(text, "Diagram contains unsupported external styling.");
-    }
-    // Parse only after sanitation; never mount diagram-provided markup in the application.
-    const fragment = DOMPurify.sanitize(rendered, {
-      USE_PROFILES: { svg: true, svgFilters: true },
-      ADD_TAGS: ["style"],
-      FORBID_TAGS: ["foreignObject", "foreignobject", "script", "a", "image", "use", "animate", "animateMotion", "animateTransform", "set"],
-      FORBID_ATTR: ["href", "xlink:href"],
-      RETURN_DOM_FRAGMENT: true,
-    });
-    const svg = fragment.firstElementChild;
-    const extraText = Array.from(fragment.childNodes).some((node) =>
-      node.nodeType !== Node.ELEMENT_NODE && (node.textContent ?? "").trim() !== ""
-    );
-    if (fragment.children.length !== 1 || svg?.namespaceURI !== "http://www.w3.org/2000/svg"
-      || svg.localName !== "svg" || extraText) {
-      return codeFallback(text, "This diagram did not produce a valid SVG preview.");
-    }
-    return `<figure class="markdown-diagram">${svg.outerHTML}</figure>`;
+    const result = sanitizedDiagramSvg(rendered);
+    if ("refusal" in result) return codeFallback(text, result.refusal);
+    return `<figure class="markdown-diagram">${result.svg.outerHTML}</figure>`;
   } catch {
     signal?.throwIfAborted();
     return codeFallback(text, "This diagram could not be rendered. Its source is shown below.");
