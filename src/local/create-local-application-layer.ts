@@ -126,10 +126,10 @@ import type {
   SourceBindingRepository,
   StagedUploadRepository,
   StagingStore,
+  StoredBlob,
 } from "../core/ports.js";
 import type {IdentityRepository} from "../core/identity-ports.js";
 import type {ExternalIdentityAdmissionPolicy} from "../core/installation-identity.js";
-import type { ManifestEntry } from "../core/model.js";
 import {randomBase64Url} from "../core/random.js";
 import {uploadGrantPrefix} from "../core/upload-grant.js";
 import { FileVerificationError } from "../storage/verified-file.js";
@@ -234,6 +234,11 @@ export function createApplicationLayer(
           }),
           catch: (cause) =>
             new BlobStorageFailure({cause, operation: "put"}),
+        }),
+      readBytes: (blob) =>
+        Effect.tryPromise({
+          try: () => readBlobBytes(adapters.blobs, blob),
+          catch: (cause) => new BlobStorageFailure({cause, operation: "open"}),
         }),
     },
     clock,
@@ -1268,19 +1273,19 @@ function loginAttemptEffect<A>(
 
 async function readBlobBytes(
   blobs: BlobStore,
-  entry: ManifestEntry,
+  blob: StoredBlob,
 ): Promise<Uint8Array> {
-  const opened = await blobs.open(entry.sha256);
-  if (opened.size !== entry.size) {
+  const opened = await blobs.open(blob.sha256);
+  if (opened.size !== blob.size) {
     await opened.body.cancel();
     throw new Error(
-      `Stored blob ${entry.sha256} is ${opened.size} bytes but its manifest records ${entry.size}.`,
+      `Stored blob ${blob.sha256} is ${opened.size} bytes but its manifest records ${blob.size}.`,
     );
   }
   const bytes = new Uint8Array(await new Response(opened.body).arrayBuffer());
-  if (bytes.byteLength !== entry.size) {
+  if (bytes.byteLength !== blob.size) {
     throw new Error(
-      `Stored blob ${entry.sha256} yielded ${bytes.byteLength} bytes but its manifest records ${entry.size}.`,
+      `Stored blob ${blob.sha256} yielded ${bytes.byteLength} bytes but its manifest records ${blob.size}.`,
     );
   }
   return bytes;

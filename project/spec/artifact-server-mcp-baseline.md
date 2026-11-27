@@ -297,6 +297,7 @@ Start with a small, explicit tool surface:
 | `artifact_open` | Return the exact full-screen Review link and raw content link for the selected artifact and exact version when requested. The client opens them on the user's computer and prefers Review for human handoff. |
 | `artifact_create_upload` | Create an expiring upload handle, a direct-upload plan, and an upload grant for its file uploads. |
 | `artifact_commit_upload` | Verify the manifest and publish an immutable version. Return the exact-version review URL as the primary human handoff, plus stable and raw links. |
+| `artifact_edit` | Create a new immutable version from the current version by applying ordered replace, write, delete, and rename operations to text files, bounded to 256 KiB of text per call and 1 MiB per file. Return the exact-version review URL and the changed files. |
 | `artifact_set_visibility` | Change between account-required and public-link access when permitted. A public link opens only the current version. Warn that public copies cannot be recalled and perform the configured CDN purge when returning to account-required. |
 | `artifact_set_tags` | Replace the artifact's normalized tag set without changing its saved files. |
 | `artifact_read_file` | Return one file of the current or an exact version: UTF-8 text up to 1 MiB inline after a digest check, anything else as a 15-minute preview-lease URL that fetches the raw bytes with no credential. Same read check as `artifact_get`. |
@@ -341,7 +342,8 @@ upload plan, then calls the corresponding commit operation. An MCP client whose
 own runtime already has the bytes may use `artifact_create_upload` and
 `artifact_commit_upload` directly. These transport steps remain one "publish
 this file or directory" operation to the user. No MCP tool accepts a client
-filesystem path.
+filesystem path. The one inline content MCP accepts is an `artifact_edit` call's
+bounded text, which changes text files of a version already on the server.
 
 MCP and the CLI intentionally overlap for server-only artifact operations.
 Both adapt the same application services and authorization rules. The

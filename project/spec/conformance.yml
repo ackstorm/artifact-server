@@ -1,6 +1,6 @@
 version: 1
 product: Artifact Server
-updated: "2026-11-05"
+updated: "2026-11-27"
 
 source:
   product_spec: artifact-server-product-spec.html
@@ -472,7 +472,7 @@ requirements:
 
   - id: PUB-002
     kind: behavior
-    behavior: Public clients publish one actual file or finished directory through a file-upload transport. JSON and MCP schemas do not accept raw source strings or base64-wrapped file contents.
+    behavior: Public clients publish one actual file or finished directory through a file-upload transport. JSON and MCP schemas do not accept raw source strings or base64-wrapped file contents for publication; the one inline content accepted is an edit commit's bounded text (EDT-003).
     owner: publishing
     source: {file: artifact-server-product-spec.html, anchor: architecture}
     acceptance:
@@ -1469,7 +1469,7 @@ requirements:
 
   - id: MCP-006
     kind: behavior
-    behavior: The initial MCP surface supports capabilities, list, get, open, upload creation, upload commit, visibility, tags, version list, diff, restore, and delete. It has no local-path, raw-text, base64, or inline-content publishing tool.
+    behavior: The initial MCP surface supports capabilities, list, get, open, upload creation, upload commit, edit, visibility, tags, version list, diff, restore, and delete. No tool accepts a local path, base64, or whole-file inline publication; artifact_edit carries only bounded text edits of existing text entries (EDT-003).
     owner: mcp
     source: {file: artifact-server-product-spec.html, anchor: mcp}
     acceptance:
@@ -3512,39 +3512,40 @@ requirements:
 
   - id: EDT-001
     kind: behavior
-    behavior: An edit commit publishes a new immutable version that copies the base version's manifest with exactly one text entry replaced by verified uploaded bytes, with an idempotency key, current-version compare-and-swap, and an action record marked as an edit.
+    behavior: An edit commit creates a new immutable version from the artifact's current version by applying ordered replace, write, delete, and rename operations all or nothing; untouched entries keep their stored blobs, and the commit carries an idempotency key, a current-version compare-and-swap, and a publish action record.
     owner: publishing
     source: {file: local-workspace-spec.md, anchor: conformance-requirements-to-add}
     acceptance:
-      behavior: {id: EDT-001-B, description: "Edit one text entry of a multi-file version and receive a new version identical to the base except that entry, with its action record and replayable idempotency result."}
-      failure: {id: EDT-001-F, description: "An edit naming a path absent from the base manifest, a missing upload, or an aborted transaction creates no version, and no stored version's bytes ever change."}
+      behavior: {id: EDT-001-B, description: "Apply replace, write, rename, and delete operations to a multi-file version through MCP and HTTP and receive a new version whose untouched entries keep their digests, a per-file change list, a publish action record, and the original result on an exact retry."}
+      failure: {id: EDT-001-F, description: "An operation naming an absent path, an oldText occurring zero or several times, a rename onto an existing path, an unsafe path, a deleted entry file, a reused idempotency key with different operations, or a failing later operation creates no version, and no stored version's bytes change."}
     deployments: *all
-    status: specified
-    depends_on: [PUB-001, PUB-006, VER-001]
+    status: implementing
+    proof_gap: EDT-001-B and EDT-001-F run against the local SQLite server. The Postgres commit of an already-stored source is covered only by typecheck until the external-storage runtime suite exercises an edit.
+    depends_on: [PUB-005, PUB-006, PUB-008, VER-001]
 
   - id: EDT-002
     kind: behavior
-    behavior: The editor preserves the file's byte order mark and line-ending convention on save and resolves stale saves as explicit conflicts that return the actual current version.
+    behavior: An edit commit preserves the byte order mark and line endings of every byte it does not replace and resolves a stale expected current version as an explicit conflict that returns the actual current version.
     owner: publishing
     source: {file: local-workspace-spec.md, anchor: conformance-requirements-to-add}
     acceptance:
-      behavior: {id: EDT-002-B, description: "Round-trip files with and without a byte order mark and with CRLF and LF endings, changing one line, and verify untouched lines are byte-identical."}
-      failure: {id: EDT-002-F, description: "A save whose expected current version is stale returns the publish conflict shape with the actual current version and writes nothing; it never silently overwrites newer work."}
+      behavior: {id: EDT-002-B, description: "Replace one line in files with and without a byte order mark and with CRLF and LF endings and verify every untouched byte is identical."}
+      failure: {id: EDT-002-F, description: "An edit whose expected current version is stale returns the publish conflict shape naming the actual current version over MCP and HTTP and writes nothing; it never silently overwrites newer work."}
     deployments: *all
-    status: specified
+    status: verified
     depends_on: [EDT-001]
 
   - id: EDT-003
     kind: constraint
-    behavior: Editing is limited to text media types within the documented size bound, is verified like any publish, and has no MCP tool because MCP arguments never carry file contents.
+    behavior: Editing changes only UTF-8 entries with inline text media types, each at most 1 MiB, carries at most 256 KiB of inline text per call through the artifact_edit MCP tool or its HTTP route, and validates paths with the manifest path rules; whole-file and base64 publication stay on the upload plan.
     owner: publishing
     source: {file: local-workspace-spec.md, anchor: conformance-requirements-to-add}
     acceptance:
-      behavior: {id: EDT-003-B, description: "Edit a markdown, plain-text, and JSON entry within the size bound through the staging-upload flow and verify the committed bytes hash-match the upload."}
-      failure: {id: EDT-003-F, description: "An edit of a binary media type or an oversize text entry is rejected, and no MCP tool accepts edited file contents as an argument."}
+      behavior: {id: EDT-003-B, description: "Edit markdown, plain-text, and JSON entries and write a new markdown file through artifact_edit within the bounds and verify each committed entry's digest and inferred media type."}
+      failure: {id: EDT-003-F, description: "A replace on a binary or invalid UTF-8 entry, an edited file over 1 MiB, more than 256 KiB of text in one call, and a write carrying an extra base64 field are rejected without creating a version."}
     deployments: *all
-    status: specified
-    depends_on: [EDT-001, MAN-001]
+    status: verified
+    depends_on: [EDT-001, MAN-002]
 
   - id: OPN-001
     kind: behavior

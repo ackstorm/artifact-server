@@ -646,11 +646,13 @@ export class SqliteArtifactRepository implements
     );
     if (replayed !== null) return replayed;
     this.#assertProjectActive(command.projectId);
-    this.#assertStagedUploadReady(
-      command.source,
-      command.manifest.digest,
-      command.createdAt,
-    );
+    if (command.source.kind === "staged_upload") {
+      this.#assertStagedUploadReady(
+        command.source,
+        command.manifest.digest,
+        command.createdAt,
+      );
+    }
 
     const currentRow = this.#database
       .prepare(
@@ -738,7 +740,9 @@ export class SqliteArtifactRepository implements
       command.versionId,
       command.createdAt,
     );
-    this.#sealStagedUpload(command.source, command.versionId);
+    if (command.source.kind === "staged_upload") {
+      this.#sealStagedUpload(command.source, command.versionId);
+    }
 
     return this.#readPublishedVersion(command.projectId, command.versionId, false);
   }

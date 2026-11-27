@@ -138,6 +138,7 @@ import {
   versionBrowserUrl,
   versionFileBrowserUrl,
 } from "./artifact-http-links.js";
+import {editOperationsSchema} from "./artifact-edit-request.js";
 import {artifactServerFailureResponse} from "./artifact-http-failure.js";
 import {attachmentContentDisposition} from "./content-disposition.js";
 import {observeHttpRequest} from "../observability/application-observability.js";
@@ -173,6 +174,10 @@ const createUploadSchema = z.object({
   files: z.array(declaredFileSchema).min(1).max(maximumDeclaredFiles),
   projectId: projectIdSchema.optional(),
   routingMode: z.enum(["static", "spa"]).default("static"),
+}).strict();
+const editArtifactSchema = z.object({
+  expectedCurrentVersionId: z.string().min(1).max(200),
+  operations: editOperationsSchema,
 }).strict();
 const commitUploadSchema = z.object({
   target: z.discriminatedUnion("kind", [
@@ -2399,6 +2404,41 @@ export function createHttpApp(
           result,
         ),
         result.replayed ? 200 : 201,
+      );
+    },
+  );
+
+  app.post(
+    "/api/v1/artifacts/:artifactId/edits",
+    boundedJsonBody,
+    async (context) => {
+      const body = editArtifactSchema.parse(await context.req.json());
+      const edit = await runHttpApplicationEffect(
+        context,
+        dependencies,
+        PublishArtifactService.use((publication) =>
+          publication.editArtifact({
+            artifactId: context.req.param("artifactId"),
+            expectedCurrentVersionId: body.expectedCurrentVersionId,
+            idempotencyKey: requiredIdempotencyKey(
+              context.req.header("idempotency-key"),
+            ),
+            operations: body.operations,
+            principal: context.get("principal"),
+            projectId: requestedProjectId(context),
+          })
+        ),
+      );
+      return context.json(
+        {
+          ...publishResponse(
+            responseApplicationUrl(context, dependencies),
+            dependencies.contentDomain,
+            edit.published,
+          ),
+          changes: edit.changes,
+        },
+        edit.published.replayed ? 200 : 201,
       );
     },
   );

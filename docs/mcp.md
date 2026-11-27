@@ -44,7 +44,7 @@ The access token is valid for that exact `/mcp` resource. A token for another in
 
 ## Publish from an agent
 
-MCP sends metadata and small results. Artifact files use the staged upload API.
+MCP sends metadata, small results, and bounded text edits. Artifact files use the staged upload API.
 
 An agent uses this sequence:
 
@@ -84,6 +84,21 @@ version. `artifact_open.reviewUrl`
 opens the selected exact version in Review, while `artifact_open.browserUrl`
 opens its raw immutable content. Agents should hand people the Review URL.
 
+## Edit text files of an artifact
+
+`artifact_edit` creates a new version from the artifact's current version without uploading anything. It applies operations in order, all or nothing:
+
+| Operation | Effect |
+| --- | --- |
+| `replace` `{path, edits: [{oldText, newText}]}` | Each `oldText` must occur exactly once in the file at that point. |
+| `write` `{path, text, mediaType?}` | Creates or overwrites a text file. The media type defaults from the extension. |
+| `delete` `{path}` | Removes a file. |
+| `rename` `{from, to}` | Moves a file and keeps its bytes and media type. |
+
+Only UTF-8 files with text media types are edited, each at most 1 MiB, with at most 256 KiB of text in one call. Untouched files keep their stored bytes, including byte order marks and line endings. Pass the current version ID as `expectedCurrentVersionId`; a stale ID fails with `PUBLISH_CONFLICT` naming the current version. The result carries the new version, its links, and `changes` (`path`, `change`, `size`).
+
+HTTP clients call `POST /api/v1/artifacts/:artifactId/edits?projectId=…` with an `Idempotency-Key` header and `{expectedCurrentVersionId, operations}`.
+
 ## Tool groups
 
 | Group | Tools |
@@ -91,7 +106,7 @@ opens its raw immutable content. Agents should hand people the Review URL.
 | Discovery | `artifact_capabilities` |
 | Projects | `project_list`, `project_create`, `project_rename`, `project_archive`, `project_unarchive` |
 | Artifacts | `artifact_list`, `artifact_get`, `artifact_open`, `artifact_read_file`, `artifact_version_list`, `artifact_diff` |
-| Publication | `artifact_create_upload`, `artifact_commit_upload` |
+| Publication | `artifact_create_upload`, `artifact_commit_upload`, `artifact_edit` |
 | Management | `artifact_set_visibility`, `artifact_set_tags`, `artifact_restore_version`, `artifact_delete` |
 | Comments | `comment_list`, `comment_get`, `comment_create`, `comment_reply`, `comment_update`, `comment_resolve`, `comment_delete` |
 | Voice | `voice_say` |

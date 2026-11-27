@@ -21,9 +21,9 @@ import {
   type FilePublicationCommand,
   type FilePublicationFailure,
   type FilePublicationResult,
-  mediaTypeForPath,
   publishPath,
 } from "../../src/client/file-publication-client.js";
+import {mediaTypeForPath} from "../../src/manifest/media-types.js";
 import {
   createTestInstallation,
   type RunningTestServer,

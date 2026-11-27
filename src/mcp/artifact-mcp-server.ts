@@ -35,6 +35,7 @@ import {
 } from "../application/linked-artifacts.js";
 import {ProjectManagementService} from "../application/project-management.js";
 import {PublicLinkPolicyService} from "../application/public-link-policy.js";
+import {PublishArtifactService} from "../application/publish-artifact.js";
 import {StagedUploadService} from "../application/staged-upload.js";
 import {
   accessSettings,
@@ -63,6 +64,8 @@ import {
   maximumDispatchBundleSize,
   maximumDispatchFailureReasonCharacters,
   maximumDispatchNoteCharacters,
+  maximumEditTextBytes,
+  maximumInlineTextFileBytes,
   maximumUploadPlanRequestBytes,
 } from "../core/publishing-limits.js";
 import {
@@ -83,7 +86,9 @@ import {
   versionBrowserUrl,
   versionFileBrowserUrl,
 } from "../http/artifact-http-links.js";
+import {editOperationsSchema} from "../http/artifact-edit-request.js";
 import {artifactServerFailureResponse} from "../http/artifact-http-failure.js";
+import {isInlineTextMediaType} from "../manifest/media-types.js";
 import {
   renderBundleMessage,
   type BundleItem,
@@ -99,10 +104,6 @@ import {
 const serverVersion = "0.5.10";
 const maximumListedArtifacts = 100;
 const maximumTextDiffBytes = 256 * 1_024;
-const maximumInlineFileBytes = 1_024 * 1_024;
-/** Media types whose UTF-8 bytes artifact_read_file may return inline. */
-const inlineTextMediaType =
-  /^(text\/|application\/(json|xml|javascript|ecmascript)$|image\/svg\+xml$)|\+(json|xml)$/u;
 /** Every level an artifact can hold. */
 const artifactAccessLevelSchema = z.enum([
   accessSettings.private,
@@ -172,6 +173,12 @@ const artifactStateSchema = z.object({
 }).strict();
 const publishedVersionSchema = artifactStateSchema.extend({
   links: z.object({artifact: z.url(), review: z.url(), version: z.url()}).strict(),
+}).strict();
+const editedFileChangeSchema = z.object({
+  change: z.enum(["added", "modified", "removed", "renamed"]),
+  from: z.string().nullable(),
+  path: z.string(),
+  size: z.number().int().nonnegative(),
 }).strict();
 const linkPathSchema = z.string().min(1).max(4_096);
 const sha256Schema = z.string().regex(/^[a-f0-9]{64}$/u);
@@ -561,6 +568,7 @@ export function createArtifactMcpServer(
           maximumBodyCharacters: z.number(),
         }),
         comparison: z.object({maximumTextFileBytes: z.number()}),
+        edit: z.object({maximumFileBytes: z.number(), maximumTextBytes: z.number()}),
         deployment: z.object({mode: z.enum(["local", "remote"])}),
         publishing: z.object({
           acceptsInlineContent: z.literal(false),
@@ -590,7 +598,7 @@ export function createArtifactMcpServer(
           PublicLinkPolicyService.use((policy) => policy.enabled),
         ),
       ),
-      () => "Artifact Server publishes actual files through an upload plan. It does not accept inline HTML, CSS, JavaScript, or base64 content."),
+      () => "Artifact Server publishes actual files through an upload plan and edits existing text files with bounded text. It does not accept whole files or base64 content inline."),
   );
 
   registerNudgedTool(
@@ -1228,6 +1236,50 @@ export function createArtifactMcpServer(
         published,
       );
     }, publicationSummary),
+  );
+
+  registerNudgedTool(
+    "artifact_edit",
+    {
+      title: "Edit artifact text files",
+      description:
+        "Create a new immutable version from the artifact's current version by applying operations in order, all or nothing: replace (each oldText must occur exactly once in the file at that point), write (create or overwrite a text file; mediaType defaults from the extension), delete, and rename. Only UTF-8 files with text media types are edited, each at most 1 MiB, with at most 256 KiB of text per call; untouched files keep their stored bytes. Read files first with artifact_read_file and pass artifact_get's current version ID as expectedCurrentVersionId; a stale ID fails with PUBLISH_CONFLICT naming the current version. Publish new sites and binary files through artifact_create_upload. Returns links.review for the new version; give that URL to the user first.",
+      inputSchema: z.object({
+        artifactId: artifactIdSchema,
+        expectedCurrentVersionId: expectedVersionSchema,
+        idempotencyKey: idempotencyKeySchema,
+        operations: editOperationsSchema,
+        projectId: optionalProjectIdSchema,
+      }).strict(),
+      outputSchema: publishedVersionSchema.extend({
+        changes: z.array(editedFileChangeSchema),
+      }).strict(),
+      annotations: idempotentWriteAnnotations,
+    },
+    async ({artifactId, expectedCurrentVersionId, idempotencyKey, operations, projectId}) =>
+      toolResult(async () => {
+        const edit = await runMcpApplicationEffect(
+          dependencies,
+          PublishArtifactService.use((publication) =>
+            publication.editArtifact({
+              artifactId,
+              expectedCurrentVersionId,
+              idempotencyKey,
+              operations,
+              principal: identity.principal,
+              projectId,
+            })
+          ),
+        );
+        return {
+          ...publishedVersionProjection(
+            applicationUrl,
+            dependencies.contentDomain,
+            edit.published,
+          ),
+          changes: edit.changes,
+        };
+      }, editSummary),
   );
 
   registerNudgedTool(
@@ -2266,10 +2318,11 @@ const destructiveWriteAnnotations = {
 
 function agentInstructions(mode: "local" | "remote"): string {
   return [
-    "Artifact Server stores actual files as immutable versions. It does not accept inline HTML, CSS, JavaScript, base64, or invented file contents through MCP.",
+    "Artifact Server stores actual files as immutable versions. MCP never carries whole files or base64; artifact_edit changes text files of a version already on the server with bounded text edits.",
     "Start with artifact_capabilities when you do not know this installation's limits.",
     "Artifacts belong to projects. Omit projectId only when the installation has one active project; otherwise call project_list and choose explicitly.",
     "For publishing, inspect the selected file or finished directory on the client, compute each relative path, byte length, media type, and SHA-256 fingerprint, call artifact_create_upload, PUT the exact bytes to every returned uploadUrl with Authorization: Bearer <uploadGrant.token>, then call artifact_commit_upload. The upload grant works only for that upload; never print it or repeat it in chat.",
+    "To change text files of an artifact already on the server, read them with artifact_read_file, then call artifact_edit with artifact_get's current version ID: replace needs each oldText to occur exactly once; write, delete, and rename cover the rest. Publish binaries and new sites through artifact_create_upload.",
     "After publishing, always give the user links.review first so they can see the exact version full screen and comment. Mention links.version second when the raw artifact is useful. Do not put content bootstrap URLs or credentials in chat.",
     "When publishing a new version, first call artifact_get and pass its current version ID as expectedCurrentVersionId. On conflict, inspect the new current version before retrying.",
     "Use a stable application idempotency key when retrying the same mutation. Use a new key only for an intentional new operation.",
@@ -2303,6 +2356,7 @@ function capabilities(
       maximumBodyCharacters: maximumCommentBodyCharacters,
     },
     comparison: {maximumTextFileBytes: maximumTextDiffBytes},
+    edit: {maximumFileBytes: maximumInlineTextFileBytes, maximumTextBytes: maximumEditTextBytes},
     deployment: {mode},
     publishing: {
       acceptsInlineContent: false as const,
@@ -2622,8 +2676,7 @@ async function inlineText(
   blobs: BlobStore,
   entry: {readonly mediaType: string; readonly sha256: string; readonly size: number},
 ): Promise<string | null> {
-  const essence = entry.mediaType.split(";", 1)[0]?.trim().toLowerCase() ?? "";
-  if (entry.size > maximumInlineFileBytes || !inlineTextMediaType.test(essence)) {
+  if (entry.size > maximumInlineTextFileBytes || !isInlineTextMediaType(entry.mediaType)) {
     return null;
   }
   const blob = await blobs.open(entry.sha256);
@@ -2693,6 +2746,17 @@ function successResult<Value extends object>(value: Value, summary?: string) {
     }],
     structuredContent: value,
   };
+}
+
+function editSummary(edit: {
+  readonly artifact: {readonly name: string};
+  readonly changes: readonly {readonly change: string; readonly path: string}[];
+  readonly links: {readonly review: string};
+}): string {
+  return [
+    `Edited ${JSON.stringify(edit.artifact.name)}: ${edit.changes.map((change) => `${change.change} ${change.path}`).join(", ")}.`,
+    `Review and comment: ${edit.links.review}`,
+  ].join("\n");
 }
 
 function publicationSummary(published: {
